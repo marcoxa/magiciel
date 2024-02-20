@@ -1,0 +1,378 @@
+;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
+;;; magiciel --- Guessing the content of a file in simple as possible way.
+
+;;; compile-magic.el
+
+
+;;; Commentary:
+;;
+;; Compile magic records to guess a file type.
+;;
+;; Notes:
+;;
+;; 2024-02-12:
+;; The interesting thing about the syntax is that the kludge
+;; encrusting is a sign of... whatever.
+;;
+;; Basically you have the "type" field in the record, *and* you
+;; have different, but essentially semantically the same, syntax
+;; in indirect addresses to read a value in the byte stream.
+;;
+;; Plus the "magic(5)" man page is not up-to-date anywhere (Ubuntu
+;; and MacOS).  E.g., there are a couple of obvious mistakes; cfr, the
+;; use of `.' and `,' in indirect addresses, and, always in indirect
+;; addresses the type specifier `l' which is not mentioned in the text
+;; at all, especially in the summary table.
+;;
+;; Oh, well!
+
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'magiciel-parse-magic)
+
+
+(cl-defun magiciel-compile-magic (magic)
+  (let ((code-recs
+	 (cl-remove-if #'(lambda (r)
+			   (or (magiciel--magic-record-is-comment r)
+			       (magiciel--magic-record-is-empty r)))
+		       (magiciel--magic-records magic))
+	 )
+	)
+    ;; Assume records are in proper order.
+
+    ;; Step 1: group records.
+    ;; A group (a list) is a 0 offset level record, followed by
+    ;; records at offset level 1 or more and by special ones.
+
+    (let ((recs-groups ()))
+      (cl-labels
+	  ((start (recs)
+	     (process-normal-rec recs ()))
+
+	   (finish ()
+	     recs-groups
+	     )
+	     
+	   (process-normal-rec (recs current-group &aux (r (car recs)))
+	     (if (null recs)
+		 ;; Done.
+		 (finish)
+	       (cond ((magiciel--magic-record-is-normal r)
+		      (if (zerop
+			   (magiciel--offset-level
+			    (magiciel--magic-record-offset r)))
+			  (progn
+			    (when current-group
+			      (setf recs-groups
+				    (append recs-groups
+					    (list current-group))))
+			    (process-normal-rec (cl-rest recs) (list r)))
+			;; Continue with current group...
+			(process-normal-rec (cl-rest recs)
+					    (append current-group (list r)))))
+
+		     ((magiciel--magic-record-is-special r)
+		      (process-special-rec recs current-group))
+
+		     (t
+		      (error "MAGICIEL: unespected record %S." r))
+		     )
+	       )
+	     )				; process-normal-rec
+
+	   (process-special-rec (recs current-group &aux (r (car recs)))
+	     (if (null recs)
+		 ;;
+		 (finish)
+	       (cond ((magiciel--magic-record-is-normal r)
+		      (process-normal-rec recs current-group))
+
+		     ((magiciel--magic-record-is-special r)
+		      (process-special-rec (cl-rest recs)
+					   (append current-group (list r))))
+
+		     (t
+		      (error "MAGICIEL: unespected record %S." r))
+		     )
+	       )
+	     )
+	   )				; cl-labels
+	(start code-recs)
+	recs-groups)
+      )))
+
+
+(cl-defgeneric magiciel--select-op (op type))
+
+
+(cl-defmethod magiciel--select-op ((op symbol) (type symbol))
+  ;; Kitchen sink (with a very large hole).
+  (cl-assert (member type '(number string date)))
+
+  op)
+
+
+(cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'string)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  'string-equal)
+
+(cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'string)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  'string-greaterp)
+
+(cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'string)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  'string-lessp)
+
+
+;; Date operators not quite right.
+
+(cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'date)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  'string-equal)
+
+
+(cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'date)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  'string-greaterp)
+
+
+(cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'date)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  'string-lessp)
+
+
+(cl-defun magiciel--compile-record (r)
+  (cl-assert (magiciel--magic-record-is-normal r))
+  (let ((offset (magiciel--magic-record-offset r))
+	(type   (magiciel--magic-record-type r))
+	(test   (magiciel--magic-record-test r))
+	(msg    (magiciel--magic-record-message r))
+	)
+
+    ;; Generate a lambda that does sets up all the necessary
+    ;; addressing and reading.
+    
+    (cl-labels
+	((compile-offset (offset)
+	   (cl-etypecase offset
+	     (magiciel--direct-offset
+	      `(lambda (pos type)
+		 ,(if (magiciel--direct-offset-cont offset)
+		      `(+ pos ,(magiciel--direct-offset-value offset))
+		    (magiciel--direct-offset-value offset)))
+	      )
+	     (magiciel--indirect-offset
+	      `(lambda (pos type)
+		 ,(if (magiciel--indirect-offset-cont offset)
+		      `(+ pos ,(compile-indirect-offset offset))
+		    (compile-indirect-offset offset))
+		 ))
+	     )
+	   )
+
+	 (compile-indirect-offset (ind-off)
+	   ;; FTTB
+	   (cl-destructuring-bind (ind-addr ind-subtype)
+	       (compile-ind-offset-type ind-off)
+	     (cl-destructuring-bind (ind-op ind-sign ind-num)
+		 (compile-ind-offset-modifier ind-off)
+	       (ignore ind-sign)
+	       `(,ind-op
+		 ,(if (magiciel--indirect-offset-rel ind-off)
+		      `(magiciel--get-value-at (+ pos ,ind-addr)
+					       ',ind-subtype)
+		    `(magiciel--get-value-at ,ind-addr
+					     ',ind-subtype))
+		 ,(if (listp ind-num)
+		      (if (magiciel--indirect-offset-rel ind-off)
+			  `(magiciel--get-value-at
+			    (+ pos
+			       ,ind-addr
+			       ,ind-num)
+			    ',ind-subtype)
+			`(magiciel--get-value-at
+			  (+ ,ind-addr ,ind-num)))
+		    ind-num))
+	       )))
+
+	 (compile-ind-offset-type (ind-off)
+	   ;; Cfr. the UN*X manual entry for "magic(5)".
+	   (let ((ind-addr (magiciel--indirect-offset-addr ind-off))
+		 (ind-type (magiciel--indirect-offset-type ind-off))
+		 (sign 'unsigned)
+
+		 ;; `subtype' defaults to `long' little endian. Unused
+		 ;; for 'byte'.
+		 (subtype '(long 8 :le))
+		 )
+	     (when (cl-plusp (length ind-type)) ; Should be 2.
+	       (cond ((char-equal ?, (aref ind-type 0))
+		      (setf sign 'signed))
+		     ((char-equal ?. (aref ind-type 0)))
+		     (t
+		      (error "MAGICIEL: incorrect sign '%c' in %S."
+			     (aref ind-type 0)
+			     ind-type))
+		     )
+	       (setf subtype (magiciel--addr-select-subtype (aref ind-type 1)))
+	       )
+	     (list ind-addr (cons sign subtype))))
+
+	 (compile-ind-offset-modifier (ind-off)
+	   (let ((ind-op     (magiciel--indirect-offset-op   ind-off))
+		 (ind-is-len (magiciel--indirect-offset-is-len ind-off))
+		 (ind-sign   (magiciel--indirect-offset-sign ind-off))
+		 (ind-num    (magiciel--indirect-offset-num  ind-off))
+		 )
+
+	     ;; Should move these in parsing.
+	     
+	     (setf ind-op (select-op ind-op)
+
+		   ind-sign (pcase ind-sign
+			      ((or "" "+") '+)
+			      (_ '-))
+
+		   ind-num (if ind-is-len
+			       `(,ind-sign ,ind-num)
+			     ind-num)
+		   )
+
+	     (list ind-op ind-sign ind-num)
+	     ))
+
+	 ;; (select-op (op)
+	 ;;   ;; I could use `intern', but I need to get the ELisp
+	 ;;   ;; operators.
+	 ;;   (pcase op
+	 ;;     ("-" '-)
+	 ;;     ("+" '+)
+	 ;;     ("*" '*)
+	 ;;     ("/" '/)
+	 ;;     ("%" 'mod)
+	 ;;     ("-" '-)
+	 ;;     ("&" 'logand)
+	 ;;     ("|" 'logior)
+	 ;;     ("^" 'logxor)		; Check the `logior'..
+	 ;;     (_ '+)			; Really nothing, as number
+	 ;; 				; will be "", hence 0.
+	 ;;     )
+	 ;;   )
+
+	 (select-op (op)
+	   ;; `op' should be a symbol.
+	   (pcase op
+	     ((or '- '+ '* '/) op)
+	     ('% 'mod)
+	     ('& 'logand)
+	     ('| 'logior)
+	     ('^ 'logxor)		; Check the `logior'..
+	     (_ '+)			; Really nothing, as number
+					; will be "", hence 0.
+	     )
+	   )
+
+
+	 (select-test-op (op type-spec)
+	   ;; Made it into a generic function.
+
+	   (magiciel--select-op op type-spec)
+	     
+	   )
+			 
+
+	 (compile-test (off-op type test)
+	   (let ((type-spec   (magiciel--record-type-spec-spec type))
+		 (type-mods   (magiciel--record-type-spec-modifiers type))
+		 (type-endian (magiciel--record-type-spec-endian type))
+		 (type-len    (magiciel--record-type-spec-byte-len type))
+		 (type-sign   (magiciel--record-type-spec-unsigned type))
+		 (test-op  (magiciel--test-op test))
+		 (test-val (magiciel--test-value test))
+		 )
+
+	     (cond ((magiciel--numeric-type-spec-p type-spec)
+		    `(,(select-test-op test-op 'number)
+		      (magiciel--get-value-at* ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',test-val))
+
+		   ((magiciel--date-type-spec-p type-spec)
+		    `(,(select-test-op test-op 'date)
+		      (magiciel--get-value-at* ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',test-val))
+
+		   ((magiciel--string-type-spec-p type-spec)
+		    `(,(select-test-op test-op 'string)
+		      (magiciel--get-value-at* ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',test-val))
+		   ))
+	   )
+	 )				; cl-labels
+
+      (let* ((off-op  (compile-offset offset))
+	     (test-op (compile-test off-op type test))
+	     )
+	`(lambda (pos bytes)
+	   (when ,test-op ,(magiciel--message-msg-string msg)))
+	)
+      )))
+
+
+(defun magiciel--addr-select-subtype (subtype-char)
+
+  ;; The "subtype-char" comes from the indirect address specification.
+  ;; Value is a list/tuple (<type> <size> <endiannes>).
+
+  (cl-ecase subtype-char
+    ((?b ?c ?B ?C) '(byte 1 :le))
+    ((?e ?f ?g) '(double-float 8 :le))	; Let's be Common-istic.
+    ((?E ?F ?G) '(double-float 8 :be))
+    (?l '(long 8 :le))
+    (?L '(long 8 :be))
+    ((?h ?s) '(short 2 :le))
+    ((?H ?S) '(short 2 :be))
+    (?i '(id3 4 :le))
+    (?I '(id3 4 :be))
+    (?m '(middle 4 :me))
+    (?q '(quad 8 :le))
+    (?Q '(quad 8 :be))
+    
+    ;; Other missing according to latest manual.
+    
+    ))
+
+
+(defun magiciel--select-type (type)
+
+  ;; Interpret the "type-field".
+
+  ;; Nothing FTTB, apart from a check.
+  ;; Parsing already takes care of this; this function will disappear
+  ;; soon.
+
+  (cl-assert (magiciel--record-type-spec-p type))
+  type)
+
+
+(provide 'magiciel-compile-magic)
+
+;;; compile-magic.el ends here
