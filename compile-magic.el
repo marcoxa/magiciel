@@ -11,8 +11,8 @@
 ;; Notes:
 ;;
 ;; 2024-02-12:
-;; The interesting thing about the syntax is that the kludge
-;; encrusting is a sign of... whatever.
+;; The interesting thing about the magic(5) file syntax is that the
+;; kludge encrusting is a sign of... whatever.
 ;;
 ;; Basically you have the "type" field in the record, *and* you
 ;; have different, but essentially semantically the same, syntax
@@ -23,6 +23,8 @@
 ;; use of `.' and `,' in indirect addresses, and, always in indirect
 ;; addresses the type specifier `l' which is not mentioned in the text
 ;; at all, especially in the summary table.
+;;
+;; Luckily there is a BNF spec in the main "file" repository.
 ;;
 ;; Oh, well!
 
@@ -145,6 +147,14 @@
   'string-lessp)
 
 
+;; magiciel--compile-record
+;; Generate a lambda that does sets up all the necessary
+;; addressing and reading.
+;;
+;; The generated lambda takes two arguments, a "sequence" of bytes
+;; (i.e., a "unibyte" string in Emacs Lisp parlance) called `bytes'
+;; and a position in said string, called `pos'.
+
 (cl-defun magiciel--compile-record (r)
   (cl-assert (magiciel--magic-record-is-normal r))
   (let ((offset (magiciel--magic-record-offset r))
@@ -152,25 +162,20 @@
 	(test   (magiciel--magic-record-test r))
 	(msg    (magiciel--magic-record-message r))
 	)
-
-    ;; Generate a lambda that does sets up all the necessary
-    ;; addressing and reading.
     
     (cl-labels
 	((compile-offset (offset)
 	   (cl-etypecase offset
 	     (magiciel--direct-offset
-	      `(lambda (pos type)
-		 ,(if (magiciel--direct-offset-cont offset)
-		      `(+ pos ,(magiciel--direct-offset-value offset))
-		    (magiciel--direct-offset-value offset)))
+	      (if (magiciel--direct-offset-cont offset)
+		  `(+ pos ,(magiciel--direct-offset-value offset))
+		(magiciel--direct-offset-value offset))
 	      )
 	     (magiciel--indirect-offset
-	      `(lambda (pos type)
-		 ,(if (magiciel--indirect-offset-cont offset)
-		      `(+ pos ,(compile-indirect-offset offset))
-		    (compile-indirect-offset offset))
-		 ))
+	      (if (magiciel--indirect-offset-cont offset)
+		  `(+ pos ,(compile-indirect-offset offset))
+		(compile-indirect-offset offset))
+	      )
 	     )
 	   )
 
@@ -331,7 +336,7 @@
       (let* ((off-op  (compile-offset offset))
 	     (test-op (compile-test off-op type test))
 	     )
-	`(lambda (pos bytes)
+	`(lambda (bytes pos)
 	   (when ,test-op ,(magiciel--message-msg-string msg)))
 	)
       )))
