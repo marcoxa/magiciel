@@ -117,29 +117,30 @@ The function fails with a condition if called on a non UN*X system.
 	 
 (cl-defun magiciel-file-info (filename)
   (let ((ext (file-name-extension filename)))
-    (cl-flet ((call-file-cmd (filename ext)
-		(let ((file-cmd-output
-		       (magiciel--guess-with-file-cmd filename)))
+    (cl-flet
+	((call-file-cmd (filename ext)
+	   (let ((file-cmd-output
+		  (magiciel--guess-with-file-cmd filename)))
 
-		  (message "MAGICIEL: file cmd output %S." file-cmd-output)
+	     (message "MAGICIEL: file cmd output %S." file-cmd-output)
 
-		  (if (stringp file-cmd-output)
-		      (let ((parts
-			     (string-split file-cmd-output ";" nil t)))
-			(make-magiciel-file-info
-			 :filename filename
-			 :extension ext
-			 :content-type (cl-first parts)
+	     (if (stringp file-cmd-output)
+		 (let ((parts
+			(string-split file-cmd-output ";" nil t)))
+		   (make-magiciel-file-info
+		    :filename filename
+		    :extension ext
+		    :content-type (cl-first parts)
 
-			 ;; Should munge the charest too.
-			 :charset (cl-second parts)
-			 )
-			)
-		    (progn
-		      (message "MACICEL: call to \"file (1)\" failed.")
-		      (message "MACICEL: %s" (cl-second file-cmd-output)))
-		    )))
-	      )
+		    ;; Should munge the charest too.
+		    :charset (cl-second parts)
+		    )
+		   )
+	       (progn
+		 (message "MACICEL: call to \"file (1)\" failed.")
+		 (message "MACICEL: %s" (cl-second file-cmd-output)))
+	       )))
+	 )
 
       ;; Special cases.
 
@@ -192,4 +193,4 @@ The function fails with a condition if called on a non UN*X system.
 
 (provide 'magiciel-spells)
 
-;;; magiciel.el ends here
+;;; magiciel-spells.el ends here
