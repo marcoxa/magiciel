@@ -24,18 +24,38 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'magic-ingredients)
 ;; (require 'platel)
 
 
-;; magiciel-endianness
+;; magiciel--common-type-spec
 
-(cl-deftype magiciel-endiannes ()
-  '(member :le :be :m :me))
+(cl-defstruct (magiciel--common-type-spec
+	       (:constructor
+		magiciel--%make-common-type-spec (type-spec-string
+						 spec
+						 &optional
+						 (byte-len 1)
+						 (endian :le)
+						 unsigned
+						 )))
+  "The representation of \"types\" in a \"magic(5)\" record."
+  
+  (type-spec-string "" :type string)
+  (unsigned nil :type boolean)
+  (spec nil :type symbol)
+  (endian :le)				; One of :le, :be, :me or :m (go
+					; figure).  :le should work
+					; for most platforms; but do check.
+  (byte-len 1 :type integer)		; Number of bytes.
+  
+  )
 
 
 ;; magiciel--record-type-spec
 
 (cl-defstruct (magiciel--record-type-spec
+	       (:include magiciel--common-type-spec)
 	       (:constructor
 		magiciel--%make-record-type-spec (type-spec-string
 						 spec
@@ -46,32 +66,25 @@
 						 unsigned
 						 )))
   "The representation of the type field in a \"magic(5)\" record."
-  (type-spec-string "" :type string)
-  (unsigned nil :type boolean)
-  (spec nil :type symbol)
-  (modifiers ())
-  (endian :le)				; One of :le, :be or :m (go
-					; figure).  :le should work
-					; for most platforms; but do check.
-  (byte-len 1 :type integer)		; Number of bytes.
   
+  (modifiers ())
   )
 
 
 (cl-defun magiciel--make-record-type-spec (type-spec-string
-					  spec
-					  &optional
-					  modifiers
-					  (byte-len 1)
-					  (endian :le)
-					  unsigned
-					  )
+					   spec
+					   &optional
+					   modifiers
+					   (byte-len 1)
+					   (endian :le)
+					   unsigned
+					   )
   (magiciel--%make-record-type-spec type-spec-string
-				   (intern spec)
-				   modifiers
-				   byte-len
-				   endian
-				   unsigned))
+				    (intern spec)
+				    modifiers
+				    byte-len
+				    endian
+				    unsigned))
 
 
 (cl-defmethod cl-print-object ((rts magiciel--record-type-spec) stream)
@@ -83,6 +96,48 @@
 		 (magiciel--record-type-spec-modifiers rts)
 		 (magiciel--record-type-spec-endian rts)
 		 (magiciel--record-type-spec-byte-len rts)
+		 )
+	 stream))
+
+
+
+(cl-defstruct (magiciel--offset-type-spec
+	       (:include magiciel--common-type-spec)
+	       (:constructor
+		magiciel--%make-offset-type-spec (type-spec-string
+						  spec
+						  &optional
+						  (byte-len 1)
+						  (endian :le)
+						  unsigned
+						  )))
+  "The representation of the type field in a \"magic(5)\" record."
+
+  )
+
+
+(cl-defun magiciel--make-offset-type-spec (type-spec-string
+					   spec
+					   &optional
+					   (byte-len 1)
+					   (endian :le)
+					   unsigned
+					   )
+  (magiciel--%make-offset-type-spec type-spec-string
+				    (intern spec)
+				    byte-len
+				    endian
+				    unsigned))
+
+
+(cl-defmethod cl-print-object ((rts magiciel--offset-type-spec) stream)
+  (princ (format "#<MAGICIEL offset type %s %S %S %S>"
+		 (if (magiciel--offset-type-spec-unsigned rts)
+		     'unsigned
+		   'signed)
+		 (magiciel--offset-type-spec-spec rts)
+		 (magiciel--offset-type-spec-endian rts)
+		 (magiciel--offset-type-spec-byte-len rts)
 		 )
 	 stream))
 
@@ -214,50 +269,68 @@ reorder the \"records\" field."
 ;; Regexp used to extract the four parts of a magic record.
 ;; I need to `rx'ify it.
 
+;; (defvar magiciel--*normal-record-regexp*
+;;   (concat "^\\([-+*^<>&)(/.,[:alnum:]]+\\)"
+;; 	  "[[:space:]]+\\([/[:alnum:]]+\\)"
+;; 	  "[[:space:]]+\\([<>/[:graph:][:cntrl:]]+\\)"
+;; 	  "\\(?:[[:space:]]+\\(.*\\)\\)?$")
+;;   )
+
 (defvar magiciel--*normal-record-regexp*
   (concat "^\\([-+*^<>&)(/.,[:alnum:]]+\\)"
 	  "[[:space:]]+\\([/[:alnum:]]+\\)"
-	  "[[:space:]]+\\([>/[:graph:]]+\\)"
+	  "[[:space:]]+\\([^[:space:]]+\\)"
 	  "\\(?:[[:space:]]+\\(.*\\)\\)?$")
   )
+
+
+(defvar magiciel--*normal-record-rx*
+  (rx bol
+      (group (+ (in "-+*/^<>&(),." alnum))) (+ (in blank))
+      (group (+ (in "/" alnum))) (+ (in blank))
+      ;; (group (+ (in graph cntrl)))
+      (group (+ (not space)))
+      (opt (+ (in space)) (group (* nonl)))
+      eol))
 
 
 (defun magiciel--parse-magic-record (line)
   (if (string= "" line)
       (magiciel--make-magic-record :line line :is-empty t)
-    (cl-flet ((parse-record (rec)
+    (cl-flet
+	((parse-record (rec)
 
-		(unless (string-match magiciel--*normal-record-regexp* rec)
-		  (error (concat "MAGICIEL: could not parse record:\n"
-				 "MAGICIEL: |%s|")
-			 line))
+	   (unless (string-match magiciel--*normal-record-regexp* rec)
+	     (error (concat "MAGICIEL: could not parse record:\n"
+			    "MAGICIEL: |%s|")
+		    line))
 
-		;; Get stuff out of match-data before it gets
-		;; clobbered.
-		(let ((offset-m (match-string 1 rec))
-		      (type-m   (match-string 2 rec))
-		      (test-m   (match-string 3 rec))
-		      (msg-m    (match-string 4 rec))
-		      )
-		  (magiciel--make-magic-record
-		   :line rec
-		   :offset  (car (magiciel--parse-offset offset-m))
-		   :type    (car (magiciel--parse-type-spec type-m))
-		   :test    (car (magiciel--parse-test test-m))
-		   :message (car (magiciel--parse-message
-				  (or msg-m "")))
-		   )))
+	   ;; Get stuff out of match-data before it gets
+	   ;; clobbered.
+	   (let ((offset-m (match-string 1 rec))
+		 (type-m   (match-string 2 rec))
+		 (test-m   (match-string 3 rec))
+		 (msg-m    (match-string 4 rec))
+		 )
+	     (magiciel--make-magic-record
+	      :line rec
+	      :offset  (car (magiciel--parse-offset offset-m))
+	      :type    (car (magiciel--parse-type-spec type-m))
+	      :test    (car (magiciel--parse-test test-m))
+	      :message (car (magiciel--parse-message
+			     (or msg-m "")))
+	      )))
 
-	      (parse-special-record (rec)
-		(let ((srp (magiciel--parse-special-record rec)))
-		  (magiciel--make-magic-record
-		   :line rec
-		   :is-special t
-		   ;; Double down these fields. Yeah! I am evil.
-		   :type (cl-first srp)
-		   :test (cl-rest srp)
-		   )))
-	      )
+	 (parse-special-record (rec)
+	   (let ((srp (magiciel--parse-special-record rec)))
+	     (magiciel--make-magic-record
+	      :line rec
+	      :is-special t
+	      ;; Double down these fields. Yeah! I am evil.
+	      :type (cl-first srp)
+	      :test (cl-rest srp)
+	      )))
+	 )
       (cl-case (aref line 0)		; Check the first char.
 	(?#				; Comment line
 	 (magiciel--make-magic-record :line line :is-comment t))
@@ -290,6 +363,19 @@ reorder the \"records\" field."
 			   :records lines))
 		 )))
     ))
+
+;; magiciel--load-magic-file-raw-bytes
+;; Used mostly for debugging.
+
+(defun magiciel--load-magic-file-raw-bytes (filename)
+  ;; `filename' is a magic(5) file.
+
+  (with-temp-buffer
+    ;; I should ensure the buffer is unibyte.
+
+    (insert-file-contents filename)
+    (buffer-substring-no-properties (point-min) (point-max))))
+
 
 
 ;; Parsing the magic entries.
@@ -353,8 +439,8 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 ;; (defconst magiciel--*oct-regexp*
 ;;  (rx "0" (in "oO") (? (in "-+")) (+ (in "0-7"))))
 
-(defconst magiciel--*oct-regexp*		; Let's pray. Note that `0' is parsed
-  (rx "0" (* (in "0-7"))))		; as octal.
+(defconst magiciel--*oct-regexp* ; Let's pray. Note that `0' is parsed
+  (rx "0" (* (in "0-7"))))	 ; as octal.
 
 (defconst magiciel--*bin-regexp*
   (rx "0" (in "bB") (+ (in "01"))))
@@ -412,8 +498,8 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 
 (defconst magiciel--*indirect-offset-regexp*
   (rx "("
-      (group (opt "&"))					; 1
-      (group (regexp magiciel--*uint-regexp*))		; 2
+      (group (opt "&"))					 ; 1
+      (group (regexp magiciel--*uint-regexp*))		 ; 2
       (? (group (in ".,") (in "bBcCeEfFgGhHiIlLmsSqQ"))) ; 3
 
       ;; Ok, the parentheses here may match wrongly, but the "grammar"
@@ -435,13 +521,16 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
       ;; "darn we did not think of this case before, let's hammer it
       ;; in"; you know what happenend next.  No, I *did not* look at the
       ;; "file" source code.  It's way above my pay grade.
+      ;;
+      ;; Luckily there is a BNF grammar in the main file(1)
+      ;; repository; I am pretty much compliant with it.
 
-      (? (group					  ; 4
-	  (? (group (in "-+*/%&|^")))		  ; op   ; 5
-	  (? (group "("))			  ; lpar ; 6
-	  (? (group (in "-+")))			  ; sign ; 7
+      (? (group					   ; 4
+	  (? (group (in "-+*/%&|^")))		   ; op   ; 5
+	  (? (group "("))			   ; lpar ; 6
+	  (? (group (in "-+")))			   ; sign ; 7
 	  (group (regexp magiciel--*uint-regexp*)) ; offset expr ; 8
-	  (? ")")				  ; rpar
+	  (? ")")				   ; rpar
 	  ))
       ")")
   )
@@ -471,7 +560,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
   
   rel					; 1
   addr					; 2
-  type					; 3
+  type					; 3; this becomes a type.
   op					; 5; yes: 5!
   is-len				; 6
   sign					; 7
@@ -509,120 +598,121 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 
     ;; Hand-crafted recursive descent parser!!!
     
-    (cl-labels ((start ()
-		  (reset)		; Being paranoid.
-		  (parse-offset)
-		  )
+    (cl-labels
+	((start ()
+	   (reset)			; Being paranoid.
+	   (parse-offset)
+	   )
 
-		(reset ()
-		  (setf index 0))
+	 (reset ()
+	   (setf index 0))
 		
-		(next ()
-		  (cl-incf index))
+	 (next ()
+	   (cl-incf index))
 
-		(current ()
-		  (if (<= 0 index olen-1)
-		      (aref offset-string index)
-		    ?\0
-		    ))
+	 (current ()
+	   (if (<= 0 index olen-1)
+	       (aref offset-string index)
+	     ?\0
+	     ))
 
-		(peek ()
-		  (if (= index olen-1)
-		      ?\0
-		    (aref offset-string (1+ index))))
+	 (peek ()
+	   (if (= index olen-1)
+	       ?\0
+	     (aref offset-string (1+ index))))
 
-		(previous ()
-		  (cl-decf index))
+	 (previous ()
+	   (cl-decf index))
 
-		(string-match-at (regx str &optional (idx 0))
-		  ;; `string-match' searches the string; I want to be
-		  ;; sure that the match is at `idx'.
-		  (let ((match-at (string-match regx str idx)))
-		    ;; idx can be past the length of the string.
-		    (and match-at (= match-at idx))))
+	 (string-match-at (regx str &optional (idx 0))
+	   ;; `string-match' searches the string; I want to be
+	   ;; sure that the match is at `idx'.
+	   (let ((match-at (string-match regx str idx)))
+	     ;; idx can be past the length of the string.
+	     (and match-at (= match-at idx))))
 
-		(parse-offset ()
-		  (parse-levels)
-		  (or (parse-direct-offset)
-		      (and (parse-opt-cont)
-			   (or (parse-relative-offset)
-			       (parse-indirect-offset)))
-		      )
-		  )
+	 (parse-offset ()
+	   (parse-levels)
+	   (or (parse-direct-offset)
+	       (and (parse-opt-cont)
+		    (or (parse-relative-offset)
+			(parse-indirect-offset)))
+	       )
+	   )
 
-		(parse-levels ()
-		  (when (char-equal ?> (current))
-		    (cl-incf level)
-		    (next)
-		    (parse-levels))
-		  t)
+	 (parse-levels ()
+	   (when (char-equal ?> (current))
+	     (cl-incf level)
+	     (next)
+	     (parse-levels))
+	   t)
 
-		(parse-opt-cont ()
-		  (when (char-equal ?& (current))
-		    (setq cont t)
-		    (next))
-		  t
-		  )
+	 (parse-opt-cont ()
+	   (when (char-equal ?& (current))
+	     (setq cont t)
+	     (next))
+	   t
+	   )
 
-		(parse-direct-offset ()
-		  (and (parse-number-offset)
-		       (setq direct t)))
+	 (parse-direct-offset ()
+	   (and (parse-number-offset)
+		(setq direct t)))
 
-		(parse-number-offset ()
-		  (when (string-match-at magiciel--*uint-regexp*
-					 offset-string
-					 index)
-		    ;; I should check to have "consumed" the whole
-		    ;; string.
-		    (message "MAGICIEL: parse-number-offset: M1 %S."
-			     (match-string 0 offset-string))
+	 (parse-number-offset ()
+	   (when (string-match-at magiciel--*uint-regexp*
+				  offset-string
+				  index)
+	     ;; I should check to have "consumed" the whole
+	     ;; string.
+	     (message "MAGICIEL: parse-number-offset: M1 %S."
+		      (match-string 0 offset-string))
 		    
-		    (setf matched-string
-			  (match-string 0 offset-string))
-		    ))
+	     (setf matched-string
+		   (match-string 0 offset-string))
+	     ))
 
-		(parse-relative-offset ()
-		  (and (parse-number-offset)
-		       (setq relative t))
-		  )
+	 (parse-relative-offset ()
+	   (and (parse-number-offset)
+		(setq relative t))
+	   )
 
-		(parse-indirect-offset ()
-		  (and (parse-computed-offset)
-		       (setq indirect t)))
+	 (parse-indirect-offset ()
+	   (and (parse-computed-offset)
+		(setq indirect t)))
 
-		(parse-computed-offset ()
-		  (when (string-match-at magiciel--*indirect-offset-regexp*
-					 offset-string
-					 index)
-		    (message "MAGICIEL: parse-compute-offset: M1 %S."
-			     (match-string 0 offset-string))
-		    ;; Munge match
-		    (setf matched-string (match-string 0 offset-string))
-		    ))
+	 (parse-computed-offset ()
+	   (when (string-match-at magiciel--*indirect-offset-regexp*
+				  offset-string
+				  index)
+	     (message "MAGICIEL: parse-compute-offset: M1 %S."
+		      (match-string 0 offset-string))
+	     ;; Munge match
+	     (setf matched-string (match-string 0 offset-string))
+	     ))
 
-		(parse-c-integer (i)
-		  ;; `i' is a string.
-		  ;; The numbers are in C syntax.
-		  (if (char-equal ?0 (aref i 0)) ; Octal or Hex
-		      (if (and (> (length i) 1)
-			       (let ((i1 (aref i 1)))
-				 (or (char-equal i1 ?x)
-				     (char-equal i1 ?X))))
-			  ;; Hex
-			  (car (read-from-string (concat "#x"
-							 (substring i 2))))
-			;; Octal (or 0; the "#o0" takes care of it.
-			(car (read-from-string (concat "#o0"
-						       (substring i 1))))
-			)
-		    ;; Decimal
-		    (car (read-from-string i))
-		    ))
+	 (parse-c-integer (i)
+	   ;; `i' is a string.
+	   ;; The numbers are in C syntax.
+	   (if (char-equal ?0 (aref i 0)) ; Octal or Hex
+	       (if (and (> (length i) 1)
+			(let ((i1 (aref i 1)))
+			  (or (char-equal i1 ?x)
+			      (char-equal i1 ?X))))
+		   ;; Hex
+		   (car (read-from-string (concat "#x"
+						  (substring i 2))))
+		 ;; Octal (or 0; the "#o0" takes care of it.
+		 (car (read-from-string (concat "#o0"
+						(substring i 1))))
+		 )
+	     ;; Decimal
+	     (car (read-from-string i))
+	     ))
 		
-		(finish ()
-		  ;; Do stuff.
-		  )
-		)
+	 (finish ()
+	   ;; Do stuff.
+	   )
+	 )
       (start)
       (list ;; This cond should go in `finish' above
 	    (cond (indirect
@@ -688,419 +778,419 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	    
 	    ("byte"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     1
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      1
+					      endian
+					      unsigned
+					      ))
 
 	    ("id3"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      4
+					      endian
+					      unsigned
+					      ))
 
 	    ("short"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     2
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      2
+					      endian
+					      unsigned
+					      ))
 
 	    ("long"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      4
+					      endian
+					      unsigned
+					      ))
 
 	    ("quad"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      8
+					      endian
+					      unsigned
+					      ))
 
 	    ("float"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      4
+					      endian
+					      unsigned
+					      ))
 
 	    ("double"
 	     (magiciel--make-record-type-spec type-spec-string
-					     (intern spec)
-					     mods
-					     8
-					     endian
-					     unsigned
-					     ))
+					      (intern spec)
+					      mods
+					      8
+					      endian
+					      unsigned
+					      ))
 
 
 	    ("string"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     0 ; Depends on the test value.
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      0 ; Depends on the test value.
+					      endian
+					      unsigned
+					      ))
 
 	    ("pstring"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     0 ; Depends on the test value.
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      0 ; Depends on the test value.
+					      endian
+					      unsigned
+					      ))
 	    ("date"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      4
+					      endian
+					      unsigned
+					      ))
 
 	    ("qdate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      8
+					      endian
+					      unsigned
+					      ))
 
 
 	    ("ldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      4
+					      endian
+					      unsigned
+					      ))
 
 	    ("qldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      8
+					      endian
+					      unsigned
+					      ))
 
 	    ("qwdate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     endian
-					     unsigned
-					     ))
+					      spec
+					      mods
+					      8
+					      endian
+					      unsigned
+					      ))
 
 	    ("beid3"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :be
-					     unsigned
-					     ))
+					      "id3"
+					      mods
+					      4
+					      :be
+					      unsigned
+					      ))
 
 	    ("beshort"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     2
-					     :be
-					     unsigned
-					     ))
+					      "short"
+					      mods
+					      2
+					      :be
+					      unsigned
+					      ))
 
 	    ("belong"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :be
-					     unsigned
-					     ))
+					      "long"
+					      mods
+					      4
+					      :be
+					      unsigned
+					      ))
 
 
 	    ("bequad"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :be
-					     unsigned
-					     ))
+					      "quad"
+					      mods
+					      8
+					      :be
+					      unsigned
+					      ))
 
 	    ("befloat"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :be
-					     unsigned
-					     ))
+					      "float"
+					      mods
+					      4
+					      :be
+					      unsigned
+					      ))
 
 	    ("bedouble"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :be
-					     unsigned
-					     ))
+					      "double"
+					      mods
+					      8
+					      :be
+					      unsigned
+					      ))
 
 	    ("bedate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :be
-					     unsigned
-					     ))
+					      "date"
+					      mods
+					      4
+					      :be
+					      unsigned
+					      ))
 
 	    ("beqdate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :be
-					     unsigned
-					     ))
+					      "qdate"
+					      mods
+					      8
+					      :be
+					      unsigned
+					      ))
 
 
 	    ("beldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :be
-					     unsigned
-					     ))
+					      "ldate"
+					      mods
+					      4
+					      :be
+					      unsigned
+					      ))
 
 	    ("beqldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :be
-					     unsigned
-					     ))
+					      "qldate"
+					      mods
+					      8
+					      :be
+					      unsigned
+					      ))
 
 	    ("beqwdate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :be
-					     unsigned
-					     ))
+					      "qwdate"
+					      mods
+					      8
+					      :be
+					      unsigned
+					      ))
 
 	    ("bestring16"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     0
-					     :be
-					     unsigned
-					     ))
+					      "string16"
+					      mods
+					      0
+					      :be
+					      unsigned
+					      ))
 
 	    ("leid3"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :le
-					     unsigned
-					     ))
+					      "id3"
+					      mods
+					      4
+					      :le
+					      unsigned
+					      ))
 
 	    ("leshort"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     2
-					     :le
-					     unsigned
-					     ))
+					      "short"
+					      mods
+					      2
+					      :le
+					      unsigned
+					      ))
 
 	    ("lelong"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :le
-					     unsigned
-					     ))
+					      "long"
+					      mods
+					      4
+					      :le
+					      unsigned
+					      ))
 
 
 	    ("lequad"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :le
-					     unsigned
-					     ))
+					      "quad"
+					      mods
+					      8
+					      :le
+					      unsigned
+					      ))
 
 	    ("lefloat"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :le
-					     unsigned
-					     ))
+					      "float"
+					      mods
+					      4
+					      :le
+					      unsigned
+					      ))
 
 	    ("ledouble"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :le
-					     unsigned
-					     ))
+					      "double"
+					      mods
+					      8
+					      :le
+					      unsigned
+					      ))
 
 	    ("ledate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :le
-					     unsigned
-					     ))
+					      "date"
+					      mods
+					      4
+					      :le
+					      unsigned
+					      ))
 
 	    ("leqdate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :le
-					     unsigned
-					     ))
+					      "qdate"
+					      mods
+					      8
+					      :le
+					      unsigned
+					      ))
 
 
 	    ("leldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :le
-					     unsigned
-					     ))
+					      "ldate"
+					      mods
+					      4
+					      :le
+					      unsigned
+					      ))
 
 	    ("leqldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :le
-					     unsigned
-					     ))
+					      "qldate"
+					      mods
+					      8
+					      :le
+					      unsigned
+					      ))
 
 	    ("leqwdate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     8
-					     :le
-					     unsigned
-					     ))
+					      "qwdate"
+					      mods
+					      8
+					      :le
+					      unsigned
+					      ))
 
 	    ("lestring16"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     0
-					     :le
-					     unsigned
-					     ))
+					      "string16"
+					      mods
+					      0
+					      :le
+					      unsigned
+					      ))
 
 	    ("melong"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :me
-					     unsigned
-					     ))
+					      "long"
+					      mods
+					      4
+					      :me
+					      unsigned
+					      ))
 
 	    ("medate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :me
-					     unsigned
-					     ))
+					      "date"
+					      mods
+					      4
+					      :me
+					      unsigned
+					      ))
 
 	    ("meldate"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     4
-					     :me
-					     unsigned
-					     ))
+					      "ldate"
+					      mods
+					      4
+					      :me
+					      unsigned
+					      ))
 
 	    ("indirect"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 
 	    ("name"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 
 	    ("use"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 
 	    ("regexp"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 
 	    ("search"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 
 	    ("default"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 
 	    ("clear"
 	     (magiciel--make-record-type-spec type-spec-string
-					     spec
-					     mods
-					     ))
+					      spec
+					      mods
+					      ))
 	    ))
 	 )				; let* bindings.
     
