@@ -124,7 +124,9 @@
 					   unsigned
 					   )
   (magiciel--%make-offset-type-spec type-spec-string
-				    (intern spec)
+				    (cl-etypecase spec
+				      (string (intern spec))
+				      (symbol spec))
 				    byte-len
 				    endian
 				    unsigned))
@@ -142,40 +144,7 @@
 	 stream))
 
 
-(defconst magiciel--+numeric-type-specs+
-  '(byte
-    short beshort leshort
-    long  belong  lelong melong
-    quad  bequad  lequad
-    ))
-
-(cl-deftype magiciel--numeric-type-spec ()
-  `(member ,@magiciel--+numeric-type-specs+))
-
-
-(defconst magiciel--+date-type-specs+
-  '(date bedate ledate medate
-	 ldate beldate leldate meldate
-	 qdate beqdate leqdate
-    	 qldate beqldate leqldate
-	 ))
-
-(cl-deftype magiciel--date-type-spec ()
-  `(member ,@magiciel--+date-type-specs+))
-
-
-(defconst magiciel--+string-type-specs+
-  '(regexp
-    string
-    pstring
-    bestring16
-    lestring16
-    default
-    ))
-
-(cl-deftype magiciel--string-type-spec ()
-  `(member ,@magiciel--+string-type-specs+))
-
+;; Type spec checkers.
 
 (cl-defun magiciel--numeric-type-spec-p (spec)
   (when (magiciel--record-type-spec-p spec)
@@ -712,7 +681,114 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	 (finish ()
 	   ;; Do stuff.
 	   )
+
+
+	 (select-addr-subtype (ind-type)
+	   (cl-block select-addr-subtype-blk
+	     ;; Necessary block. This seems a buglet in ELisp cl-lib.
+
+	     (unless ind-type
+	       (cl-return-from select-addr-subtype-blk
+		 (magiciel--make-offset-type-spec "" 'long 4 :le t)))
+
+	     ;; `ind-type' should be a string of length 2: first
+	     ;; character either a \\='.\\=' or a \\=',\\='; second
+	     ;; character a "type" one.
+
+	     (cl-assert (= (length ind-type) 2))
+	   
+	     (let ((sign
+		    (cond ((char-equal ?, (aref ind-type 0)) nil)
+			  ((char-equal ?. (aref ind-type 0)) t)
+			  (t
+			   (error "MAGICIEL: incorrect sign '%c' in %S."
+				  (aref ind-type 0)
+				  ind-type))
+			  ))
+		   (subtype-char (aref ind-type 1))
+		   )
+	   
+	       ;; The "subtype-char" comes from the indirect address
+	       ;; specification.
+	       ;; Value is a `magiciel--offset-type-spec'.
+
+	       (cl-ecase subtype-char
+		 ((?b ?c ?B ?C)
+		  (magiciel--make-offset-type-spec ind-type 'byte))
+		
+		 ((?e ?f ?g)
+		  ;; Let's be Common-istic.
+		  (magiciel--make-offset-type-spec ind-type
+						   'double-float
+						   8
+						   :le
+						   sign))
+		 ((?E ?F ?G)
+		  (magiciel--make-offset-type-spec ind-type
+						   'double-float
+						   8
+						   :be
+						   sign))
+		 (?l
+		  (magiciel--make-offset-type-spec ind-type
+						   'long
+						   8
+						   :le
+						   sign))
+		 (?L
+		  (magiciel--make-offset-type-spec ind-type
+						   'long
+						   8
+						   :be
+						   sign))
+		 ((?h ?s)
+		  (magiciel--make-offset-type-spec ind-type
+						   'short
+						   2
+						   :le
+						   sign))
+		 ((?H ?S)
+		  (magiciel--make-offset-type-spec ind-type
+						   'short
+						   2
+						   :be
+						   sign))
+		 (?i
+		  (magiciel--make-offset-type-spec ind-type
+						   'id3
+						   4
+						   :le
+						   sign))
+		 (?I
+		  (magiciel--make-offset-type-spec ind-type
+						   'id3
+						   4
+						   :be
+						   sign))
+		 (?m
+		  (magiciel--make-offset-type-spec ind-type
+						   'middle
+						   4
+						   :me
+						   sign))
+		 (?q
+		  (magiciel--make-offset-type-spec ind-type
+						   'quad
+						   8
+						   :le
+						   sign))
+		 (?Q
+		  (magiciel--make-offset-type-spec ind-type
+						   'quad
+						   8
+						   :be
+						   sign))
+    
+		 ;; Other missing according to latest manual.
+		 ))
+	     ))
 	 )
+	 
       (start)
       (list ;; This cond should go in `finish' above
 	    (cond (indirect
@@ -730,7 +806,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 		      :cont   cont
 		      :rel    (and rel (not (string= "" rel)))
 		      :addr   (parse-c-integer addr)
-		      :type   (if type type "")
+		      :type   (select-addr-subtype type)
 		      :sign   (if sign sign "")
 		      :op     (if op op "")
 		      :is-len (not (null is-len))

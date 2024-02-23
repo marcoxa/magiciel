@@ -117,6 +117,29 @@
   op)
 
 
+;; The next one is trickier as I am kludging this.
+
+(cl-defmethod magiciel--select-op ((op (eql '!)) (type symbol))
+  (ignore op)			; ELisp is a bit stupid here.
+
+  (cond ((cl-typep type 'magiciel--numeric-type-spec)
+	 '/=)
+	((cl-typep type 'magiciel--string-type-spec)
+	 '(lambda (s1 s2)
+	    (not (string-equal s1 s2))))
+	;; Dates are not handled yet.
+	(t
+	 (error "MAGICIEL: Cannot select a negation operator for type %s."
+		type)))
+  )
+
+
+;; `number' is not a "class".
+;; (cl-defmethod magiciel--select-op ((op (eql '!)) (type 'number))
+;;   (ignore op type)
+;;  '/=)
+
+
 (cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'string)))
   (ignore op type)			; ELisp is a bit stupid here.
   'string-equal)
@@ -129,13 +152,18 @@
   (ignore op type)			; ELisp is a bit stupid here.
   'string-lessp)
 
+(cl-defmethod magiciel--select-op ((op (eql '!)) (type (eql 'string)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  ;; This works as this results is put in a macro expansion.
+  '(lambda (s1 s2) (not (string-equal s1 s2)))
+  )
+
 
 ;; Date operators not quite right.
 
 (cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
   'string-equal)
-
 
 (cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
@@ -145,6 +173,12 @@
 (cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
   'string-lessp)
+
+(cl-defmethod magiciel--select-op ((op (eql '!)) (type (eql 'date)))
+  (ignore op type)			; ELisp is a bit stupid here.
+  ;; This works as this results is put in a macro expansion.
+  '(lambda (s1 s2) (not (string-equal s1 s2)))
+  )
 
 
 ;; magiciel--compile-record
@@ -186,46 +220,83 @@
 	     (cl-destructuring-bind (ind-op ind-sign ind-num)
 		 (compile-ind-offset-modifier ind-off)
 	       (ignore ind-sign)
-	       `(,ind-op
-		 ,(if (magiciel--indirect-offset-rel ind-off)
-		      `(magiciel--get-value-at (+ pos ,ind-addr)
-					       ',ind-subtype)
-		    `(magiciel--get-value-at ,ind-addr
-					     ',ind-subtype))
-		 ,(if (listp ind-num)
-		      (if (magiciel--indirect-offset-rel ind-off)
+	       (let ((type-spec
+		      (magiciel--offset-type-spec-spec ind-subtype))
+		     (type-endian
+		      (magiciel--offset-type-spec-endian ind-subtype))
+		     (type-len
+		      (magiciel--offset-type-spec-byte-len ind-subtype))
+		     (type-sign
+		      (magiciel--offset-type-spec-unsigned ind-subtype))
+		     ;; (test-op  (magiciel--test-op test))
+		     ;; (test-val (magiciel--test-value test))
+		     )
+		 `(,ind-op
+		   ,(if (magiciel--indirect-offset-rel ind-off)
+			`(magiciel--get-value-at* bytes
+						  (+ pos ,ind-addr)
+						  ',type-spec
+						  ',type-sign
+						  ',type-endian
+						  ()
+						  ',type-len
+						  )
+		      `(magiciel--get-value-at* bytes
+						,ind-addr
+						',type-spec
+						',type-sign
+						',type-endian
+						()
+						',type-len
+						))
+		   ,(if (listp ind-num)
+			(if (magiciel--indirect-offset-rel ind-off)
+			    `(magiciel--get-value-at
+			      (+ pos
+				 ,ind-addr
+				 ,ind-num)
+			      ',ind-subtype)
 			  `(magiciel--get-value-at
-			    (+ pos
-			       ,ind-addr
-			       ,ind-num)
-			    ',ind-subtype)
-			`(magiciel--get-value-at
-			  (+ ,ind-addr ,ind-num)))
-		    ind-num))
+			    (+ ,ind-addr ,ind-num)))
+		      ind-num)))
 	       )))
 
+	 ;; (compile-ind-offset-type (ind-off)
+	 ;;   ;; Cfr. the UN*X manual entry for "magic(5)".
+	 ;;   (let ((ind-addr (magiciel--indirect-offset-addr ind-off))
+	 ;; 	 (ind-type (magiciel--indirect-offset-type ind-off))
+	 ;; 	 (sign 'unsigned)
+
+	 ;; 	 ;; `subtype' defaults to `long' little endian. Unused
+	 ;; 	 ;; for 'byte'.
+	 ;; 	 (subtype '(long 8 :le))
+	 ;; 	 )
+	 ;;     (when (cl-plusp (length ind-type)) ; Should be 2.
+	 ;;       (cond ((char-equal ?, (aref ind-type 0))
+	 ;; 	      (setf sign 'signed))
+	 ;; 	     ((char-equal ?. (aref ind-type 0)))
+	 ;; 	     (t
+	 ;; 	      (error "MAGICIEL: incorrect sign '%c' in %S."
+	 ;; 		     (aref ind-type 0)
+	 ;; 		     ind-type))
+	 ;; 	     )
+	 ;;       (setf subtype (magiciel--addr-select-subtype (aref ind-type 1)))
+	 ;;       )
+	 ;;     (list ind-addr (cons sign subtype))))
+
+	 
 	 (compile-ind-offset-type (ind-off)
-	   ;; Cfr. the UN*X manual entry for "magic(5)".
+
+	   ;; New verision.
+	   
 	   (let ((ind-addr (magiciel--indirect-offset-addr ind-off))
 		 (ind-type (magiciel--indirect-offset-type ind-off))
-		 (sign 'unsigned)
-
-		 ;; `subtype' defaults to `long' little endian. Unused
-		 ;; for 'byte'.
-		 (subtype '(long 8 :le))
 		 )
-	     (when (cl-plusp (length ind-type)) ; Should be 2.
-	       (cond ((char-equal ?, (aref ind-type 0))
-		      (setf sign 'signed))
-		     ((char-equal ?. (aref ind-type 0)))
-		     (t
-		      (error "MAGICIEL: incorrect sign '%c' in %S."
-			     (aref ind-type 0)
-			     ind-type))
-		     )
-	       (setf subtype (magiciel--addr-select-subtype (aref ind-type 1)))
-	       )
-	     (list ind-addr (cons sign subtype))))
+
+	     ;; `ind-type' is a `magiciel--offset-type-spec'.
+
+	     (list ind-addr ind-type)))
+
 
 	 (compile-ind-offset-modifier (ind-off)
 	   (let ((ind-op     (magiciel--indirect-offset-op   ind-off))
@@ -302,7 +373,9 @@
 
 	     (cond ((magiciel--numeric-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'number)
-		      (magiciel--get-value-at* ',type-spec
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
 					       ',type-sign
 					       ',type-endian
 					       ',type-mods
@@ -312,7 +385,9 @@
 
 		   ((magiciel--date-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'date)
-		      (magiciel--get-value-at* ',type-spec
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
 					       ',type-sign
 					       ',type-endian
 					       ',type-mods
@@ -322,7 +397,9 @@
 
 		   ((magiciel--string-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'string)
-		      (magiciel--get-value-at* ',type-spec
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
 					       ',type-sign
 					       ',type-endian
 					       ',type-mods
@@ -341,6 +418,8 @@
 	)
       )))
 
+
+;; The next function and its use cases will be moved in parsing.
 
 (defun magiciel--addr-select-subtype (subtype-char)
 

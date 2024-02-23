@@ -13,6 +13,7 @@
 
 (require 'cl-lib)
 (require 'bindat)
+(require 'magic-ingredients)
 
 
 ;; Lifted and expanded from `xmit'.
@@ -135,7 +136,7 @@
 	 )
     (if i
 	(cdar i)
-      (error "MAGICIEL: no int unpacked."))))
+      (error "MAGICIEL: no unsigend int unpacked."))))
 
 
 (cl-defun magiciel--get-sint (binary-data
@@ -168,19 +169,37 @@
       (error "MAGICIEL: no int unpacked."))))
 
 
+;; magiciel--get-value-at*
+;; Kitchen sink function.
+;; Eventually low level access will be compiled.
 
 (cl-defun magiciel--get-value-at* (bytes
-				  pos
-				  type-spec
-				  type-sign
-				  type-endian
-				  type-mods
-				  type-len)
+				   pos
+				   type-spec
+				   unsigned
+				   endianness
+				   mods
+				   len)
+  (ignore mods)
   (cl-assert (not (multibyte-string-p bytes)))
-  )
-				  
-				 
 
+  ;; Note that the coding-system is assumend to be ... "the usual one".
+  (cl-etypecase type-spec
+    (magiciel--numeric-type-spec
+     (if unsigned
+	 (magiciel--get-uint bytes pos len endianness)
+       (magiciel--get-sint bytes pos len endianness)
+       ))
+    (magiciel--date-type-spec
+     (substring-no-properties bytes pos (+ pos len))
+     )
+    (magiciel--string-type-spec
+     (substring-no-properties bytes pos (+ pos len))
+     )
+    ))
+
+
+;;; Epilogue:
 
 (provide 'magiciel-magic-bits)
 
