@@ -35,7 +35,8 @@
 (require 'magiciel-parse-magic)
 
 
-(cl-defun magiciel-compile-magic (magic)
+(cl-defun magiciel-compile-magic (magic &optional (steps 1))
+  (message "\nMAGICIEL: compiling magic...\n")
   (let ((code-recs
 	 (cl-remove-if #'(lambda (r)
 			   (or (magiciel--magic-record-is-comment r)
@@ -59,15 +60,21 @@
 	     )
 	     
 	   (process-normal-rec (recs current-group &aux (r (car recs)))
+	     (message "MAGICIEL: process-normal-rec: %S." r)
+	     (message "MAGICIEL: process-normal-rec: current group size %d.\n"
+		      (length current-group))
 	     (if (null recs)
 		 ;; Done.
 		 (finish)
 	       (cond ((magiciel--magic-record-is-normal r)
+
 		      (if (zerop
 			   (magiciel--offset-level
 			    (magiciel--magic-record-offset r)))
 			  (progn
 			    (when current-group
+			      (message "MAGICIEL: current group size %d."
+				       (length current-group))
 			      (setf recs-groups
 				    (append recs-groups
 					    (list current-group))))
@@ -80,7 +87,7 @@
 		      (process-special-rec recs current-group))
 
 		     (t
-		      (error "MAGICIEL: unespected record %S." r))
+		      (error "MAGICIEL: unexpected record %S." r))
 		     )
 	       )
 	     )				; process-normal-rec
@@ -97,13 +104,28 @@
 					   (append current-group (list r))))
 
 		     (t
-		      (error "MAGICIEL: unespected record %S." r))
+		      (error "MAGICIEL: unexpected record %S." r))
 		     )
 	       )
 	     )
 	   )				; cl-labels
+
+
+	(message "\nMAGICIEL: grouping records.")
 	(start code-recs)
-	recs-groups)
+	(when (<= steps 1)
+	  (cl-return-from magiciel-compile-magic recs-groups))
+
+	;; recs-groups
+
+
+	;; Step 2: compile each record in each group.
+	;; First 0-level test in each group is then treated specially.
+	
+	(message "\nMAGICIEL: compiling record groups.")
+	(cl-loop for g in recs-groups
+		 collect (mapcar #'magiciel--compile-record  g)
+		 ))
       )))
 
 
@@ -124,10 +146,16 @@
 
   (cond ((cl-typep type 'magiciel--numeric-type-spec)
 	 '/=)
+
+	;; Assume "dates" are numeric.
+	
+	((cl-typep type 'magiciel--date-type-spec)
+	 '/=)
+	
 	((cl-typep type 'magiciel--string-type-spec)
 	 '(lambda (s1 s2)
 	    (not (string-equal s1 s2))))
-	;; Dates are not handled yet.
+	
 	(t
 	 (error "MAGICIEL: Cannot select a negation operator for type %s."
 		type)))
@@ -159,26 +187,24 @@
   )
 
 
-;; Date operators not quite right.
+;; Date operators assume "dates" are numeric.
 
 (cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
-  'string-equal)
+  '=)
 
 (cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
-  'string-greaterp)
+  '>)
 
 
 (cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
-  'string-lessp)
+  '<)
 
 (cl-defmethod magiciel--select-op ((op (eql '!)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
-  ;; This works as this results is put in a macro expansion.
-  '(lambda (s1 s2) (not (string-equal s1 s2)))
-  )
+  '/=)
 
 
 ;; magiciel--compile-record
@@ -190,6 +216,11 @@
 ;; and a position in said string, called `pos'.
 
 (cl-defun magiciel--compile-record (r)
+  (message "\nMAGICIEL: compiling record %S." r)
+
+  (unless (magiciel--magic-record-p r)
+    (cl-return-from magiciel--compile-record nil))
+  
   (cl-assert (magiciel--magic-record-is-normal r))
   (let ((offset (magiciel--magic-record-offset r))
 	(type   (magiciel--magic-record-type r))
@@ -359,8 +390,15 @@
 	   (magiciel--select-op op type-spec)
 	     
 	   )
-			 
+	 
 
+	 (compile-test-value (test-value type-spec)
+	   (if (magiciel--numeric-type-spec-p type-spec)
+	       (car (read-from-string (magiciel--lispify-number-string test-value)))
+	     test-value)
+	   )
+
+	 
 	 (compile-test (off-op type test)
 	   (let ((type-spec   (magiciel--record-type-spec-spec type))
 		 (type-mods   (magiciel--record-type-spec-modifiers type))
@@ -381,7 +419,7 @@
 					       ',type-mods
 					       ',type-len
 					       ,off-op)
-		      ',test-val))
+		      ',(compile-test-value test-val type-spec)))
 
 		   ((magiciel--date-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'date)
@@ -393,7 +431,7 @@
 					       ',type-mods
 					       ',type-len
 					       ,off-op)
-		      ',test-val))
+		      ',test-val))	; A string, but it must be double checked..
 
 		   ((magiciel--string-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'string)
@@ -405,7 +443,7 @@
 					       ',type-mods
 					       ',type-len
 					       ,off-op)
-		      ',test-val))
+		      ',test-val))	; Already a string.
 		   ))
 	   )
 	 )				; cl-labels
@@ -420,6 +458,7 @@
 
 
 ;; The next function and its use cases will be moved in parsing.
+;; Hence it will disapper soon.
 
 (defun magiciel--addr-select-subtype (subtype-char)
 
