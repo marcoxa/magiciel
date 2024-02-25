@@ -841,7 +841,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	 (spec-list (split-string type-spec-string "/" t))
 	 (spec (cl-first spec-list))
 	 (unsigned
-	  (when (char-equal ?u (aref spec 0))
+	  (when (and (not (string-equal "use" spec)) (char-equal ?u (aref spec 0)))
 	    (setf spec (substring spec 1))
 	    t))
 	 (mods (cl-rest  spec-list))
@@ -1244,7 +1244,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 					      mods
 					      ))
 
-	    ("regexp"
+	    ("regex"
 	     (magiciel--make-record-type-spec type-spec-string
 					      spec
 					      mods
@@ -1267,6 +1267,30 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 					      spec
 					      mods
 					      ))
+
+	    ("der"
+	     (magiciel--make-record-type-spec type-spec-string
+					      spec
+					      mods
+					      ))
+
+	    ("guid"
+	     (magiciel--make-record-type-spec type-spec-string
+					      spec
+					      mods
+					      36
+					      ))
+
+	    ("offset"
+	     (magiciel--make-record-type-spec type-spec-string
+					      spec
+					      mods
+					      8
+					      ))
+
+	    (_
+	     (error "MAGICIEL: unknown spec %s." spec))
+		    
 	    ))
 	 )				; let* bindings.
     
