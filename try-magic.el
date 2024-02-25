@@ -105,4 +105,11 @@
 
 (defvar magiciel--pmr12 (magiciel--parse-magic-record magiciel--mr12))
 
+
+;; Loading actual magic files.
+
+(defvar magiciel--pdf-magic
+  (magiciel--load-magic-file "/usr/share/file/magic/pdf"))
+
+
 ;;; try-magic.el ends here
