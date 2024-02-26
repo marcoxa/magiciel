@@ -59,16 +59,32 @@
 
 
 (defconst magiciel--+string-type-specs+
-  '(regexp
-    string
+  '(string
     pstring
     bestring16
     lestring16
-    default
+    guid
     ))
 
 (cl-deftype magiciel--string-type-spec ()
   `(member ,@magiciel--+string-type-specs+))
+
+
+(defconst magiciel--+exec-type-specs+
+  '(indirect
+    name
+    use
+    regexp
+    search
+    default
+    clear
+    der
+    offset
+    )
+  "These \"type\" specifications have an effect on tests' executions.")
+
+(cl-deftype magiciel--exec-type-spec ()
+  `(member ,@magiciel--+exec-type-specs+))
 
 
 ;; CL (numerical) type system basis.
@@ -115,7 +131,7 @@
   `(satisfies ,(curry2 'magiciel--sbe-test bits endian)))
 
 
-(defun magiciel--sbe-test (bits endian x)
+(defun magiciel--ube-test (bits endian x)
   (ignore endian)			; FTTB.  TRT is to use `platel'.
   (magiciel--ub-test bits x))
 
