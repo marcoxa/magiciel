@@ -207,6 +207,95 @@
   '/=)
 
 
+;; magiciel--compile-exec
+;; Generic function used to compile the special tests dubbed "execs".
+
+(cl-defgeneric magiciel--compile-exec (spec test-val off-op &optional test-op)
+  )
+
+
+(cl-defmethod magiciel--compile-exec ((spec (eql 'regex))
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec off-op test-op)
+  `(string-match ',test-val bytes pos))
+
+
+(cl-defmethod magiciel--compile-exec ((spec (eql 'name))
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec off-op test-op)
+  `(name ,test-val))
+
+
+(cl-defmethod magiciel--compile-exec ((spec 'indirect)
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec test-val off-op test-op)
+  `(indirect ,off-op))
+
+
+(cl-defmethod magiciel--compile-exec ((spec 'use)
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec test-val off-op test-op)
+  `(use ,test-val))
+
+
+(cl-defmethod magiciel--compile-exec ((spec 'search)
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec test-val off-op test-op)
+  `(string-search ,test-val bytes ,off-op))
+
+
+(cl-defmethod magiciel--compile-exec ((spec 'default)
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec test-val off-op test-op)
+
+  ;; Should check that `test-val' is \"x\".
+  t
+  )
+
+
+(cl-defmethod magiciel--compile-exec ((spec 'clear)
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec test-val off-op test-op)
+  
+  ;; Should check that `test-val' is \"x\".
+  '(clear)
+  )
+
+
+(cl-defmethod magiciel--compile-exec ((spec 'offset)
+				      test-val
+				      off-op
+				      &optional
+				      test-op)
+  (ignore spec test-val off-op test-op)
+  
+  ;; Should check that `test-val' is \"x\".
+  'pos
+  )
+
+
+
 ;; magiciel--compile-record
 ;; Generate a lambda that does sets up all the necessary
 ;; addressing and reading.
@@ -215,13 +304,18 @@
 ;; (i.e., a "unibyte" string in Emacs Lisp parlance) called `bytes'
 ;; and a position in said string, called `pos'.
 
+
 (cl-defun magiciel--compile-record (r)
   (message "\nMAGICIEL: compiling record %S." r)
 
   (unless (magiciel--magic-record-p r)
+    (message "MAGICIEL: not a magic record: %s." r)
     (cl-return-from magiciel--compile-record nil))
-  
-  (cl-assert (magiciel--magic-record-is-normal r))
+
+  (unless (magiciel--magic-record-is-normal r)
+    (message "MAGICIEL: not a normal magic record: %s." r)
+    (cl-return-from magiciel--compile-record nil))
+
   (let ((offset (magiciel--magic-record-offset r))
 	(type   (magiciel--magic-record-type r))
 	(test   (magiciel--magic-record-test r))
@@ -291,30 +385,6 @@
 			    (+ ,ind-addr ,ind-num)))
 		      ind-num)))
 	       )))
-
-	 ;; (compile-ind-offset-type (ind-off)
-	 ;;   ;; Cfr. the UN*X manual entry for "magic(5)".
-	 ;;   (let ((ind-addr (magiciel--indirect-offset-addr ind-off))
-	 ;; 	 (ind-type (magiciel--indirect-offset-type ind-off))
-	 ;; 	 (sign 'unsigned)
-
-	 ;; 	 ;; `subtype' defaults to `long' little endian. Unused
-	 ;; 	 ;; for 'byte'.
-	 ;; 	 (subtype '(long 8 :le))
-	 ;; 	 )
-	 ;;     (when (cl-plusp (length ind-type)) ; Should be 2.
-	 ;;       (cond ((char-equal ?, (aref ind-type 0))
-	 ;; 	      (setf sign 'signed))
-	 ;; 	     ((char-equal ?. (aref ind-type 0)))
-	 ;; 	     (t
-	 ;; 	      (error "MAGICIEL: incorrect sign '%c' in %S."
-	 ;; 		     (aref ind-type 0)
-	 ;; 		     ind-type))
-	 ;; 	     )
-	 ;;       (setf subtype (magiciel--addr-select-subtype (aref ind-type 1)))
-	 ;;       )
-	 ;;     (list ind-addr (cons sign subtype))))
-
 	 
 	 (compile-ind-offset-type (ind-off)
 
@@ -352,24 +422,6 @@
 	     (list ind-op ind-sign ind-num)
 	     ))
 
-	 ;; (select-op (op)
-	 ;;   ;; I could use `intern', but I need to get the ELisp
-	 ;;   ;; operators.
-	 ;;   (pcase op
-	 ;;     ("-" '-)
-	 ;;     ("+" '+)
-	 ;;     ("*" '*)
-	 ;;     ("/" '/)
-	 ;;     ("%" 'mod)
-	 ;;     ("-" '-)
-	 ;;     ("&" 'logand)
-	 ;;     ("|" 'logior)
-	 ;;     ("^" 'logxor)		; Check the `logior'..
-	 ;;     (_ '+)			; Really nothing, as number
-	 ;; 				; will be "", hence 0.
-	 ;;     )
-	 ;;   )
-
 	 (select-op (op)
 	   ;; `op' should be a symbol.
 	   (pcase op
@@ -390,16 +442,21 @@
 	   (magiciel--select-op op type-spec)
 	     
 	   )
-	 
 
 	 (compile-test-value (test-value type-spec)
-	   (if (magiciel--numeric-type-spec-p type-spec)
-	       (car (read-from-string (magiciel--lispify-number-string test-value)))
-	     test-value)
+	   (cond ((magiciel--numeric-type-spec-p type-spec)
+		  (car (read-from-string (magiciel--lispify-number-string test-value))))
+		 ((magiciel--exec-type-spec-p type-spec)
+		  )
+		 (t test-value))
 	   )
 
 	 
 	 (compile-test (off-op type test)
+
+	   ;; The following bindings may be taken out os the two
+	   ;; functions `compile-test' and `compile-exec' (this one).
+
 	   (let ((type-spec   (magiciel--record-type-spec-spec type))
 		 (type-mods   (magiciel--record-type-spec-modifiers type))
 		 (type-endian (magiciel--record-type-spec-endian type))
@@ -409,7 +466,13 @@
 		 (test-val (magiciel--test-value test))
 		 )
 
-	     (cond ((magiciel--numeric-type-spec-p type-spec)
+	     (cond ((string-equal "x" test-val)
+		    ;; "x" matches anything; a wart in the spec.  What
+		    ;; about a string that should match exaclty "x"?
+		    t
+		    )
+		   
+		   ((magiciel--numeric-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'number)
 		      (magiciel--get-value-at* bytes
 					       pos
@@ -444,16 +507,52 @@
 					       ',type-len
 					       ,off-op)
 		      ',test-val))	; Already a string.
+
+		   ((magiciel--exec-type-spec-p type-spec)
+		    `(,(select-test-op test-op 'string)
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',test-val))
 		   ))
 	   )
+
+	 (compile-exec (off-op type test)
+	   
+	   ;; The following bindings may be taken out os the two
+	   ;; functions `compile-test' and `compile-exec' (this one).
+	   
+	   (let ((type-spec   (magiciel--record-type-spec-spec type))
+		 (type-mods   (magiciel--record-type-spec-modifiers type))
+		 (type-endian (magiciel--record-type-spec-endian type))
+		 (type-len    (magiciel--record-type-spec-byte-len type))
+		 (type-sign   (magiciel--record-type-spec-unsigned type))
+		 (test-op  (magiciel--test-op test))
+		 (test-val (magiciel--test-value test))
+		 )
+
+	     (ignore type-mods type-endian type-len type-sign)
+
+	     (magiciel--compile-exec type-spec test-val off-op test-op)
+	     ))
 	 )				; cl-labels
 
-      (let* ((off-op  (compile-offset offset))
-	     (test-op (compile-test off-op type test))
-	     )
-	`(lambda (bytes pos)
-	   (when ,test-op ,(magiciel--message-msg-string msg)))
-	)
+      (let ((off-op (compile-offset offset)))
+	(cond ((magiciel--exec-type-spec-p type)
+	       (compile-exec off-op type test))
+	      (t
+	       (let ((test-op (compile-test off-op type test)))
+	     
+		 `(lambda (bytes pos)
+		    (when ,test-op ,(magiciel--message-msg-string
+				     msg))))
+	       )
+	      ))
       )))
 
 
