@@ -167,6 +167,13 @@
   (cl-typep spec 'magiciel--string-type-spec))
 
 
+(cl-defun magiciel--exec-type-spec-p (spec)
+  (when (magiciel--record-type-spec-p spec)
+    (setf spec (magiciel--record-type-spec-spec spec)))
+
+  (cl-typep spec 'magiciel--exec-type-spec))
+
+
 ;; magiciel--magic-record
 ;; I should probably subtype this defstruct for special records. Oh
 ;; well.
