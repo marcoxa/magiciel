@@ -18,7 +18,7 @@
 ;; have different, but essentially semantically the same, syntax
 ;; in indirect addresses to read a value in the byte stream.
 ;;
-;; Plus the "magic(5)" man page is not up-to-date anywhere (Ubuntu
+;; Plus the "magic(5)" man page is not "up-to-date" anywhere (Ubuntu
 ;; and MacOS).  E.g., there are a couple of obvious mistakes; cfr, the
 ;; use of `.' and `,' in indirect addresses, and, always in indirect
 ;; addresses the type specifier `l' which is not mentioned in the text
@@ -210,7 +210,10 @@
 ;; magiciel--compile-exec
 ;; Generic function used to compile the special tests dubbed "execs".
 
-(cl-defgeneric magiciel--compile-exec (spec test-val off-op &optional test-op)
+(cl-defgeneric magiciel--compile-exec (spec test-val off-op
+					    &optional
+					    test-op
+					    msg)
   )
 
 
@@ -218,80 +221,88 @@
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
+				      test-op
+				      (msg ""))
   (ignore spec off-op test-op)
-  `(string-match ',test-val bytes pos))
+  `(when (string-match ',test-val bytes pos) ,msg))
 
 
 (cl-defmethod magiciel--compile-exec ((spec (eql 'name))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
-  (ignore spec off-op test-op)
+				      test-op
+				      (msg ""))
+  (ignore spec off-op test-op msg)
   `(name ,test-val))
 
 
-(cl-defmethod magiciel--compile-exec ((spec 'indirect)
+(cl-defmethod magiciel--compile-exec ((spec (eql 'indirect))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
+				      test-op
+				      (msg ""))
   (ignore spec test-val off-op test-op)
-  `(indirect ,off-op))
+  `(when (indirect ,off-op) ,msg))
 
 
-(cl-defmethod magiciel--compile-exec ((spec 'use)
+(cl-defmethod magiciel--compile-exec ((spec (eql 'use))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
+				      test-op
+				      (msg ""))
   (ignore spec test-val off-op test-op)
-  `(use ,test-val))
+  `(when (use ,test-val) ,msg))
 
 
-(cl-defmethod magiciel--compile-exec ((spec 'search)
+(cl-defmethod magiciel--compile-exec ((spec (eql 'search))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
+				      test-op
+				      (msg ""))
   (ignore spec test-val off-op test-op)
-  `(string-search ,test-val bytes ,off-op))
+  `(when (string-search ,test-val bytes ,off-op) ,msg))
 
 
-(cl-defmethod magiciel--compile-exec ((spec 'default)
+(cl-defmethod magiciel--compile-exec ((spec (eql 'default))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
+				      test-op
+				      (msg ""))
   (ignore spec test-val off-op test-op)
 
   ;; Should check that `test-val' is \"x\".
-  t
+  `(when t ,msg)
   )
 
 
-(cl-defmethod magiciel--compile-exec ((spec 'clear)
+(cl-defmethod magiciel--compile-exec ((spec (eql 'clear))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
-  (ignore spec test-val off-op test-op)
+				      test-op
+				      (msg ""))
+  (ignore spec test-val off-op test-op msg)
   
   ;; Should check that `test-val' is \"x\".
   '(clear)
   )
 
 
-(cl-defmethod magiciel--compile-exec ((spec 'offset)
+(cl-defmethod magiciel--compile-exec ((spec (eql 'offset))
 				      test-val
 				      off-op
 				      &optional
-				      test-op)
-  (ignore spec test-val off-op test-op)
+				      test-op
+				      (msg ""))
+  (ignore spec test-val off-op test-op msg)
   
   ;; Should check that `test-val' is \"x\".
-  'pos
+  '(offset)
   )
 
 
@@ -445,7 +456,8 @@
 
 	 (compile-test-value (test-value type-spec)
 	   (cond ((magiciel--numeric-type-spec-p type-spec)
-		  (car (read-from-string (magiciel--lispify-number-string test-value))))
+		  (car (read-from-string
+			(magiciel--lispify-number-string test-value))))
 		 ((magiciel--exec-type-spec-p type-spec)
 		  )
 		 (t test-value))
@@ -454,7 +466,7 @@
 	 
 	 (compile-test (off-op type test)
 
-	   ;; The following bindings may be taken out os the two
+	   ;; The following bindings may be taken out of the two
 	   ;; functions `compile-test' and `compile-exec' (this one).
 
 	   (let ((type-spec   (magiciel--record-type-spec-spec type))
@@ -494,7 +506,7 @@
 					       ',type-mods
 					       ',type-len
 					       ,off-op)
-		      ',test-val))	; A string, but it must be double checked..
+		      ',test-val)) ; A string, but it must be double checked..
 
 		   ((magiciel--string-type-spec-p type-spec)
 		    `(,(select-test-op test-op 'string)
@@ -507,24 +519,24 @@
 					       ',type-len
 					       ,off-op)
 		      ',test-val))	; Already a string.
-
-		   ((magiciel--exec-type-spec-p type-spec)
-		    `(,(select-test-op test-op 'string)
-		      (magiciel--get-value-at* bytes
-					       pos
-					       ',type-spec
-					       ',type-sign
-					       ',type-endian
-					       ',type-mods
-					       ',type-len
-					       ,off-op)
-		      ',test-val))
+		   
+		   ;; ((magiciel--exec-type-spec-p type-spec)
+		   ;;  `(,(select-test-op test-op 'string)
+		   ;;    (magiciel--get-value-at* bytes
+		   ;; 			       pos
+		   ;; 			       ',type-spec
+		   ;; 			       ',type-sign
+		   ;; 			       ',type-endian
+		   ;; 			       ',type-mods
+		   ;; 			       ',type-len
+		   ;; 			       ,off-op)
+		   ;;    ',test-val))
 		   ))
 	   )
 
-	 (compile-exec (off-op type test)
+	 (compile-exec (off-op type test msg)
 	   
-	   ;; The following bindings may be taken out os the two
+	   ;; The following bindings may be taken out of the two
 	   ;; functions `compile-test' and `compile-exec' (this one).
 	   
 	   (let ((type-spec   (magiciel--record-type-spec-spec type))
@@ -538,22 +550,25 @@
 
 	     (ignore type-mods type-endian type-len type-sign)
 
-	     (magiciel--compile-exec type-spec test-val off-op test-op)
+	     (magiciel--compile-exec type-spec test-val off-op test-op msg)
 	     ))
+
+	 (compile-record-test (off-op type test result-msg)
+	   `(lambda (bytes pos)
+	      (when ,(compile-test off-op type test)
+		,result-msg)))
 	 )				; cl-labels
 
-      (let ((off-op (compile-offset offset)))
+      (let ((off-op (compile-offset offset))
+	    (result-msg (magiciel--message-msg-string msg))
+	    )
 	(cond ((magiciel--exec-type-spec-p type)
-	       (compile-exec off-op type test))
+	       (compile-exec off-op type test result-msg))
 	      (t
-	       (let ((test-op (compile-test off-op type test)))
-	     
-		 `(lambda (bytes pos)
-		    (when ,test-op ,(magiciel--message-msg-string
-				     msg))))
-	       )
-	      ))
-      )))
+	       (compile-record-test off-op type test result-msg))
+	      )
+	))
+    ))
 
 
 ;; The next function and its use cases will be moved in parsing.
