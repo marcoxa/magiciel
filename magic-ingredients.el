@@ -74,7 +74,7 @@
   '(indirect
     name
     use
-    regexp
+    regex
     search
     default
     clear
