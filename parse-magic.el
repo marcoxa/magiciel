@@ -174,47 +174,107 @@
   (cl-typep spec 'magiciel--exec-type-spec))
 
 
-;; magiciel--magic-record
-;; I should probably subtype this defstruct for special records. Oh
-;; well.
+;; Magiciel records.
+;;
+;; Notes:
+;; I but the bullet and I subtype them.
 
-(cl-defstruct (magiciel--magic-record
-	       (:constructor magiciel--make-magic-record))
-  "The representation of a line in a \"magic(5)\" UN*X file."
+(cl-defstruct (magiciel--magic-record (:constructor nil))
+  "The representation of a line in a \"magic(5)\" UN*X file.
 
-  line
-  is-comment
-  is-special
-  is-empty
-  offset
-  type
-  test
-  message
+This is the top struct and it is \"abstract\"."
+
+  (line "" :type string)
   )
 
 
-(cl-defmethod cl-print-object ((ml magiciel--magic-record) stream)
-  (let ((ll (length (magiciel--magic-record-line ml))))
-    (cond ((magiciel--magic-record-is-comment ml)
-	   (princ (format "#<MAGIC-RECORD Comment %d>" ll) stream))
-	  ((magiciel--magic-record-is-special ml)
-	   (princ (format "#<MAGIC-RECORD Special %d %S>"
-			  ll
-			  (magiciel--magic-record-line ml))
-		  stream))
-	  (t
-	   (princ (format "#<MAGIC-RECORD Normal %d %S>"
-			  ll
-			  (magiciel--magic-record-line ml))
-		  stream)))
-    ))
+(cl-defstruct (magiciel--empty-record
+	       (:include magiciel--magic-record)
+	       (:constructor magiciel--make-empty-record ()))
+  "The representation of an empty line in a \"magic(5)\" UN*X file."
+  )
 
 
-(defun magiciel--magic-record-is-normal (rec)
-  (not (or (magiciel--magic-record-is-comment rec)
-	   (magiciel--magic-record-is-special rec)
-	   (magiciel--magic-record-is-empty rec))))
+(cl-defstruct (magiciel--normal-record
+	       (:include magiciel--magic-record)
+	       (:constructor magiciel--make-normal-record))
+  "The representation of a normal record in a \"magic(5)\" UN*X file."
+  offset
+  type
+  test
+  (message "" :type string)
+  )
 
+
+(cl-defstruct (magiciel--special-record
+	       (:include magiciel--magic-record)
+	       (:constructor magiciel--make-special-record))
+  "The representation of a special record in a \"magic(5)\" UN*X file.
+
+Recognized special records are \"mime\" and \"ext\": other special
+ones are read in but untreated."
+  type
+  value
+  )
+
+
+(cl-defstruct (magiciel--comment-record
+	       (:include magiciel--magic-record)
+	       (:constructor magiciel--make-comment-record (line)))
+  "The representation of a comment record in a \"magic(5)\" UN*X file."
+  )
+
+
+;; Magiciel records `cl-print-object' methods.
+
+(cl-defmethod cl-print-object ((ml magiciel--empty-record) stream)
+  (ignore ml)
+  (princ "#<MAGIC-RECORD empty>" stream))
+
+
+(cl-defmethod cl-print-object ((ml magiciel--normal-record) stream)
+  (let ((line (magiciel--magic-record-line ml)))
+    (princ (format "#<MAGIC-RECORD Normal %d %S>"
+		   (length line)
+		   line)
+	   stream)))
+
+
+(cl-defmethod cl-print-object ((ml magiciel--special-record) stream)
+  (let ((line (magiciel--magic-record-line ml)))
+    (princ (format "#<MAGIC-RECORD Special %d %S>"
+		   (length line)
+		   line)
+	   stream)))
+
+
+(cl-defmethod cl-print-object ((ml magiciel--comment-record) stream)
+  (let ((line (magiciel--magic-record-line ml)))
+    (if (and line (not (string-equal line "")))
+	(princ (format "#<MAGIC-RECORD Comment: %s>" line)
+	       stream)
+      (princ (format "#<MAGIC-RECORD Comment>") stream))))
+    
+
+;; Magiciel records predicates.
+
+(defun magiciel--magic-record-is-comment (r)
+  (magiciel--comment-record-p r))
+
+
+(defun magiciel--magic-record-is-empty (r)
+  (magiciel--empty-record-p r))
+
+
+(defun magiciel--magic-record-is-special (r)
+  (magiciel--special-record-p r))
+
+
+(defun magiciel--magic-record-is-normal (r)
+  (magiciel--normal-record-p r))
+
+
+;; magiciel--magic
 
 (cl-defstruct (magiciel--magic
 	       (:constructor magiciel--make-magic))
@@ -271,52 +331,57 @@ reorder the \"records\" field."
 
 
 (defun magiciel--parse-magic-record (line)
-  (if (string= "" line)
-      (magiciel--make-magic-record :line line :is-empty t)
-    (cl-flet
-	((parse-record (rec)
+  (cl-flet
+      ((parse-normal-record (rec)
 
-	   (unless (string-match magiciel--*normal-record-regexp* rec)
-	     (error (concat "MAGICIEL: could not parse record:\n"
-			    "MAGICIEL: |%s|")
-		    line))
+	 (unless (string-match magiciel--*normal-record-regexp* rec)
+	   (error (concat "MAGICIEL: could not parse record:\n"
+			  "MAGICIEL: |%s|")
+		  line))
 
-	   ;; Get stuff out of match-data before it gets
-	   ;; clobbered.
-	   (let ((offset-m (match-string 1 rec))
-		 (type-m   (match-string 2 rec))
-		 (test-m   (match-string 3 rec))
-		 (msg-m    (match-string 4 rec))
-		 )
-	     (magiciel--make-magic-record
-	      :line rec
-	      :offset  (car (magiciel--parse-offset offset-m))
-	      :type    (car (magiciel--parse-type-spec type-m))
-	      :test    (car (magiciel--parse-test test-m))
-	      :message (car (magiciel--parse-message
-			     (or msg-m "")))
-	      )))
+	 ;; Get stuff out of match-data before it gets
+	 ;; clobbered.
+	 (let ((offset-m (match-string 1 rec))
+	       (type-m   (match-string 2 rec))
+	       (test-m   (match-string 3 rec))
+	       (msg-m    (match-string 4 rec))
+	       )
+	   (magiciel--make-normal-record
+	    :line    rec
+	    :offset  (car (magiciel--parse-offset offset-m))
+	    :type    (car (magiciel--parse-type-spec type-m))
+	    :test    (car (magiciel--parse-test test-m))
+	    :message (car (magiciel--parse-message (or msg-m "")))
+	    )))
 
-	 (parse-special-record (rec)
-	   (let ((srp (magiciel--parse-special-record rec)))
-	     (magiciel--make-magic-record
-	      :line rec
-	      :is-special t
-	      ;; Double down these fields. Yeah! I am evil.
-	      :type (cl-first srp)
-	      :test (cl-rest srp)
-	      )))
+       (parse-special-record (rec)
+	 (let ((srp (magiciel--parse-special-record rec)))
+	   (magiciel--make-special-record 
+	    :line  rec
+	    :type  (cl-first srp)
+	    :value (cl-rest srp)
+	    )))
+
+       (parse-comment-record (rec)
+	 ;; Just for symmetry.
+	 (magiciel--make-comment-record rec)
 	 )
+       )				; cl-flet
+    (message "MAGICIEL: parsing line: %s." line)
+    (if (string= "" line)
+	(magiciel--make-empty-record)
       (cl-case (aref line 0)		; Check the first char.
 	(?#				; Comment line
-	 (magiciel--make-magic-record :line line :is-comment t))
+	 (parse-comment-record line))
 	(?!				; Special line
 	 (parse-special-record line))
 	(t
-	 (parse-record line))
+	 (parse-normal-record line))
 	))
     ))
 
+
+;; magiciel--load-magic-file
 
 (defun magiciel--load-magic-file (filename)
   (let ((fname (file-name-base filename)))
@@ -355,8 +420,9 @@ reorder the \"records\" field."
 
 
 ;; Parsing the magic entries.
-;;
-;; Unused function.
+
+;; magiciel--lispify-number-string
+;; This function essentially convers from C to Lisp syntax.
 
 (cl-defun magiciel--lispify-number-string (ns &optional (start 0) end)
   "Assuming the string `ns' contains an integer, lispify it.
@@ -400,10 +466,38 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
   ns)					; Real result.
 
 
-;; magiciel--parse-offset
+;; magiciel--interpret-c-integer --
 
-;; (defvar magiciel--*indirect-offset-regexp*
-;;  "(\\(.+\\)\\(\\([.,][bBcCeEfFgGhHiIlmsSqQ]\\)*\\([-+]*.+\\)\\)?)")
+(defun magiciel--interpret-c-integer (i)
+  "Takes a string `i' and reads an integer in C syntax from it.
+
+The integer is supposed to be in position 0.
+
+Cfr., the C standard(s) for integer syntax."
+  
+  ;; `i' is a string.
+  ;; The numbers are in C syntax.
+  (if (char-equal ?0 (aref i 0))	; Octal or Hex
+      (if (and (> (length i) 1)
+	       (let ((i1 (aref i 1)))
+		 (or (char-equal i1 ?x)
+		     (char-equal i1 ?X))))
+	  ;; Hex
+	  (car (read-from-string (concat "#x"
+					 (substring i 2))))
+	;; Octal (or 0; the "#o0" takes care of it.
+	(car (read-from-string (concat "#o0"
+				       (substring i 1))))
+	)
+    ;; Decimal
+    (car (read-from-string i))
+    ))
+
+
+;; Magiciel offsets.
+
+
+
 
 ;; Number regexps.
 ;; Note that octal, decimal and hex numbers are in C format (no
@@ -471,6 +565,11 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 ;; What follows is a mix of recursive descent parsing and regexp kludging.
 ;; Doing it consistently one oway or the other may be better, but
 ;; bear with me.
+;;
+;; Old, first try, version:
+;;
+;; (defvar magiciel--*indirect-offset-regexp*
+;;  "(\\(.+\\)\\(\\([.,][bBcCeEfFgGhHiIlmsSqQ]\\)*\\([-+]*.+\\)\\)?)")
 
 (defconst magiciel--*indirect-offset-regexp*
   (rx "("
@@ -512,7 +611,12 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
   )
 
 
+;; Offset types.
+
 (cl-defstruct (magiciel--offset (:constructor nil))
+  "The representation of a magic(5) \"offset\".
+
+This is the \"abstract\" offset type."
   (string-rep "" :type string)
   (level 0 :type integer)
   cont
@@ -522,6 +626,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 (cl-defstruct (magiciel--direct-offset
 	       (:include magiciel--offset)
 	       (:constructor magiciel--make-direct-offset))
+  "The representation of a \"direct offset\"."
   (value 0 :type integer)
   )
 
@@ -530,6 +635,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	       (:include magiciel--offset)
 	       (:constructor magiciel--make-indirect-offset)
 	       )
+  "The representation of an \"indirect offset\"."
   
   ;; The fields correspond to the regex groups in
   ;; `magiciel--*indirect-offset-regexp*'.
@@ -544,11 +650,15 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
   )
 
 
+;; Offsets `cl-print-object' methods.
+
 (cl-defmethod cl-print-object ((mo magiciel--offset) stream)
   (princ (format "#<MAGICIEL record offset %S>"
 		 (magiciel--offset-string-rep mo))
 	 stream))
       
+
+;; magiciel--parse-offset
 
 (cl-defun magiciel--parse-offset (record)
   
@@ -560,7 +670,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	  (copy-sequence       ; Make sure to have stuff to muck with.
 	   (if (stringp record)	   ; Useful for testing and debugging.
 	       record
-	     (magiciel--magic-record-offset record))))
+	     (magiciel--normal-record-offset record))))
 	 (olen (length offset-string))
 	 (olen-1 (1- olen))
 	 (index 0)
@@ -1305,6 +1415,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
     ))
 
 
+;; Magiciel test values or operations.
 
 (cl-defstruct (magiciel--test
 	       (:constructor magiciel--make-test))
@@ -1315,7 +1426,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 
 
 (cl-defmethod cl-print-object ((mt magiciel--test) stream)
-  (princ (format "#<MAGICIEL test %S>"
+  (princ (format "#<MAGICIEL Test: %S>"
 		 (magiciel--test-test-string mt))
 	 stream))
 
@@ -1343,10 +1454,10 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	   )
       (list
        (magiciel--make-test :test-string test-spec-string
-			   :op (if op op '=)	; = is the default.
-			   :value (if op
-				      (cl-subseq test-spec-string 1)
-				    test-spec-string)))
+			    :op (if op op '=) ; = is the default.
+			    :value (if op
+				       (cl-subseq test-spec-string 1)
+				     test-spec-string)))
       ))
   ) ; magiciel--parse-test
 
@@ -1357,7 +1468,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 
 
 (cl-defmethod cl-print-object ((mm magiciel--message) stream)
-  (princ (format "#<MAGICIEL message %S>"
+  (princ (format "#<MAGICIEL Message: %s>"
 		 (magiciel--message-msg-string mm))
 	 stream))
 
