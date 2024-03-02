@@ -466,37 +466,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
   ns)					; Real result.
 
 
-;; magiciel--interpret-c-integer --
-
-(defun magiciel--interpret-c-integer (i)
-  "Takes a string `i' and reads an integer in C syntax from it.
-
-The integer is supposed to be in position 0.
-
-Cfr., the C standard(s) for integer syntax."
-  
-  ;; `i' is a string.
-  ;; The numbers are in C syntax.
-  (if (char-equal ?0 (aref i 0))	; Octal or Hex
-      (if (and (> (length i) 1)
-	       (let ((i1 (aref i 1)))
-		 (or (char-equal i1 ?x)
-		     (char-equal i1 ?X))))
-	  ;; Hex
-	  (car (read-from-string (concat "#x"
-					 (substring i 2))))
-	;; Octal (or 0; the "#o0" takes care of it.
-	(car (read-from-string (concat "#o0"
-				       (substring i 1))))
-	)
-    ;; Decimal
-    (car (read-from-string i))
-    ))
-
-
 ;; Magiciel offsets.
-
-
 
 
 ;; Number regexps.
@@ -1537,10 +1507,14 @@ This is the \"abstract\" offset type."
 
 
 (defun magiciel--parse-c-integer (i)
-  "Parses the string `i` as an integer in C syntax.
+  "Takes a string `i' and reads an integer in C syntax from it.
+
+The integer is supposed to be in position 0.
 
 No checks are made for correctness.  An integer is returned if all
-goes well."
+goes well.
+
+Cfr., the C standard(s) for integer syntax."
   
   (if (char-equal ?0 (aref i 0))	; Octal or Hex
       (if (and (> (length i) 1)
