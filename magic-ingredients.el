@@ -23,17 +23,18 @@
 
 (require 'cl-lib)
 (require 'bindat)
+(require 'bitpack)			; Getting ready for it.
 
 
 ;; magiciel-endianness
 
 (cl-deftype magiciel-endiannes ()
-  '(member :le :be :m :me))
+  '(member :le :be :m :me :< :>))
 
 
 ;; magiciel magic(5) "type" specifiers.
 
-(defconst magiciel--+numeric-type-specs+
+(defconst magiciel--+integer-type-specs+
   '(number				; "number" is not in the
 					; specs, but it is useful to
 					; have it here.
@@ -43,8 +44,21 @@
     quad  bequad  lequad
     ))
 
+(defconst magiciel--+real-type-specs+
+  '(float double))
+
+
+
+(cl-deftype magiciel--integer-type-spec ()
+  `(member ,@magiciel--+integer-type-specs+))
+
+
+(cl-deftype magiciel--real-type-spec ()
+  `(member ,@magiciel--+real-type-specs+))
+
+
 (cl-deftype magiciel--numeric-type-spec ()
-  `(member ,@magiciel--+numeric-type-specs+))
+  '(or magiciel--real-type-spec magiciel--integer-type-spec))
 
 
 (defconst magiciel--+date-type-specs+
