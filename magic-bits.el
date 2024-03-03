@@ -117,20 +117,20 @@
 			     )
   (let* ((unpacker
 	  (cl-ecase endianness
-	    (:le (cl-ecase n-bytes
-		   (1 magiciel--*uint8le-bindat*)
-		   (2 magiciel--*uint16le-bindat*)
-		   (3 magiciel--*uint24le-bindat*)
-		   (4 magiciel--*uint32le-bindat*)
-		   (8 magiciel--*uint64le-bindat*)
-		   ))
-	    (:be (cl-ecase n-bytes
-		   (1 magiciel--*uint8-bindat*)
-		   (2 magiciel--*uint16-bindat*)
-		   (3 magiciel--*uint24-bindat*)
-		   (4 magiciel--*uint32-bindat*)
-		   (8 magiciel--*uint64-bindat*)
-		   ))
+	    ((:le :<) (cl-ecase n-bytes
+			(1 magiciel--*uint8le-bindat*)
+			(2 magiciel--*uint16le-bindat*)
+			(3 magiciel--*uint24le-bindat*)
+			(4 magiciel--*uint32le-bindat*)
+			(8 magiciel--*uint64le-bindat*)
+			))
+	    ((:be :>) (cl-ecase n-bytes
+			(1 magiciel--*uint8-bindat*)
+			(2 magiciel--*uint16-bindat*)
+			(3 magiciel--*uint24-bindat*)
+			(4 magiciel--*uint32-bindat*)
+			(8 magiciel--*uint64-bindat*)
+			))
 	    ))
 	 (i (bindat-unpack unpacker binary-data loc))
 	 )
@@ -147,20 +147,20 @@
 			     )
   (let* ((unpacker
 	  (cl-ecase endianness
-	    (:le (cl-ecase n-bytes
-		   (1 magiciel--*sint8le-bindat*)
-		   (2 magiciel--*sint16le-bindat*)
-		   (3 magiciel--*sint24le-bindat*)
-		   (4 magiciel--*sint32le-bindat*)
-		   (8 magiciel--*sint64le-bindat*)
-		   ))
-	    (:be (cl-ecase n-bytes
-		   (1 magiciel--*sint8-bindat*)
-		   (2 magiciel--*sint16-bindat*)
-		   (3 magiciel--*sint24-bindat*)
-		   (4 magiciel--*sint32-bindat*)
-		   (8 magiciel--*sint64-bindat*)
-		   ))
+	    ((:le :<) (cl-ecase n-bytes
+			(1 magiciel--*sint8le-bindat*)
+			(2 magiciel--*sint16le-bindat*)
+			(3 magiciel--*sint24le-bindat*)
+			(4 magiciel--*sint32le-bindat*)
+			(8 magiciel--*sint64le-bindat*)
+			))
+	    ((:be :>) (cl-ecase n-bytes
+			(1 magiciel--*sint8-bindat*)
+			(2 magiciel--*sint16-bindat*)
+			(3 magiciel--*sint24-bindat*)
+			(4 magiciel--*sint32-bindat*)
+			(8 magiciel--*sint64-bindat*)
+			))
 	    ))
 	 (i (bindat-unpack unpacker binary-data loc))
 	 )
