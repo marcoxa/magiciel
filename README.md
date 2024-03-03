@@ -16,6 +16,16 @@ There are two reasons for its existence.
 5. Did I say there were *two* reasons?
 
 
+## Goals
+
+The final version (available "very soon now" (tm)) will allow you to
+get information about a file (and MIME information) directly from
+**Emacs Lisp**.
+
+Also, the library will allow you to load and compile `magic(5)` files
+in a modular way.
+
+
 # Installing and Using MAGICIEL
 
 To use the package, just install the folder `magiciel` in your Emacs
