@@ -31,23 +31,20 @@
 ;; magiciel--common-type-spec
 
 (cl-defstruct (magiciel--common-type-spec
-	       (:constructor
-		magiciel--%make-common-type-spec (type-spec-string
-						 spec
-						 &optional
-						 (byte-len 1)
-						 (endian :le)
-						 unsigned
-						 )))
-  "The representation of \"types\" in a \"magic(5)\" record."
+	       (:constructor nil)	; This is an "abstract" type.
+	       )
+  "The representation of \"types\" in a \"magic(5)\" record.
+
+The \"types\" can be either in the \\='type\\=' field or in the
+\\='offset\\=' field; their representation is similar."
   
   (type-spec-string "" :type string)
   (unsigned nil :type boolean)
   (spec nil :type symbol)
-  (endian :le)				; One of :le, :be, :me or :m (go
-					; figure).  :le should work
-					; for most platforms; but do check.
-  (byte-len 1 :type integer)		; Number of bytes.
+  (endian :le :type symbol)	   ; One of :le, :be, :me or :m (go
+				   ; figure).  :le should work for
+				   ; most platforms; but do check.
+  (byte-len 1 :type integer)	   ; Number of bytes.
   
   )
 
@@ -58,13 +55,13 @@
 	       (:include magiciel--common-type-spec)
 	       (:constructor
 		magiciel--%make-record-type-spec (type-spec-string
-						 spec
-						 &optional
-						 modifiers
-						 (byte-len 1)
-						 (endian :le)
-						 unsigned
-						 )))
+						  spec
+						  &optional
+						  modifiers
+						  (byte-len 1)
+						  (endian :le)
+						  unsigned
+						  )))
   "The representation of the type field in a \"magic(5)\" record."
   
   (modifiers ())
@@ -111,8 +108,7 @@
 						  (endian :le)
 						  unsigned
 						  )))
-  "The representation of the type field in a \"magic(5)\" record."
-
+  "The representation of the type field in a \"magic(5)\" offset."
   )
 
 
