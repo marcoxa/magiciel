@@ -590,6 +590,8 @@ This is the \"abstract\" offset type."
   (string-rep "" :type string)
   (level 0 :type integer)
   cont
+  (code nil)				; This slot is filled by the
+					; "compiler".
   )
 
 
@@ -1401,6 +1403,8 @@ This is the \"abstract\" offset type."
 	 stream))
 
 
+;; magiciel--parse-test
+
 (cl-defun magiciel--parse-test (record)
   (unless (or (stringp record)
 	      (magiciel--magic-record-is-normal record))
@@ -1432,6 +1436,8 @@ This is the \"abstract\" offset type."
   ) ; magiciel--parse-test
 
 
+;; magiciel--message
+
 (cl-defstruct (magiciel--message
 	       (:constructor magiciel--make-message))
   (msg-string "" :type string))
@@ -1442,6 +1448,8 @@ This is the \"abstract\" offset type."
 		 (magiciel--message-msg-string mm))
 	 stream))
 
+
+;; magiciel--parse-message
 
 (cl-defun magiciel--parse-message (record)
   (unless (or (stringp record)
@@ -1460,6 +1468,7 @@ This is the \"abstract\" offset type."
     (list (magiciel--make-message :msg-string msg-spec-string))))
 			     
 
+;; magiciel--parse-special-record
 
 (cl-defun magiciel--parse-special-record (record)
   (unless (or (stringp record)
@@ -1506,7 +1515,14 @@ This is the \"abstract\" offset type."
   )
 
 
-(defun magiciel--parse-c-integer (i)
+;; magiciel--convert-c-integer
+;; magiciel--convert-c-number
+;;
+;; Kludgy (very kludgy) functions to get a integer or a number from a string.
+;;
+;; They will have to be replaced with proper parsing functions.
+
+(defun magiciel--convert-c-integer (i)
   "Takes a string `i' and reads an integer in C syntax from it.
 
 The integer is supposed to be in position 0.
@@ -1529,6 +1545,31 @@ Cfr., the C standard(s) for integer syntax."
 				       (substring i 1))))
 	)
     ;; Decimal
+    (car (read-from-string i))
+    ))
+
+
+(defun magiciel--convert-c-number (i)
+  "Takes a string `i' and reads a number in C syntax from it.
+
+No checks are made for correctness.  A number is returned if all
+goes well.
+
+Cfr., the C standard(s) for number constants."
+  
+  (if (char-equal ?0 (aref i 0))	; Octal or Hex
+      (if (and (> (length i) 1)
+	       (let ((i1 (aref i 1)))
+		 (or (char-equal i1 ?x)
+		     (char-equal i1 ?X))))
+	  ;; Hex
+	  (car (read-from-string (concat "#x"
+					 (substring i 2))))
+	;; Octal (or 0; the "#o0" takes care of it.
+	(car (read-from-string (concat "#o0"
+				       (substring i 1))))
+	)
+    ;; Decimal number.
     (car (read-from-string i))
     ))
 
