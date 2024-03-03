@@ -8,6 +8,21 @@
 ;;
 ;; Compile magic records to guess a file type.
 ;;
+;; The "compilation" is organized around four functions, each
+;; compiling one of four "fields" of each record.
+;; - `magiciel--compile-offset'
+;; - `magiciel--compile-test'
+;; - `magiciel--compile-test-value'
+;; - `magiciel--compile-message'
+;;
+;; Of course, the last two are rather simple.
+;; The results of these functions are combined by the function
+;; `magiciel--compile-instr'.
+;;
+;; The "instructions" returned by the previous functions are combined
+;; in "checks", which are the end, funcallable, result of the
+;; "compilation".
+;;
 ;; Notes:
 ;;
 ;; 2024-02-12:
@@ -35,7 +50,31 @@
 (require 'magiciel-parse-magic)
 
 
-(cl-defun magiciel-compile-magic (magic &optional (steps 1))
+;; magiciel--instruction
+;;
+;; The results of `magiciel--compile-record'.
+
+(cl-defstruct (magiciel--instruction
+	       (:constructor magiciel--make-instruction))
+  (level 0 :type integer :read-only t)
+  offset
+  test
+  result
+  )
+
+
+(cl-defmethod cl-print-object ((mi magiciel--instruction) stream)
+  (princ (format "#<MAGICIEL Instruction: %s %s %s>"
+		 (magiciel--instruction-offset mi)
+		 (magiciel--instruction-test mi)
+		 (magiciel--instruction-result mi))
+	 stream))
+
+
+
+;;;;;;;;
+
+(cl-defun magiciel-compile-magic-saved (magic &optional (steps 1))
   (message "\nMAGICIEL: compiling magic...\n")
   (let ((code-recs
 	 (cl-remove-if #'(lambda (r)
@@ -129,6 +168,105 @@
       )))
 
 
+;; magiciel-compile-magic
+
+(cl-defun magiciel-compile-magic (magic &optional (steps 1))
+  "Compiles a `magiciel-magic' structure."
+  
+  (message "\nMAGICIEL: compiling magic...\n")
+  (let ((code-recs
+	 (cl-remove-if #'(lambda (r)
+			   (or (magiciel--magic-record-is-comment r)
+			       (magiciel--magic-record-is-empty r)))
+		       (magiciel--magic-records magic))
+	 )
+	)
+    ;; Assume records are in proper order.
+
+    ;; Step 1: group records.
+    ;; A group (a list) is a 0 offset level record, followed by
+    ;; records at offset level 1 or more and by special ones.
+
+    (let ((recs-groups ())
+	  (comp-rec-groups ())
+	  )
+      (cl-labels
+	  ((start (recs)
+	     (process-magic-records recs ()))
+
+	   (finish ()
+	     (message "MAGICIEL: finishing.")
+	     (setf recs-groups (nreverse recs-groups))
+	     )
+
+	   (process-magic-records (recs current-group  &aux (r (car recs)))
+	     (message "MAGICIEL: process-magic-records: %d to go..."
+		      (length recs))
+	     
+	     (cond ((null recs)
+		    (push current-group recs-groups)
+		    (finish))
+
+		   ((magiciel--magic-record-is-normal r)
+		    (process-normal-rec r (cl-rest recs) current-group))
+
+		   ((magiciel--magic-record-is-special r)
+		    (process-special-rec r (cl-rest recs) current-group))
+
+		   (t 
+		    (error "MAGICIEL: unexpected record %S." r))
+		   )
+	     )				; process-magic-records
+	     
+	   (process-normal-rec (r more-recs current-group)
+	     (message "MAGICIEL: process-normal-rec: %S (len %d)."
+		      r
+		      (length current-group))
+
+	     (cl-assert (magiciel--magic-record-is-normal r)) ; Paranoia.
+
+	     (if (zerop (magiciel--offset-level
+			 (magiciel--normal-record-offset r)))
+		 (progn
+		   (when current-group
+		     (message "MAGICIEL: current group size %d."
+			      (length current-group))
+		     (push current-group recs-groups))
+		   (process-magic-records more-recs (list r)))
+	       ;; Continue with current group...
+	       (process-magic-records more-recs
+				      (append current-group (list r))))
+	     )				; process-normal-rec
+
+	   (process-special-rec (r more-recs current-group)
+	     (message "MAGICIEL: process-normal-rec: %S (len %d)."
+		      r
+		      (length current-group))
+	     (process-magic-records more-recs
+				    (append current-group (list r)))
+	     )				; process-special-rec
+	   )				; cl-labels
+
+	(message "\nMAGICIEL: grouping records...")
+	(start code-recs)
+	
+	(when (<= steps 1)
+	  (cl-return-from magiciel-compile-magic recs-groups))
+
+	;; Step 2: compile each record in each group.
+	;; First 0-level test in each group is then treated specially.
+	
+	(message "\nMAGICIEL: compiling record groups...")
+	(cl-loop for g in recs-groups
+		 collect (mapcar #'magiciel--compile-record  g)
+		 into cgrps
+		 finally (setf comp-rec-groups cgrps)
+		 ))
+      )))
+
+
+;; magiciel--select-op
+
 (cl-defgeneric magiciel--select-op (op type))
 
 
@@ -163,7 +301,7 @@
 
 
 ;; `number' is not a "class".
-;; (cl-defmethod magiciel--select-op ((op (eql '!)) (type 'number))
+;; (cl-defmethod magiciel--select-op ((op (eql '!)) (type number))
 ;;   (ignore op type)
 ;;  '/=)
 
@@ -306,6 +444,163 @@
   )
 
 
+;; magiciel-compile-instr
+
+(cl-defgeneric magiciel--compile-instr (off-op type test result-msg)
+  )
+
+(cl-defmethod magiciel--compile-instr ((off-op magiciel--offset)
+				       (type magiciel--common-type-spec)
+				       test
+				       result-msg)
+  (cond ((magiciel--exec-type-spec-p type)
+	 (magiciel--compile-instr off-op
+				  (magiciel--common-type-spec-spec type)
+				  test
+				  result-msg))
+
+	((magiciel--numeric-type-spec-p type)
+	 (magiciel--make-instruction :offset off-op
+				     :test test
+				     :result result-msg))
+
+	((magiciel--date-type-spec-p type)
+	 (magiciel--make-instruction :offset off-op
+				     :test test
+				     :result result-msg))
+
+	((magiciel--string-type-spec-p type)
+	 (magiciel--make-instruction :offset off-op
+				     :test test
+				     :result result-msg))
+	)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'regex))
+				       test-val
+				       result-msg
+				       )
+  (ignore type)
+  
+  ;; Should check that `test-val' is \"x\".
+  
+  (magiciel--make-instruction :offset offset
+			      :test `(string-match ',test-val bytes pos)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'name))
+				       test-val
+				       result-msg
+				       )
+  (ignore type)
+  
+  (magiciel--make-instruction :offset offset
+			      :test '(name ,test-val)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'indirect))
+				       test-val
+				       result-msg
+				       )
+  (ignore type test-val)
+  
+  (magiciel--make-instruction :offset offset
+			      :test '(indirect ,offset)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'use))
+				       test-val
+				       result-msg
+				       )
+  (ignore type test-val)
+  
+  (magiciel--make-instruction :offset offset
+			      :test `(use ,test-val)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'search))
+				       test-val
+				       result-msg
+				       )
+  (ignore type test-val)
+  
+  (magiciel--make-instruction :offset offset
+			      :test `(string-search ,test-val bytes ,offset)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'default))
+				       test-val
+				       result-msg
+				       )
+  (ignore type test-val)
+  
+  ;; Should check that `test-val' is \"x\".
+  
+  (magiciel--make-instruction :offset offset
+			      :test `(default)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'clear))
+				       test-val
+				       result-msg
+				       )
+  (ignore type test-val)
+  
+  ;; Should check that `test-val' is \"x\".
+  
+  (magiciel--make-instruction :offset offset
+			      :test `(clear)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'offset))
+				       test-val
+				       result-msg
+				       )
+  (ignore type)
+  
+  ;; Should check that `test-val' is \"x\".
+  
+  (magiciel--make-instruction :offset offset
+			      :test '(offset)
+			      :result result-msg)
+  )
+
+
+(cl-defmethod magiciel--compile-instr
+  :before ((offset magiciel--offset)
+	   type
+	   test
+	   result-msg)
+
+  ;; Ensure that the offset has already been compiled.
+  
+  (unless (magiciel--offset-code offset)
+    (setf (magiciel--offset-code offset)
+	  (magiciel--compile-offset offset))))
+
 
 ;; magiciel--compile-record
 ;; Generate a lambda that does sets up all the necessary
@@ -316,7 +611,7 @@
 ;; and a position in said string, called `pos'.
 
 
-(cl-defun magiciel--compile-record (r)
+(cl-defun magiciel--compile-record-saved (r)
   (message "\nMAGICIEL: compiling record %S." r)
 
   (unless (magiciel--magic-record-p r)
@@ -456,6 +751,7 @@
 
 	 (compile-test-value (test-value type-spec)
 	   (cond ((magiciel--numeric-type-spec-p type-spec)
+		  (magiciel--parse-c-integer
 		  (car (read-from-string
 			(magiciel--lispify-number-string test-value))))
 		 ((magiciel--exec-type-spec-p type-spec)
@@ -571,6 +867,260 @@
     ))
 
 
+;; magiciel--compile-offset
+
+(cl-defgeneric magiciel--compile-offset (offset))
+
+
+(cl-defmethod magiciel--compile-offset ((offset magiciel--direct-offset))
+  (if (magiciel--direct-offset-cont offset)
+	 `(+ pos ,(magiciel--direct-offset-value offset))
+    (magiciel--direct-offset-value offset)))
+
+
+(cl-defmethod magiciel--compile-offset ((offset magiciel--indirect-offset))
+  (if (magiciel--indirect-offset-cont offset)
+	 `(+ pos ,(magiciel--compile-indirect-offset offset))
+       (magiciel--compile-indirect-offset offset)))
+
+
+;; magiciel--compile-indirect-offset
+
+(cl-defun magiciel--compile-indirect-offset (ind-off)
+  ;; FTTB
+  (cl-labels
+      ((compile-ind-offset-type (ind-off)
+
+	 ;; New verision.
+	   
+	 (let ((ind-addr (magiciel--indirect-offset-addr ind-off))
+	       (ind-type (magiciel--indirect-offset-type ind-off))
+	       )
+
+	   ;; `ind-type' is a `magiciel--offset-type-spec'.
+	   
+	   (list ind-addr ind-type)))
+
+       (select-op (op)
+	   ;; `op' should be a symbol.
+	   (pcase op
+	     ((or '- '+ '* '/) op)
+	     ('% 'mod)
+	     ('& 'logand)
+	     ('| 'logior)
+	     ('^ 'logxor)		; Check the `logior'..
+	     (_ '+)			; Really nothing, as number
+					; will be "", hence 0.
+	     )
+	   )
+
+       (compile-ind-offset-modifier (ind-off)
+	 (let ((ind-op     (magiciel--indirect-offset-op   ind-off))
+	       (ind-is-len (magiciel--indirect-offset-is-len ind-off))
+	       (ind-sign   (magiciel--indirect-offset-sign ind-off))
+	       (ind-num    (magiciel--indirect-offset-num  ind-off))
+	       )
+
+	   ;; Should move these in parsing.
+	     
+	   (setf ind-op (select-op ind-op)
+
+		 ind-sign (pcase ind-sign
+			    ((or "" "+") '+)
+			    (_ '-))
+
+		 ind-num (if ind-is-len
+			     `(,ind-sign ,ind-num)
+			   ind-num)
+		 )
+
+	   (list ind-op ind-sign ind-num)
+	   ))
+       )	    
+    (cl-destructuring-bind (ind-addr ind-subtype)
+	(compile-ind-offset-type ind-off)
+      (cl-destructuring-bind (ind-op ind-sign ind-num)
+	  (compile-ind-offset-modifier ind-off)
+	(ignore ind-sign)
+	(let ((type-spec   (magiciel--offset-type-spec-spec ind-subtype))
+	      (type-endian (magiciel--offset-type-spec-endian ind-subtype))
+	      (type-len    (magiciel--offset-type-spec-byte-len ind-subtype))
+	      (type-sign   (magiciel--offset-type-spec-unsigned ind-subtype))
+	      ;; (test-op  (magiciel--test-op test))
+	      ;; (test-val (magiciel--test-value test))
+	      )
+	  `(,ind-op
+	    ,(if (magiciel--indirect-offset-rel ind-off)
+		 `(magiciel--get-value-at* bytes
+					   (+ pos ,ind-addr)
+					   ',type-spec
+					   ',type-sign
+					   ',type-endian
+					   ()
+					   ',type-len
+					   )
+	       `(magiciel--get-value-at* bytes
+					 ,ind-addr
+					 ',type-spec
+					 ',type-sign
+					 ',type-endian
+					 ()
+					 ',type-len
+					 ))
+	    ,(if (listp ind-num)
+		 (if (magiciel--indirect-offset-rel ind-off)
+		     `(magiciel--get-value-at
+		       (+ pos ,ind-addr ,ind-num)
+		       ',ind-subtype)
+		   `(magiciel--get-value-at
+		     (+ ,ind-addr ,ind-num)))
+	       ind-num)))
+	)))
+  )
+
+
+;; magiciel--compile-record
+
+(cl-defgeneric magiciel--compile-record (r))
+
+
+(cl-defmethod magiciel--compile-record ((r t))
+  (message "MAGICIEL: not a magic record: %s." r)
+  nil)
+
+
+(cl-defmethod magiciel--compile-record ((r magiciel--magic-record))
+  (message "MAGICIEL: not a normal magic record: %s." r)
+  nil)
+
+  
+(cl-defmethod magiciel--compile-record ((r magiciel--normal-record))
+  (let ((offset (magiciel--normal-record-offset r))
+	(type   (magiciel--normal-record-type r))
+	(test   (magiciel--normal-record-test r))
+	(msg    (magiciel--normal-record-message r))
+	)
+    
+    (cl-labels
+	((compile-test (off-op type test)
+
+	   ;; The following bindings may be taken out of the two
+	   ;; functions `compile-test' and `compile-exec' (this one).
+
+	   (let ((type-spec   (magiciel--record-type-spec-spec type))
+		 (type-mods   (magiciel--record-type-spec-modifiers type))
+		 (type-endian (magiciel--record-type-spec-endian type))
+		 (type-len    (magiciel--record-type-spec-byte-len type))
+		 (type-sign   (magiciel--record-type-spec-unsigned type))
+		 (test-op  (magiciel--test-op test))
+		 (test-val (magiciel--test-value test))
+		 )
+
+	     (cond ((string-equal "x" test-val)
+		    ;; "x" matches anything; a wart in the spec.  What
+		    ;; about a string that should match exactly "x"?
+		    t
+		    )
+		   
+		   ((magiciel--numeric-type-spec-p type-spec)
+		    `(,(magiciel--select-op test-op 'number)
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',(magiciel--compile-test-value test-val type-spec)))
+
+		   ((magiciel--date-type-spec-p type-spec)
+		    `(,(magiciel--select-op test-op 'date)
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',test-val)) ; A string, but it must be double checked..
+
+		   ((magiciel--string-type-spec-p type-spec)
+		    `(,(magiciel--select-op test-op 'string)
+		      (magiciel--get-value-at* bytes
+					       pos
+					       ',type-spec
+					       ',type-sign
+					       ',type-endian
+					       ',type-mods
+					       ',type-len
+					       ,off-op)
+		      ',test-val))	; Already a string.
+		   
+		   ))
+	   )				; compile-test
+
+	 (compile-exec (off-op type test msg)
+	   
+	   ;; The following bindings may be taken out of the two
+	   ;; functions `compile-test' and `compile-exec' (this one).
+	   
+	   (let ((type-spec   (magiciel--record-type-spec-spec type))
+		 (type-mods   (magiciel--record-type-spec-modifiers type))
+		 (type-endian (magiciel--record-type-spec-endian type))
+		 (type-len    (magiciel--record-type-spec-byte-len type))
+		 (type-sign   (magiciel--record-type-spec-unsigned type))
+		 (test-op  (magiciel--test-op test))
+		 (test-val (magiciel--test-value test))
+		 )
+
+	     (ignore type-mods type-endian type-len type-sign)
+
+	     (magiciel--compile-exec type-spec test-val off-op test-op msg)
+	     )
+	   )				; compile-exec
+
+	 (compile-record-test (off-op type test result-msg)
+	   `(lambda (bytes pos)
+	      (when ,(compile-test off-op type test)
+		,result-msg))
+	   )				; compile-record-test
+	 )				; cl-labels
+
+      ;; (let ((off-op (magiciel--compile-offset offset))
+      ;;       (result-msg (magiciel--message-msg-string msg))
+      ;;       )
+      ;; 	(cond ((magiciel--exec-type-spec-p type)
+      ;; 	       (compile-exec off-op type test result-msg))
+      ;; 	      (t
+      ;; 	       (compile-record-test off-op type test result-msg))
+      ;; 	      )
+      ;; 	)
+
+      (magiciel--compile-instr offset
+			       type
+			       test
+			       (magiciel--message-msg-string msg))
+
+      )
+    )
+  )
+
+
+(cl-defun magiciel--compile-test-value (test-value type-spec)
+  (cond ((magiciel--numeric-type-spec-p type-spec)
+	 ;; (car (read-from-string
+	 ;;       (magiciel--lispify-number-string test-value)))
+	 (magiciel--convert-c-number test-value) ; The result may be inconsistent.
+	 )
+	((magiciel--exec-type-spec-p type-spec) ; Symmetry.
+	 test-value
+	 )
+	(t test-value))
+  )
+
+
 ;; The next function and its use cases will be moved in parsing.
 ;; Hence it will disapper soon.
 
@@ -608,6 +1158,7 @@
 
   (cl-assert (magiciel--record-type-spec-p type))
   type)
+
 
 
 (provide 'magiciel-compile-magic)
