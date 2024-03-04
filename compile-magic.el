@@ -388,6 +388,12 @@
 ;; magiciel-compile-instr
 ;; Methods.
 
+(cl-defun magiciel--pass-instr (offset msg)
+  (magiciel--make-instruction :offset offset
+			      :test `(progn t) ; No CONS "constants".
+			      :message msg))
+
+
 (cl-defmethod magiciel--compile-instr ((off-op magiciel--offset)
 				       (type magiciel--common-type-spec)
 				       test
@@ -451,68 +457,79 @@
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'regex))
-				       test-val
+				       test
 				       result-msg
 				       )
   (ignore type)
   
-  ;; Should check that `test-val' is \"x\".
-  
-  (magiciel--make-instruction :offset offset
-			      :test `(string-match ',test-val %bytes% %pos%)
-			      :result result-msg)
+  (let ((off-op (magiciel--offset-code offset))
+	(test-val (magiciel--test-value test))
+	)
+    (magiciel--make-instruction
+     :offset offset
+     :test `(string-match ',test-val %bytes% ,off-op)
+     :result result-msg))
   )
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'name))
-				       test-val
+				       test
 				       result-msg
 				       )
-  (ignore type test-val)
-  
-  (magiciel--make-instruction :offset offset
-			      :test '(name ,test-val)
-			      :result result-msg)
-  )
+  (ignore type)
+
+  (let ((off-op (magiciel--offset-code offset))
+	(test-val (magiciel--test-value test))
+	)
+    
+    (magiciel--make-instruction :offset offset
+				:test `(name ,test-val ,off-op)
+				:result result-msg))
+    )
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'indirect))
-				       test-val
+				       test
 				       result-msg
 				       )
-  (ignore type test-val)
-  
-  (magiciel--make-instruction :offset offset
-			      :test '(indirect ,offset)
-			      :result result-msg)
+  (ignore type test)
+
+  (let ((off-op (magiciel--offset-code offset)))
+    (magiciel--make-instruction :offset offset
+				:test `(indirect ,off-op)
+				:result result-msg))
   )
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'use))
-				       test-val
+				       test
 				       result-msg
 				       )
-  (ignore type test-val)
-  
-  (magiciel--make-instruction :offset offset
-			      :test `(use ,test-val)
-			      :result result-msg)
+  (ignore type)
+
+  (let ((test-val (magiciel--test-value test)))
+    (magiciel--make-instruction :offset offset
+				:test `(use ,test-val)
+				:result result-msg))
   )
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'search))
-				       test-val
+				       test
 				       result-msg
 				       )
-  (ignore type test-val)
-  
-  (magiciel--make-instruction :offset offset
-			      :test `(string-search ,test-val %bytes% ,offset)
-			      :result result-msg)
+  (ignore type)
+
+  (let ((off-op (magiciel--offset-code offset))
+	(test-val (magiciel--test-value test))
+	)
+    (magiciel--make-instruction :offset offset
+				:test `(string-search ,test-val %bytes% ,off-op)
+				:result result-msg))
   )
 
 
@@ -554,11 +571,11 @@
   (ignore type test-val)
   
   ;; Should check that `test-val' is \"x\".
-  
-  (magiciel--make-instruction :offset offset
-			      :test '(offset)
-			      :result result-msg)
-  )
+  (let ((off-op (magiciel--offset-code offset)))
+    (magiciel--make-instruction :offset offset
+				:test `(offset ,off-op)
+				:result result-msg))
+    )
 
 
 (cl-defmethod magiciel--compile-instr
@@ -643,7 +660,8 @@
 
 	   (list ind-op ind-sign ind-num)
 	   ))
-       )	    
+       )	    			; cl-labels
+    
     (cl-destructuring-bind (ind-addr ind-subtype)
 	(compile-ind-offset-type ind-off)
       (cl-destructuring-bind (ind-op ind-sign ind-num)
