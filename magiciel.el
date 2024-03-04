@@ -15,6 +15,8 @@
 ;; Magiciel setup.
 
 (require 'cl-lib)
+(require 'bindat)
+(require 'bitpack)			; Getting ready for it.
 
 
 (defvar magiciel-path (file-name-directory (or load-file-name "."))
