@@ -85,7 +85,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defmethod cl-print-object ((rts magiciel--record-type-spec) stream)
-  (princ (format "#<MAGICIEL record type %s %S %S %S %S>"
+  (princ (format "#<MAGICIEL record type: %s %S %S %S %S>"
 		 (if (magiciel--record-type-spec-unsigned rts)
 		     'unsigned
 		   'signed)
@@ -129,7 +129,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defmethod cl-print-object ((rts magiciel--offset-type-spec) stream)
-  (princ (format "#<MAGICIEL offset type %s %S %S %S>"
+  (princ (format "#<MAGICIEL offset type: %s %S %S %S>"
 		 (if (magiciel--offset-type-spec-unsigned rts)
 		     'unsigned
 		   'signed)
