@@ -173,7 +173,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 ;; Magiciel records.
 ;;
 ;; Notes:
-;; I but the bullet and I subtype them.
+;; I bite the bullet and I subtype them.
 
 (cl-defstruct (magiciel--magic-record (:constructor nil))
   "The representation of a line in a \"magic(5)\" UN*X file.
@@ -1390,6 +1390,7 @@ This is the \"abstract\" offset type."
   (test-string "" :type string)
   (op nil :type symbol)
   (value nil)
+  (modifiers ())
   )
 
 
