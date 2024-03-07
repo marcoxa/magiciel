@@ -21,7 +21,8 @@
 ;;
 ;; The "instructions" returned by the previous functions are combined
 ;; in "checks", which are the end, funcallable, result of the
-;; "compilation".
+;; "compilation".  The main function that builds the checks is
+;; `magiciel--emit'.
 ;;
 ;; Notes:
 ;;
@@ -65,7 +66,8 @@
 (cl-defgeneric magiciel--compile-message (message)
   )
 
-(cl-defgeneric magiciel--compile-instr (off-op type test result-msg)
+(cl-defgeneric magiciel--compile-instr
+    (off-op type test result-msg &key &allow-other-keys)
   )
 
 (cl-defgeneric magiciel--compile-access
@@ -73,15 +75,34 @@
   )
 
 
+(cl-defgeneric magiciel--emit (kind
+			       instruction
+			       &key
+			       m-name
+			       &allow-other-keys))
+
+
 ;; magiciel--instruction
 ;;
 ;; The results of `magiciel--compile-record'.
+;;
+;; The fields are the results of the compilation and are predisposed
+;; to the actual checking operations.
+;;
+;; A checking operation "accesses" some "data"...
+;; At a given "offset"...
+;; Performing some "test"...
+;; While using a "value"...
+;; Returning a string (or a special record) using said "data".
 
 (cl-defstruct (magiciel--instruction
 	       (:constructor magiciel--make-instruction
 			     (&key
+			      (kind '=)
 			      offset
+			      access
 			      test
+			      (value t)
 			      result
 			      (level
 			       (if (magiciel--offset-p offset)
@@ -90,17 +111,22 @@
 				 0))
 			      )))
   (level 0 :type integer :read-only t)
+  (kind '= :type symbol)
   offset
+  access
   test
-  result
+  (value t)
+  (result "" :type string :read-only t)
   )
 
 
 (cl-defmethod cl-print-object ((mi magiciel--instruction) stream)
-  (princ (format "#<MAGICIEL Instruction: (%d) %s %s %s>"
+  (princ (format "#<MAGICIEL Instruction: (%d) %s %S %s %s %s>"
 		 (magiciel--instruction-level mi)
 		 (magiciel--instruction-offset mi)
+		 (magiciel--instruction-access mi)
 		 (magiciel--instruction-test mi)
+		 (magiciel--instruction-value mi)
 		 (magiciel--instruction-result mi))
 	 stream))
 
@@ -188,7 +214,8 @@
 	(start code-recs)
 	
 	(when (<= steps 1)
-	  (cl-return-from magiciel-compile-magic recs-groups))
+	  (cl-return-from magiciel-compile-magic
+	    (cl-values recs-groups comp-rec-groups)))
 
 	;; Step 2: compile each record in each group.
 	;; First 0-level test in each group is then treated specially.
@@ -199,7 +226,7 @@
 		 into cgrps
 		 finally
 		 (setf comp-rec-groups cgrps)
-		 (cl-return comp-rec-groups)
+		 (cl-return (cl-values recs-groups comp-rec-groups))
 		 ))
       )))
 
@@ -286,218 +313,169 @@
   '/=)
 
 
-;; magiciel--compile-exec
-;; Generic function used to compile the special tests dubbed "execs".
-
-;; (cl-defgeneric magiciel--compile-exec (spec test-val off-op
-;; 					    &optional
-;; 					    test-op
-;; 					    msg)
-;;   )
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'regex))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec off-op test-op)
-;;   `(when (string-match ',test-val bytes pos) ,msg))
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'name))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec off-op test-op msg)
-;;   `(name ,test-val))
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'indirect))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec test-val off-op test-op)
-;;   `(when (indirect ,off-op) ,msg))
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'use))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec test-val off-op test-op)
-;;   `(when (use ,test-val) ,msg))
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'search))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec test-val off-op test-op)
-;;   `(when (string-search ,test-val bytes ,off-op) ,msg))
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'default))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec test-val off-op test-op)
-
-;;   ;; Should check that `test-val' is \"x\".
-;;   `(when t ,msg)
-;;   )
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'clear))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec test-val off-op test-op msg)
-  
-;;   ;; Should check that `test-val' is \"x\".
-;;   '(clear)
-;;   )
-
-
-;; (cl-defmethod magiciel--compile-exec ((spec (eql 'offset))
-;; 				      test-val
-;; 				      off-op
-;; 				      &optional
-;; 				      test-op
-;; 				      (msg ""))
-;;   (ignore spec test-val off-op test-op msg)
-  
-;;   ;; Should check that `test-val' is \"x\".
-;;   '(offset)
-;;   )
-
-
 ;; magiciel-compile-instr
 ;; Methods.
 
 (cl-defun magiciel--pass-instr (offset msg)
   (magiciel--make-instruction :offset offset
-			      :test `(progn t) ; No CONS "constants".
-			      :message msg))
+			      :access (magiciel--offset-code offset)
+			      :test 'and
+			      :result msg))
 
 
 (cl-defmethod magiciel--compile-instr ((off-op magiciel--offset)
-				       (type magiciel--common-type-spec)
-				       test
-				       result-msg)
-  ;; The calls to `magiciel--compile-test' and
-  ;; `magiciel--compile-message' are really a no-ops, but are there
-  ;; for symmetry.
-
-  (if (magiciel--exec-type-spec-p type)
-      ;; Records that have a "command" as type are treated specially.
-      
-      (magiciel--compile-instr off-op
-			       (magiciel--common-type-spec-spec type)
-			       (magiciel--compile-test test)
-			       (magiciel--compile-message result-msg))
+				       (type magiciel--record-type-spec)
+				       (test magiciel--test)
+				       result-msg
+				       &key
+				       &allow-other-keys)
+  (let ((type-mods (magiciel--record-type-spec-modifiers type))
+	(test-mods (magiciel--test-modifiers test))
+	)
     
-    (let* ((compiled-type (magiciel--compile-type type))
-	   (compiled-test (magiciel--compile-test test)) 
-	   (compiled-msg  (magiciel--compile-message result-msg)) ; A string.
+    ;; The calls to `magiciel--compile-test' and
+    ;; `magiciel--compile-message' are really a no-ops, but are there
+    ;; for symmetry.
 
-	   ;; Unpack the type and the test.
-	   (type-spec   (magiciel--record-type-spec-spec compiled-type))
-	   (type-mods   (magiciel--record-type-spec-modifiers compiled-type))
-	   (type-endian (magiciel--record-type-spec-endian compiled-type))
-	   (type-len    (magiciel--record-type-spec-byte-len compiled-type))
-	   (type-sign   (magiciel--record-type-spec-unsigned compiled-type))
+    (if (magiciel--exec-type-spec-p type)
+	;; Records that have a "command" as type are treated specially.
+      
+	(magiciel--compile-instr off-op
+				 (magiciel--common-type-spec-spec type)
+				 (magiciel--compile-test test)
+				 (magiciel--compile-message result-msg)
+				 :type-mods type-mods
+				 :test-mods test-mods
+				 )
+    
+      (let* ((compiled-type (magiciel--compile-type type))
+	     (compiled-test (magiciel--compile-test test)) 
+	     (compiled-msg  (magiciel--compile-message result-msg)) ; A string.
+
+	     ;; Unpack the type and the test.
+	     (type-spec   (magiciel--record-type-spec-spec compiled-type))
+	     (type-mods   (magiciel--record-type-spec-modifiers compiled-type))
+	     (type-endian (magiciel--record-type-spec-endian compiled-type))
+	     (type-len    (magiciel--record-type-spec-byte-len compiled-type))
+	     (type-sign   (magiciel--record-type-spec-unsigned compiled-type))
 	   
-	   (test-op  (magiciel--test-op compiled-test))
-	   (test-val (magiciel--test-value compiled-test))
+	     (test-op  (magiciel--test-op compiled-test))
+	     (test-val (magiciel--test-value compiled-test))
 
-	   (selected-test-op
-	    (cond ((magiciel--numeric-type-spec-p type)
-		   (magiciel--select-op test-op 'number))
+	     (selected-test-op
+	      (cond ((magiciel--numeric-type-spec-p type)
+		     (magiciel--select-op test-op 'number))
 		  
-		  ((magiciel--date-type-spec-p type)
-		   (magiciel--select-op test-op 'date))
+		    ((magiciel--date-type-spec-p type)
+		     (magiciel--select-op test-op 'date))
 
-		  ((magiciel--string-type-spec-p type)
-		   (magiciel--select-op test-op 'string))
-		  )
-	    )
-	   )
+		    ((magiciel--string-type-spec-p type)
+		     (magiciel--select-op test-op 'string))
+		    )
+	      )
+	     )
 
-      (magiciel--make-instruction
-       :offset off-op
-       :test `(,selected-test-op
-	       ,(magiciel--compile-access type-spec
-					  type-sign
-					  type-endian
-					  type-mods
-					  type-len
-					  off-op
-					  )
-	       ,(magiciel--compile-test-value
-		 test-val
-		 type-spec))
-       :result compiled-msg)
-      ))
-  )					; magiciel--compile-inst
+	(magiciel--make-instruction
+	 :offset off-op
+	 :access (magiciel--compile-access type-spec
+					   type-sign
+					   type-endian
+					   type-mods
+					   type-len
+					   off-op
+					   )
+	 :test selected-test-op
+	 :value (magiciel--compile-test-value test-val type-spec)
+	 :result compiled-msg
+	 )
+	))
+    ))					; magiciel--compile-inst
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'regex))
 				       test
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type)
-  
-  (let ((off-op (magiciel--offset-code offset))
-	(test-val (magiciel--test-value test))
-	)
-    (magiciel--make-instruction
-     :offset offset
-     :test `(string-match ',test-val %bytes% ,off-op)
-     :result result-msg))
-  )
+  (ignore type-mods test-mods)
+
+  (cl-flet ((compile-type-mods (mods
+				&aux
+				(flag-pos
+				 (and mods (string-match-p "[cls]" mods)))
+				)
+	      (cond ((null mods) (cl-values nil nil))
+		    (flag-pos
+		     (cl-values (car (read-from-string mods 0 flag-pos))
+				(substring mods flag-pos)))
+		    (t (cl-values (string-to-number mods) nil))
+		    ))
+	    )				; cl-flet.
+    (let ((off-op (magiciel--offset-code offset))
+	  (test-val (magiciel--test-value test))
+	  )
+      (cl-multiple-value-bind (range flags)
+	  (compile-type-mods (car type-mods))
+
+	(ignore range)
+	
+	(when (cl-find ?l flags)
+	  (warn "MAGICIEL: line flag in \"regex\" type not yet handled."))
+
+	(let ((case-fold-search (cl-find ?c flags))
+	      )
+	  (magiciel--make-instruction
+	   :kind type
+	   :offset offset
+	   :test `(let ((case-fold-search ',case-fold-search))
+		    (string-match ',test-val %bytes% ,off-op))
+	   :result result-msg
+	   ))
+	))
+    ))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'name))
 				       test
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type)
+  (ignore type-mods test-mods)
 
   (let ((off-op (magiciel--offset-code offset))
 	(test-val (magiciel--test-value test))
 	)
     
-    (magiciel--make-instruction :offset offset
+    (magiciel--make-instruction :kind type
+				:offset offset
 				:test `(name ,test-val ,off-op)
-				:result result-msg))
-    )
+				:result result-msg
+				))
+  )
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'indirect))
 				       test
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type test)
+  (ignore test type-mods test-mods)
 
   (let ((off-op (magiciel--offset-code offset)))
-    (magiciel--make-instruction :offset offset
+    (magiciel--make-instruction :kind type
+				:offset offset
 				:test `(indirect ,off-op)
 				:result result-msg))
   )
@@ -507,11 +485,16 @@
 				       (type (eql 'use))
 				       test
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type)
+  (ignore type type-mods test-mods)
 
   (let ((test-val (magiciel--test-value test)))
-    (magiciel--make-instruction :offset offset
+    (magiciel--make-instruction :kind type
+				:offset offset
 				:test `(use ,test-val)
 				:result result-msg))
   )
@@ -521,15 +504,27 @@
 				       (type (eql 'search))
 				       test
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type)
+  (ignore type type-mods test-mods)
 
-  (let ((off-op (magiciel--offset-code offset))
-	(test-val (magiciel--test-value test))
-	)
-    (magiciel--make-instruction :offset offset
-				:test `(string-search ,test-val %bytes% ,off-op)
-				:result result-msg))
+  (let* ((off-op (magiciel--offset-code offset))
+	 (test-val (magiciel--test-value test))
+	 (range (and type-mods (string-to-number (car type-mods))))
+	 (limit (if range
+		    `((string-limit %bytes%
+				    (+ ,off-op ,range)))
+		  `(%bytes%)
+		  ))
+	 )
+    (magiciel--make-instruction
+     :kind type
+     :offset offset
+     :test `(string-search ,test-val ,@limit ,off-op)
+     :result result-msg))
   )
 
 
@@ -537,12 +532,17 @@
 				       (type (eql 'default))
 				       test-val
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type test-val)
+  (ignore test-val type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   
-  (magiciel--make-instruction :offset offset
+  (magiciel--make-instruction :kind type
+			      :offset offset
 			      :test `(default)
 			      :result result-msg)
   )
@@ -552,12 +552,17 @@
 				       (type (eql 'clear))
 				       test-val
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type test-val)
+  (ignore test-val type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   
-  (magiciel--make-instruction :offset offset
+  (magiciel--make-instruction :kind type
+			      :offset offset
 			      :test `(clear)
 			      :result result-msg)
   )
@@ -567,12 +572,17 @@
 				       (type (eql 'offset))
 				       test-val
 				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
 				       )
-  (ignore type test-val)
+  (ignore test-val type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   (let ((off-op (magiciel--offset-code offset)))
-    (magiciel--make-instruction :offset offset
+    (magiciel--make-instruction :kind type
+				:offset offset
 				:test `(offset ,off-op)
 				:result result-msg))
     )
@@ -582,7 +592,9 @@
   :before ((offset magiciel--offset)
 	   type
 	   test
-	   result-msg)
+	   result-msg
+	   &key
+	   &allow-other-keys)
 
   (ignore type test result-msg)
   
@@ -598,14 +610,14 @@
 
 (cl-defmethod magiciel--compile-offset ((offset magiciel--direct-offset))
   (if (magiciel--direct-offset-cont offset)
-	 `(+ %pos% ,(magiciel--direct-offset-value offset))
+      `(+ %pos% ,(magiciel--direct-offset-value offset))
     (magiciel--direct-offset-value offset)))
 
 
 (cl-defmethod magiciel--compile-offset ((offset magiciel--indirect-offset))
   (if (magiciel--indirect-offset-cont offset)
-	 `(+ %pos% ,(magiciel--compile-indirect-offset offset))
-       (magiciel--compile-indirect-offset offset)))
+      `(+ %pos% ,(magiciel--compile-indirect-offset offset))
+    (magiciel--compile-indirect-offset offset)))
 
 
 ;; magiciel--compile-indirect-offset
@@ -626,17 +638,17 @@
 	   (list ind-addr ind-type)))
 
        (select-op (op)
-	   ;; `op' should be a symbol.
-	   (pcase op
-	     ((or '- '+ '* '/) op)
-	     ('% 'mod)
-	     ('& 'logand)
-	     ('| 'logior)
-	     ('^ 'logxor)		; Check the `logior'..
-	     (_ '+)			; Really nothing, as number
+	 ;; `op' should be a symbol.
+	 (pcase op
+	   ((or '- '+ '* '/) op)
+	   ('% 'mod)
+	   ('& 'logand)
+	   ('| 'logior)
+	   ('^ 'logxor)			; Check the `logior'..
+	   (_ '+)			; Really nothing, as number
 					; will be "", hence 0.
-	     )
 	   )
+	 )
 
        (compile-ind-offset-modifier (ind-off)
 	 (let ((ind-op     (magiciel--indirect-offset-op   ind-off))
@@ -1089,18 +1101,189 @@
     ))
 
 
-(defun magiciel--select-type (type)
+;; Compiling tests and test groups into functions.
 
-  ;; Interpret the "type-field".
+;; magiciel--compile-rec-group
 
-  ;; Nothing FTTB, apart from a check.
-  ;; Parsing already takes care of this; this function will disappear
-  ;; soon.
+(cl-defun magiciel--compile-rec-group (recs-group
+				       &optional
+				       (magic-name "magiciel--n-"))
+  (let ((group-name (gensym magic-name)))
+    (cons group-name recs-group))
+  )
 
-  (cl-assert (magiciel--record-type-spec-p type))
-  type)
+
+;; magiciel--compile-rec-groups
+
+(cl-defun magiciel--compile-rec-groups (recs-groups
+					&optional
+					(magic-name "magiciel--n-"))
+  (cl-loop for rg in recs-groups
+	   collect (magiciel--compile-rec-group rg magic-name)))
 
 
+;; Emit functions.
+
+(cl-defmethod magiciel--emit ((kind (eql '=))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  ;; This method is for the "regular" tests (the \\='=\\=' kind
+  ;; includes also the other boolean tests.
+  ;;
+  ;; Note:
+  ;; Maybe change :kind to `boolean'.
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	(access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	(value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(let ((--magiciel--value ,access))
+       (when (,test --magiciel--value ,value)
+	 (setf --magiciel--msg
+	       (append --magiciel--value
+		       (list (format ,result --magiciel-value))))
+	 (magiciel--run-next ,level)))
+    )
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'regex))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(when ,test
+       (setf --magiciel--msg
+	     (append --magiciel--value
+		     (list (format ,result (match-string 0)))))
+       (magiciel--run-next ,level)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'name))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(progn
+       (magiciel--run-def ',(cl-second test) ',(cl-third test))
+       (setf --magiciel--msg
+	     (append --magiciel--value
+		     (list (format ,result (match-string 0)))))
+       (magiciel--run-next ,level)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'indirect))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	;; (test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	;; (result (magiciel--instruction-result inst))
+	)
+    `(progn
+       (warn "MAGICIEL: 'indirect' not implemented; failing.")
+       (magiciel--run-next ,level))
+    )
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'use))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(progn
+       (magiciel--run-call ',(cl-second test))
+       (setf --magiciel--msg
+	     (append --magiciel--value (list (format ,result))))
+       (magiciel--run-next ,level)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'search))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(when ,test
+       (setf --magiciel--msg
+	     (append --magiciel--value (list (format ,result))))
+       (magiciel--run-next ,level)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'default))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(when ,test
+       (setf --magiciel--msg
+	     (append --magiciel--value (list (format ,result))))
+       (magiciel--run-next ,level)))
+  )
+
+
+;; Epilogue.
 
 (provide 'magiciel-compile-magic)
 
