@@ -51,6 +51,8 @@
 (require 'magiciel-parse-magic)
 
 
+;; Compilation functions.
+
 (cl-defgeneric magiciel--compile-record (r)
   )
 
@@ -121,7 +123,7 @@
 
 
 (cl-defmethod cl-print-object ((mi magiciel--instruction) stream)
-  (princ (format "#<MAGICIEL Instruction: (%d) %s %S %s %s %s>"
+  (princ (format "#<MAGICIEL Instruction: [L %d] %s %S %s %s %s>"
 		 (magiciel--instruction-level mi)
 		 (magiciel--instruction-offset mi)
 		 (magiciel--instruction-access mi)
@@ -226,8 +228,12 @@
 		 into cgrps
 		 finally
 		 (setf comp-rec-groups cgrps)
-		 (cl-return (cl-values recs-groups comp-rec-groups))
-		 ))
+		 )
+
+	(when (<= steps 2)
+	  (cl-return-from magiciel-compile-magic
+	    (cl-values recs-groups comp-rec-groups)))
+	)				; cl-labels
       )))
 
 
@@ -1133,7 +1139,7 @@
   ;; includes also the other boolean tests.
   ;;
   ;; Note:
-  ;; Maybe change :kind to `boolean'.
+  ;; Maybe change `kind' specializer to `boolean'.
 
   (ignore kind m-name)
   
@@ -1148,7 +1154,7 @@
 	 (setf --magiciel--msg
 	       (append --magiciel--value
 		       (list (format ,result --magiciel-value))))
-	 (magiciel--run-next ,level)))
+	 (magiciel--run-next (1+ ,level))))
     )
   )
 
@@ -1171,7 +1177,7 @@
        (setf --magiciel--msg
 	     (append --magiciel--value
 		     (list (format ,result (match-string 0)))))
-       (magiciel--run-next ,level)))
+       (magiciel--run-next (1+ ,level))))
   )
 
 
@@ -1194,7 +1200,7 @@
        (setf --magiciel--msg
 	     (append --magiciel--value
 		     (list (format ,result (match-string 0)))))
-       (magiciel--run-next ,level)))
+       (magiciel--run-next (1+ ,level))))
   )
 
 
@@ -1214,7 +1220,7 @@
 	)
     `(progn
        (warn "MAGICIEL: 'indirect' not implemented; failing.")
-       (magiciel--run-next ,level))
+       (magiciel--run-next (1+ ,level)))
     )
   )
 
@@ -1237,7 +1243,7 @@
        (magiciel--run-call ',(cl-second test))
        (setf --magiciel--msg
 	     (append --magiciel--value (list (format ,result))))
-       (magiciel--run-next ,level)))
+       (magiciel--run-next (1+ ,level))))
   )
 
 
@@ -1258,7 +1264,7 @@
     `(when ,test
        (setf --magiciel--msg
 	     (append --magiciel--value (list (format ,result))))
-       (magiciel--run-next ,level)))
+       (magiciel--run-next (1+ ,level))))
   )
 
 
@@ -1279,8 +1285,46 @@
     `(when ,test
        (setf --magiciel--msg
 	     (append --magiciel--value (list (format ,result))))
-       (magiciel--run-next ,level)))
+       (magiciel--run-next (1+ ,level))))
   )
+
+
+;; Constructing the functions that check for a given file type.
+
+(cl-defun magiciel--group-emit (magic instr-group &optional (group-number 0))
+  "Builds the function that runs the i-th check.
+
+The function obtained correspond to the groups obtained from the
+compilation of a magic(5) file.  The name of the function is
+\\='=magiciel--<magic name>-<group-number>\\='=.
+
+Arguments and Values:
+
+`magic' : is a `magiciel--magic' struct.
+`instr-group' : is a list of `magiciel--instruction'.
+`group-number' : is the id of the instruction.
+
+Notes:
+
+Groups with \\='=name\\='= and \\='=use\\='= operation are treated
+specially.
+"
+  (let* ((name (magiciel--magic-name magic))
+	 (magic-fname
+	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
+	 )
+    `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
+       (let ((--magiciel--msg "")
+	     (--magiciel--value nil)
+	     (%pos% pos)
+	     (%test-level% 0)
+	     )
+	 ,@(cl-loop for instr in instr-group
+		    collect (magiciel--emit (magiciel--instruction-kind
+					     instr)
+					    instr))
+	 )
+       )))
 
 
 ;; Epilogue.
