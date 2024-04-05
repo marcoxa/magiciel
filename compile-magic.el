@@ -105,7 +105,7 @@
 			      access
 			      test
 			      (value t)
-			      result
+			      (result "")
 			      (level
 			       (if (magiciel--offset-p offset)
 				   ;; Paranoid.
@@ -1129,6 +1129,12 @@
 
 
 ;; Emit functions.
+;; ---------------
+;;
+;; The semantics of magic(5) tests is very "assembly-like" because of
+;; the "tree-like" arrangement of the tests.
+;; I could set up a continuation style compilation scheme, but I
+;; keep track of the "state", i.e., the level, of the checks.
 
 (cl-defmethod magiciel--emit ((kind (eql '=))
 			      (inst magiciel--instruction)
