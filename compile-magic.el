@@ -407,7 +407,7 @@
 				       test-mods
 				       &allow-other-keys
 				       )
-  (ignore type-mods test-mods)
+>  (ignore type-mods test-mods)
 
   (cl-flet ((compile-type-mods (mods
 				&aux
@@ -957,120 +957,6 @@
   (message "MAGICIEL: not a normal magic record: %s." r)
   nil)
 
-  
-;; (cl-defmethod magiciel--compile-record-saved ((r magiciel--normal-record))
-;;   (let ((offset (magiciel--normal-record-offset r))
-;; 	(type   (magiciel--normal-record-type r))
-;; 	(test   (magiciel--normal-record-test r))
-;; 	(msg    (magiciel--normal-record-message r))
-;; 	)
-    
-;;     (cl-labels
-;; 	((compile-test (off-op type test)
-
-;; 	   ;; The following bindings may be taken out of the two
-;; 	   ;; functions `compile-test' and `compile-exec' (this one).
-
-;; 	   (let ((type-spec   (magiciel--record-type-spec-spec type))
-;; 		 (type-mods   (magiciel--record-type-spec-modifiers type))
-;; 		 (type-endian (magiciel--record-type-spec-endian type))
-;; 		 (type-len    (magiciel--record-type-spec-byte-len type))
-;; 		 (type-sign   (magiciel--record-type-spec-unsigned type))
-;; 		 (test-op  (magiciel--test-op test))
-;; 		 (test-val (magiciel--test-value test))
-;; 		 )
-
-;; 	     (cond ((string-equal "x" test-val)
-;; 		    ;; "x" matches anything; a wart in the spec.  What
-;; 		    ;; about a string that should match exactly "x"?
-;; 		    t
-;; 		    )
-		   
-;; 		   ((magiciel--numeric-type-spec-p type-spec)
-;; 		    `(,(magiciel--select-op test-op 'number)
-;; 		      (magiciel--get-value-at* bytes
-;; 					       pos
-;; 					       ',type-spec
-;; 					       ',type-sign
-;; 					       ',type-endian
-;; 					       ',type-mods
-;; 					       ',type-len
-;; 					       ,off-op)
-;; 		      ',(magiciel--compile-test-value test-val type-spec)))
-
-;; 		   ((magiciel--date-type-spec-p type-spec)
-;; 		    `(,(magiciel--select-op test-op 'date)
-;; 		      (magiciel--get-value-at* bytes
-;; 					       pos
-;; 					       ',type-spec
-;; 					       ',type-sign
-;; 					       ',type-endian
-;; 					       ',type-mods
-;; 					       ',type-len
-;; 					       ,off-op)
-;; 		      ',test-val)) ; A string, but it must be double checked..
-
-;; 		   ((magiciel--string-type-spec-p type-spec)
-;; 		    `(,(magiciel--select-op test-op 'string)
-;; 		      (magiciel--get-value-at* bytes
-;; 					       pos
-;; 					       ',type-spec
-;; 					       ',type-sign
-;; 					       ',type-endian
-;; 					       ',type-mods
-;; 					       ',type-len
-;; 					       ,off-op)
-;; 		      ',test-val))	; Already a string.
-		   
-;; 		   ))
-;; 	   )				; compile-test
-
-;; 	 (compile-exec (off-op type test msg)
-	   
-;; 	   ;; The following bindings may be taken out of the two
-;; 	   ;; functions `compile-test' and `compile-exec' (this one).
-	   
-;; 	   (let ((type-spec   (magiciel--record-type-spec-spec type))
-;; 		 (type-mods   (magiciel--record-type-spec-modifiers type))
-;; 		 (type-endian (magiciel--record-type-spec-endian type))
-;; 		 (type-len    (magiciel--record-type-spec-byte-len type))
-;; 		 (type-sign   (magiciel--record-type-spec-unsigned type))
-;; 		 (test-op  (magiciel--test-op test))
-;; 		 (test-val (magiciel--test-value test))
-;; 		 )
-
-;; 	     (ignore type-mods type-endian type-len type-sign)
-
-;; 	     (magiciel--compile-exec type-spec test-val off-op test-op msg)
-;; 	     )
-;; 	   )				; compile-exec
-
-;; 	 (compile-record-test (off-op type test result-msg)
-;; 	   `(lambda (bytes pos)
-;; 	      (when ,(compile-test off-op type test)
-;; 		,result-msg))
-;; 	   )				; compile-record-test
-;; 	 )				; cl-labels
-
-;;       ;; (let ((off-op (magiciel--compile-offset offset))
-;;       ;;       (result-msg (magiciel--message-msg-string msg))
-;;       ;;       )
-;;       ;; 	(cond ((magiciel--exec-type-spec-p type)
-;;       ;; 	       (compile-exec off-op type test result-msg))
-;;       ;; 	      (t
-;;       ;; 	       (compile-record-test off-op type test result-msg))
-;;       ;; 	      )
-;;       ;; 	)
-
-;;       (magiciel--compile-instr offset
-;; 			       type
-;; 			       test
-;; 			       (magiciel--message-msg-string msg))
-
-;;       )
-;;     )
-;;   )
-
 
 (cl-defmethod magiciel--compile-record ((r magiciel--normal-record))
   (magiciel--compile-instr (magiciel--normal-record-offset r)
@@ -1135,6 +1021,37 @@
 ;; the "tree-like" arrangement of the tests.
 ;; I could set up a continuation style compilation scheme, but I
 ;; keep track of the "state", i.e., the level, of the checks.
+;;
+;; The "machine" uses the following variables/locations/registers.
+;;
+;; `--magiciel--value' : the object (bytes) read by the "access" code.
+;; `--magiciel--msg'   : the "message" resulting as a description of
+;;                       the file.
+;; `--magiciel--test-result' : a boolean that contains the result of
+;;                             the test.
+;; `--magiciel--level-state' : the current test level; all tests at
+;;                             the current level are executed in
+;;                             sequence.
+;;
+;; Cfr., the following excertp from the magic(5) manual entry
+;;
+;; """
+;; Some file formats contain additional information which is to be printed
+;; along with the file type or need additional tests to determine the true
+;; file type.  These additional tests are introduced by one or more >
+;; characters preceding the offset.  The number of > on the line indicates
+;; the level of the test; a line with no > at the beginning is considered to
+;; be at level 0.  Tests are arranged in a tree-like hierarchy: if the test
+;; on a line at level n succeeds, all following tests at level n+1 are
+;; performed, and the messages printed if the tests succeed, until a line
+;; with level n (or less) appears.  For more complex files, one can use
+;; empty messages to get just the "if/then" effect, in the following way:
+;;
+;;       0      string   MZ
+;;       >0x18  leshort  <0x40   MS-DOS executable
+;;       >0x18  leshort  >0x3f   extended PC executable (e.g., MS Windows)
+;; """
+
 
 (cl-defmethod magiciel--emit ((kind (eql '=))
 			      (inst magiciel--instruction)
@@ -1155,14 +1072,13 @@
 	(value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
-    `(let ((--magiciel--value ,access))
+    `(let ((--magiciel-value ,access))
        (when (,test --magiciel--value ,value)
 	 (setf --magiciel--msg
 	       (append --magiciel--value
 		       (list (format ,result --magiciel-value))))
 	 (magiciel--run-next (1+ ,level))))
-    )
-  )
+    ))
 
 
 (cl-defmethod magiciel--emit ((kind (eql 'regex))
@@ -1295,7 +1211,97 @@
   )
 
 
+;; Another function to build up the instruction tree.
+
+(cl-defstruct (magiciel--instr-node
+	       (:type list)
+	       (:constructor
+		magiciel--make-instr-node (instr &optional sub-instr-nodes))
+	       )
+  instr
+  (sub-instr-nodes ())
+  )
+  
+
+(cl-defun magiciel--group-instrs-trees (instr
+					more-instrs
+					instr-nodes-at-level
+					)
+  ;; A "group has one 0 level entry point; the first instruction.
+
+  ;; `instr' : first instrunction in (remaining) instruction list.
+  ;; `more-instrs' : instructions after `instr'; can be an empty list.
+  ;; `instr-nodes-at-level' : an a-list (organized in a stack-like
+  ;;                          manner) of nodes at a given level, where
+  ;;                          to add subtrees; keys are the "level" of
+  ;;                          the node last seen at a given level.
+  ;;
+  ;; The function returns a subtree rooted at the first (0 level)
+  ;; instruction. Each (sub) tree is simply a list (root . children)
+
+  (let* ((il (magiciel--instruction-level instr))
+	 (parent-node (cdr (assoc (1- il) instr-nodes-at-level)))
+	 )
+    ;; `parent-node' is the last level (`level' - 1) node seen.
+
+    (when parent-node ; We are not at level 0
+      ;; Insert the node.
+      (setf (magiciel--instr-node-sub-instr-nodes parent-node)
+	    (append (magiciel--instr-node-sub-instr-nodes parent-node)
+		    (list instr))))
+
+    (if (null more-instrs)
+	(cdr (assoc 0 instr-nodes-at-level))
+      (magiciel--group-instrs-trees (car more-instrs)
+				    (cdr more-instrs)
+				    (cl-acons il instr instr-nodes-at-level)
+				    )
+      )))
+
+
 ;; Constructing the functions that check for a given file type.
+
+(cl-defun magiciel--group-emit-saved (magic instr-group &optional (group-number 0))
+  "Builds the function that runs the i-th check.
+
+The function obtained correspond to the groups obtained from the
+compilation of a magic(5) file.  The name of the function is
+\\='=magiciel--<magic name>-<group-number>\\='=.
+
+Arguments and Values:
+
+`magic' : is a `magiciel--magic' struct.
+`instr-group' : is a list of `magiciel--instruction'.
+`group-number' : is the id of the instruction.
+
+Notes:
+
+Groups with \\='=name\\='= and \\='=use\\='= operation are treated
+specially.
+"
+  (let* ((name (magiciel--magic-name magic))
+	 (magic-fname
+	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
+	 (i0 (cl-first instr-group))
+	 (instrs-tree
+	  (magiciel--group-instrs-trees i0
+					(cl-rest instr-group)
+					(cl-acons 0 i0 ())))
+	 )
+    `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
+       (let ((--magiciel--msg "")
+	     (--magiciel--value nil)
+	     (%pos% pos)
+	     (%test-level% 0)
+	     )
+	 ,@(cl-loop for instr in instr-group
+		    collect (magiciel--emit (magiciel--instruction-kind
+					     instr)
+					    instr))
+	 )
+       )))
+
+
 
 (cl-defun magiciel--group-emit (magic instr-group &optional (group-number 0))
   "Builds the function that runs the i-th check.
@@ -1318,6 +1324,11 @@ specially.
   (let* ((name (magiciel--magic-name magic))
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
+	 (i0 (cl-first instr-group))
+	 (instrs-tree
+	  (magiciel--group-instrs-trees i0
+					(cl-rest instr-group)
+					(cl-acons 0 i0 ())))
 	 )
     `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
        (let ((--magiciel--msg "")
