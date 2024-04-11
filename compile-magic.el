@@ -1251,13 +1251,24 @@
 	   ))
 
 
-(cl-defun magiciel--group-instrs-trees (instr
+(cl-defun magiciel--group-trees (instr-group)
+  (let ((instrs-nodes
+	 (mapcar #'magiciel--make-instr-node instr-group))
+	)
+    (magiciel--group-instrs-trees (car instrs-nodes)
+				  (cdr instrs-nodes)
+				  ())
+    ))
+
+
+(cl-defun magiciel--group-instrs-trees (instr-node
 					more-instrs
 					instr-nodes-at-level
 					)
   ;; A "group has one 0 level entry point; the first instruction.
 
-  ;; `instr' : first instrunction in (remaining) instruction list.
+  ;; `instr-node'  : first instruction node in (remaining) instruction
+  ;;                 node list.
   ;; `more-instrs' : instructions after `instr'; can be an empty list.
   ;; `instr-nodes-at-level' : an a-list (organized in a stack-like
   ;;                          manner) of nodes at a given level, where
@@ -1267,14 +1278,17 @@
   ;; The function returns a subtree rooted at the first (0 level)
   ;; instruction. Each (sub) tree is simply a list (root . children)
 
-  (let* ((il (magiciel--instruction-level instr))
+  (let* ((instr (magiciel--instr-node-instr instr-node))
+	 (il (magiciel--instruction-level instr))
 	 (parent-node (cdr (assoc (1- il) instr-nodes-at-level)))
 	 )
     ;; `parent-node' is the last level (`level' - 1) node seen.
 
     (message "\nMGIT: %d %s"
 	     il
-	     (magiciel--instruction-kind instr))
+	     (magiciel--instruction-kind instr)
+	     )
+    
     (message "MGIT: parent %s %s"
 	     (magiciel--instr-node-id parent-node)
 	     (magiciel--instr-node-instr parent-node)
@@ -1282,24 +1296,24 @@
 
     (magiciel--dump-instr-level-alist instr-nodes-at-level)
     
-    (when (and parent-node (not (zerop il))) ; We are not at level 0
+    (when (and parent-node (not (zerop il))) ; We are not at level 0.
       ;; Insert the node.
       (setf (magiciel--instr-node-sub-instr-nodes parent-node)
 	    (append (magiciel--instr-node-sub-instr-nodes parent-node)
-		    (list (magiciel--make-instr-node instr))))
-
+		    (list instr-node)))
       )
 
     (when parent-node
       (message "MGIT: parent subtrees %s"
 	       (magiciel--instr-node-sub-instr-nodes parent-node))
-      (magiciel--dump-instr-tree parent-node))
+      (magiciel--dump-instr-tree parent-node)
+      )
 
     (if (null more-instrs)
 	(cdr (assoc 0 instr-nodes-at-level))
       (magiciel--group-instrs-trees (car more-instrs)
 				    (cdr more-instrs)
-				    (cl-acons il (magiciel--make-instr-node instr)
+				    (cl-acons il instr-node
 					      instr-nodes-at-level)
 				    )
       )))
@@ -1307,41 +1321,40 @@
 
 ;; Constructing the functions that check for a given file type.
 
-(cl-defun magiciel--group-emit-saved (magic instr-group &optional (group-number 0))
-  "Builds the function that runs the i-th check.
+;; (cl-defun magiciel--group-emit-saved (magic instr-group &optional (group-number 0))
+;;   "Builds the function that runs the i-th check.
 
-The function obtained correspond to the groups obtained from the
-compilation of a magic(5) file.  The name of the function is
-\\='=magiciel--<magic name>-<group-number>\\='=.
+;; The function obtained correspond to the groups obtained from the
+;; compilation of a magic(5) file.  The name of the function is
+;; \\='=magiciel--<magic name>-<group-number>\\='=.
 
-Arguments and Values:
+;; Arguments and Values:
 
-`magic' : is a `magiciel--magic' struct.
-`instr-group' : is a list of `magiciel--instruction'.
-`group-number' : is the id of the instruction.
+;; `magic' : is a `magiciel--magic' struct.
+;; `instr-group' : is a list of `magiciel--instruction'.
+;; `group-number' : is the id of the instruction.
 
-Notes:
+;; Notes:
 
-Groups with \\='=name\\='= and \\='=use\\='= operation are treated
-specially.
-"
-  (let* ((name (magiciel--magic-name magic))
-	 (magic-fname
-	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
-	 )
-    `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
-       (let ((--magiciel--msg "")
-	     (--magiciel--value nil)
-	     (%pos% pos)
-	     (%test-level% 0)
-	     )
-	 ,@(cl-loop for instr in instr-group
-		    collect (magiciel--emit (magiciel--instruction-kind
-					     instr)
-					    instr))
-	 )
-       )))
-
+;; Groups with \\='=name\\='= and \\='=use\\='= operation are treated
+;; specially.
+;; "
+;;   (let* ((name (magiciel--magic-name magic))
+;; 	 (magic-fname
+;; 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
+;; 	 )
+;;     `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
+;;        (let ((--magiciel--msg "")
+;; 	     (--magiciel--value nil)
+;; 	     (%pos% pos)
+;; 	     (%test-level% 0)
+;; 	     )
+;; 	 ,@(cl-loop for instr in instr-group
+;; 		    collect (magiciel--emit (magiciel--instruction-kind
+;; 					     instr)
+;; 					    instr))
+;; 	 )
+;;        )))
 
 
 (cl-defun magiciel--group-emit (magic instr-group &optional (group-number 0))
@@ -1367,16 +1380,18 @@ specially.
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
 	 
-	 (i0 (cl-first instr-group))
+	 ;; (i0 (cl-first instr-group))
 	 
-	 (instr-nodes-alist
-	  (cl-acons 0 (magiciel--make-instr-node i0) ()))
+	 ;; (instr-nodes-alist (cl-acons 0 (magiciel--make-instr-node i0) ()))
 	 
+	 ;; (instrs-tree
+	 ;;  (magiciel--group-instrs-trees i0
+	 ;; 				(cl-rest instr-group)
+	 ;; 				() ; instr-nodes-alist
+	 ;; 				))
+
 	 (instrs-tree
-	  (magiciel--group-instrs-trees i0
-					(cl-rest instr-group)
-					() ; instr-nodes-alist
-					))
+	  (magiciel--group-trees instr-group))
 	 )
 
     (message "\nMCM: instruction tree:")
@@ -1398,15 +1413,15 @@ specially.
 	     )
 	   )
 	 )
-    `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
-       (let ((--magiciel--msg "")
-	     (--magiciel--value nil)
-	     (%pos% pos)
-	     (%test-level% 0)
-	     )
-	 ,(emit-tree instrs-tree)
-	 ))
-       )))
+      `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
+	 (let ((--magiciel--msg "")
+	       (--magiciel--value nil)
+	       (%pos% pos)
+	       (%test-level% 0)
+	       )
+	   ,(emit-tree instrs-tree)
+	   ))
+      )))
 
 
 ;; Epilogue.
