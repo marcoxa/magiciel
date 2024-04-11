@@ -153,19 +153,6 @@
 ;; Other magic(5) "types" below: dates, strings, etc., etc.
 
 
-;; Utilities.
-;; ----------
-
-;; Yeah, yeah, yeah.  Just bear with me and enjoy the curries.
-
-(defun curry1 (f arg)
-  #'(lambda (x) (apply f arg (list x))))
-
-
-(defun curry2 (f arg1 arg2)
-  #'(lambda (x) (apply f arg1 arg2 (list x))))
-
-
 (provide 'magic-ingredients)
 
 ;;; magic-ingredients.el ends here
