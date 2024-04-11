@@ -407,7 +407,7 @@
 				       test-mods
 				       &allow-other-keys
 				       )
->  (ignore type-mods test-mods)
+  (ignore type-mods test-mods)
 
   (cl-flet ((compile-type-mods (mods
 				&aux
@@ -1218,10 +1218,38 @@
 	       (:constructor
 		magiciel--make-instr-node (instr &optional sub-instr-nodes))
 	       )
+  (id (gensym "IN-"))
   instr
   (sub-instr-nodes ())
   )
-  
+
+
+(cl-defun magiciel--dump-instr-tree (it &optional (indent 0))
+  (unless (null it)
+    (let ((i (magiciel--instr-node-instr it))
+	  (id (magiciel--instr-node-id it))
+	  (sts (magiciel--instr-node-sub-instr-nodes it))
+	  )
+      (message (format "MIT: %s%s %s %s"
+		       (make-string indent ? )
+		       (magiciel--instruction-level i)
+		       id
+		       (magiciel--instruction-kind i)))
+      (dolist (st sts)
+	(magiciel--dump-instr-tree st (+ indent 4)))
+      )))
+
+
+(cl-defun magiciel--dump-instr-level-alist (instr-nodes-at-level)
+  (cl-loop for (il . instr-node) in instr-nodes-at-level
+	   do (message "\nMILA: %s => %s %s"
+		       il
+		       (magiciel--instr-node-id instr-node)
+		       (magiciel--instruction-kind
+			(magiciel--instr-node-instr instr-node)))
+	   finally (message "MILA:\n")
+	   ))
+
 
 (cl-defun magiciel--group-instrs-trees (instr
 					more-instrs
@@ -1244,17 +1272,35 @@
 	 )
     ;; `parent-node' is the last level (`level' - 1) node seen.
 
-    (when parent-node ; We are not at level 0
+    (message "\nMGIT: %d %s"
+	     il
+	     (magiciel--instruction-kind instr))
+    (message "MGIT: parent %s %s"
+	     (magiciel--instr-node-id parent-node)
+	     (magiciel--instr-node-instr parent-node)
+	     )
+
+    (magiciel--dump-instr-level-alist instr-nodes-at-level)
+    
+    (when (and parent-node (not (zerop il))) ; We are not at level 0
       ;; Insert the node.
       (setf (magiciel--instr-node-sub-instr-nodes parent-node)
 	    (append (magiciel--instr-node-sub-instr-nodes parent-node)
-		    (list instr))))
+		    (list (magiciel--make-instr-node instr))))
+
+      )
+
+    (when parent-node
+      (message "MGIT: parent subtrees %s"
+	       (magiciel--instr-node-sub-instr-nodes parent-node))
+      (magiciel--dump-instr-tree parent-node))
 
     (if (null more-instrs)
 	(cdr (assoc 0 instr-nodes-at-level))
       (magiciel--group-instrs-trees (car more-instrs)
 				    (cdr more-instrs)
-				    (cl-acons il instr instr-nodes-at-level)
+				    (cl-acons il (magiciel--make-instr-node instr)
+					      instr-nodes-at-level)
 				    )
       )))
 
@@ -1282,11 +1328,6 @@ specially.
   (let* ((name (magiciel--magic-name magic))
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
-	 (i0 (cl-first instr-group))
-	 (instrs-tree
-	  (magiciel--group-instrs-trees i0
-					(cl-rest instr-group)
-					(cl-acons 0 i0 ())))
 	 )
     `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
        (let ((--magiciel--msg "")
@@ -1322,13 +1363,40 @@ Groups with \\='=name\\='= and \\='=use\\='= operation are treated
 specially.
 "
   (let* ((name (magiciel--magic-name magic))
+	 
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
+	 
 	 (i0 (cl-first instr-group))
+	 
+	 (instr-nodes-alist
+	  (cl-acons 0 (magiciel--make-instr-node i0) ()))
+	 
 	 (instrs-tree
 	  (magiciel--group-instrs-trees i0
 					(cl-rest instr-group)
-					(cl-acons 0 i0 ())))
+					() ; instr-nodes-alist
+					))
+	 )
+
+    (message "\nMCM: instruction tree:")
+
+    (magiciel--dump-instr-tree instrs-tree)
+    
+    (cl-labels
+	((emit-tree (instr-node)
+	   (let ((instr
+		  (magiciel--instr-node-instr instr-node))
+		 (sub-tests
+		  (magiciel--instr-node-sub-instr-nodes instr-node))
+		 )
+	     `(when %%%instr-boolean%%%
+		,(magiciel--emit (magiciel--instruction-kind instr)
+				 instr)
+		,@(cl-loop for sub-node in sub-tests
+			   collect (emit-tree sub-node)))
+	     )
+	   )
 	 )
     `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
        (let ((--magiciel--msg "")
@@ -1336,11 +1404,8 @@ specially.
 	     (%pos% pos)
 	     (%test-level% 0)
 	     )
-	 ,@(cl-loop for instr in instr-group
-		    collect (magiciel--emit (magiciel--instruction-kind
-					     instr)
-					    instr))
-	 )
+	 ,(emit-tree instrs-tree)
+	 ))
        )))
 
 
