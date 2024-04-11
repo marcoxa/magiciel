@@ -1284,17 +1284,18 @@
 	 )
     ;; `parent-node' is the last level (`level' - 1) node seen.
 
-    (message "\nMGIT: %d %s"
-	     il
-	     (magiciel--instruction-kind instr)
-	     )
     
-    (message "MGIT: parent %s %s"
-	     (magiciel--instr-node-id parent-node)
-	     (magiciel--instr-node-instr parent-node)
-	     )
+    ;; (message "\nMGIT: %d %s"
+    ;; 	     il
+    ;; 	     (magiciel--instruction-kind instr)
+    ;; 	     )
+    
+    ;; (message "MGIT: parent %s %s"
+    ;; 	     (magiciel--instr-node-id parent-node)
+    ;; 	     (magiciel--instr-node-instr parent-node)
+    ;; 	     )
 
-    (magiciel--dump-instr-level-alist instr-nodes-at-level)
+    ;; (magiciel--dump-instr-level-alist instr-nodes-at-level)
     
     (when (and parent-node (not (zerop il))) ; We are not at level 0.
       ;; Insert the node.
@@ -1303,11 +1304,11 @@
 		    (list instr-node)))
       )
 
-    (when parent-node
-      (message "MGIT: parent subtrees %s"
-	       (magiciel--instr-node-sub-instr-nodes parent-node))
-      (magiciel--dump-instr-tree parent-node)
-      )
+    ;; (when parent-node
+    ;;   (message "MGIT: parent subtrees %s"
+    ;;            (magiciel--instr-node-sub-instr-nodes parent-node))
+    ;;   (magiciel--dump-instr-tree parent-node)
+    ;;   )
 
     (if (null more-instrs)
 	(cdr (assoc 0 instr-nodes-at-level))
@@ -1394,9 +1395,9 @@ specially.
 	  (magiciel--group-trees instr-group))
 	 )
 
-    (message "\nMCM: instruction tree:")
+    ;; (message "\nMCM: instruction tree:")
 
-    (magiciel--dump-instr-tree instrs-tree)
+    ;; (magiciel--dump-instr-tree instrs-tree)
     
     (cl-labels
 	((emit-tree (instr-node)
