@@ -288,13 +288,13 @@ reorder the \"records\" field."
 
 
 (cl-defmethod cl-print-object ((mm magiciel--magic) stream)
-  (princ (format "#<MAGICIEL-MAGIC spec file %S (%S) with %d records>"
+  (princ (format "#<MAGICIEL-MAGIC spec file %S with %d records: %S>"
 		 (magiciel--magic-name mm)
-		 (magiciel--magic-file mm)
 		 (cl-count-if #'(lambda (r)
 				  (or (magiciel--magic-record-is-normal r)
 				      (magiciel--magic-record-is-special r)))
-			      (magiciel--magic-records mm)))
+			      (magiciel--magic-records mm))
+		 (magiciel--magic-file mm))
 	 stream))
 
 
