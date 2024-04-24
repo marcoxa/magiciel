@@ -600,7 +600,7 @@
 				       result-msg
 				       &key
 				       &allow-other-keys)
-  (message "MCI: cannot provisional compilation of; %s." type)
+  (message "MCI: provisional compilation of; %s." type)
   (message "MCI: offset %s."     offset)
   (message "MCI: test-val %s."   test-val)
   (message "MCI: result-msg %s.\n" result-msg)
@@ -986,12 +986,10 @@
 
 
 (cl-defmethod magiciel--compile-record ((r magiciel--special-record))
-  (magiciel--compile-instr (magiciel--make-direct-offset) ; Fake offset.
+  (magiciel--compile-instr (magiciel--make-direct-offset :level 1) ; Fake offset. Level 1 necessary.
 			   (magiciel--special-record-type r)
 			   (magiciel--make-test :value t)
-			   (magiciel--make-message
-			    :msg-string
-			    (cl-first (magiciel--special-record-value r))))
+			   (cl-first (magiciel--special-record-value r)))
   )
 
 
@@ -1246,11 +1244,37 @@
 			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
   (ignore m-name)
+
   
+  (message "MAGICIEL EMIT: emit MIME %s." kind)
   `(when (%%in-context ',kind)
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
   )
 
+
+(cl-defmethod magiciel--emit ((kind (eql '!:ext))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (ignore m-name)
+
+  (message "MAGICIEL EMIT: emit EXT kind %s." kind)
+  `(when (%%in-context ',kind)
+     (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind symbol)
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (ignore m-name)
+
+  (message "MAGICIEL EMIT: unhandled kind %s." kind)
+  `(cl-return-from %%test-block%% ,(magiciel--instruction-result inst))
+  )
 
 
 ;; Another function to build up the instruction tree.
