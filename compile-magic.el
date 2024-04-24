@@ -591,7 +591,26 @@
 				:offset offset
 				:test `(offset ,off-op)
 				:result result-msg))
-    )
+  )
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type symbol)
+				       test-val
+				       result-msg
+				       &key
+				       &allow-other-keys)
+  (message "MCI: cannot provisional compilation of; %s." type)
+  (message "MCI: offset %s."     offset)
+  (message "MCI: test-val %s."   test-val)
+  (message "MCI: result-msg %s.\n" result-msg)
+  (magiciel--make-instruction :kind type
+			      :offset offset
+			      :test `(in-special-context ,type)
+			      :result result-msg)
+  )
+  
+
 
 
 (cl-defmethod magiciel--compile-instr
@@ -966,6 +985,16 @@
   )
 
 
+(cl-defmethod magiciel--compile-record ((r magiciel--special-record))
+  (magiciel--compile-instr (magiciel--make-direct-offset) ; Fake offset.
+			   (magiciel--special-record-type r)
+			   (magiciel--make-test :value t)
+			   (magiciel--make-message
+			    :msg-string
+			    (cl-first (magiciel--special-record-value r))))
+  )
+
+
 ;; The next function and its use cases will be moved in parsing.
 ;; Hence it will disapper soon.
 
@@ -1211,6 +1240,19 @@
   )
 
 
+(cl-defmethod magiciel--emit ((kind (eql '!:mime))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (ignore m-name)
+  
+  `(when (%%in-context ',kind)
+     (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+  )
+
+
+
 ;; Another function to build up the instruction tree.
 
 (cl-defstruct (magiciel--instr-node
@@ -1423,6 +1465,26 @@ specially.
 	   ,(emit-tree instrs-tree)
 	   ))
       )))
+
+
+(cl-defun magiciel--magic-emit (magic instr-groups)
+  "Emits the function that checks for a specific \"magic\" specification."
+
+  (let* ((name (magiciel--magic-name magic))
+	 
+	 (magic-fname
+	  (intern (format "magiciel--%%fn-%s" name)))
+	 
+	 (group-fns
+	  (cl-loop for ig in instr-groups
+		   for ign from 0
+		   collect (magiciel--group-emit magic ig ign))
+	  
+	  )
+	 )
+      
+      (list magic-fname group-fns)
+      ))
 
 
 ;; Epilogue.
