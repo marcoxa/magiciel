@@ -354,7 +354,7 @@ reorder the \"records\" field."
 	 (let ((srp (magiciel--parse-special-record rec)))
 	   (magiciel--make-special-record 
 	    :line  rec
-	    :type  (cl-first srp)
+	    :type  (intern (cl-first srp))
 	    :value (cl-rest srp)
 	    )))
 
@@ -922,11 +922,12 @@ This is the \"abstract\" offset type."
 	  (copy-sequence       ; Make sure to have stuff to muck with.
 	   (if (stringp record)	   ; Useful for testing and debugging.
 	       record
-	     (magiciel--magic-record-type record))))
+	     (magiciel--normal-record-type record))))
 	 (spec-list (split-string type-spec-string "/" t))
 	 (spec (cl-first spec-list))
 	 (unsigned
-	  (when (and (not (string-equal "use" spec)) (char-equal ?u (aref spec 0)))
+	  (when (and (not (string-equal "use" spec))
+		     (char-equal ?u (aref spec 0)))
 	    (setf spec (substring spec 1))
 	    t))
 	 (mods (cl-rest  spec-list))
@@ -1420,7 +1421,7 @@ This is the \"abstract\" offset type."
 	    (copy-sequence     ; Make sure to have stuff to muck with.
 	     (if (stringp record)  ; Useful for testing and debugging.
 		 record
-	       (magiciel--magic-record-test record))))
+	       (magiciel--normal-record-test record))))
 	   (op (extract-op test-spec-string))
 	   )
       (list
@@ -1457,7 +1458,7 @@ This is the \"abstract\" offset type."
 	  (copy-sequence     ; Make sure to have stuff to muck with.
 	   (if (stringp record)  ; Useful for testing and debugging.
 	       record
-	     (magiciel--magic-record-message record))))
+	     (magiciel--normal-record-message record))))
 	 )
 
     ;; Ok, This function could be simpler.
