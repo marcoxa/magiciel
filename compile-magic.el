@@ -1093,18 +1093,20 @@
 
   (ignore kind m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (; (level  (magiciel--instruction-level inst))
 	(access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
-	(value  (magiciel--instruction-test inst))
+	(value  (magiciel--instruction-value inst))
 	(result (magiciel--instruction-result inst))
 	)
     `(let ((--magiciel-value ,access))
        (when (,test --magiciel--value ,value)
-	 (setf --magiciel--msg
-	       (append --magiciel--value
-		       (list (format ,result --magiciel-value))))
-	 (magiciel--run-next (1+ ,level))))
+         ($acc-msg (format ,result --magiciel-value))
+	 ;; (setf --magiciel--msg
+	 ;;       (append --magiciel--value
+	 ;;               (list (format ,result --magiciel-value))))
+	 ;; (magiciel--run-next (1+ ,level))
+         ))
     ))
 
 
@@ -1116,17 +1118,19 @@
 
   (ignore kind m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
     `(when ,test
-       (setf --magiciel--msg
-	     (append --magiciel--value
-		     (list (format ,result (match-string 0)))))
-       (magiciel--run-next (1+ ,level))))
+       ($acc-msg (format ,result (match-string 0)))
+       ;; (setf --magiciel--msg
+       ;;       (append --magiciel--value
+       ;;  	     (list (format ,result (match-string 0)))))
+       ;; (magiciel--run-next (1+ ,level))
+       ))
   )
 
 
@@ -1138,18 +1142,21 @@
 
   (ignore kind m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (               ; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
-    `(progn
-       (magiciel--run-def ',(cl-second test) ',(cl-third test))
-       (setf --magiciel--msg
-	     (append --magiciel--value
-		     (list (format ,result (match-string 0)))))
-       (magiciel--run-next (1+ ,level))))
+    `($noop ',(cl-second test) ',(cl-third test) ',result)
+    ;; `(progn
+    ;;    (magiciel--run-def ',(cl-second test) ',(cl-third test))
+    ;;    (setf --magiciel--msg
+    ;;          (append --magiciel--value
+    ;;     	     (list (format ,result (match-string 0)))))
+    ;;    ;; (magiciel--run-next (1+ ,level))
+    ;;    )
+    )
   )
 
 
@@ -1159,9 +1166,9 @@
 			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
 
-  (ignore kind m-name)
+  (ignore kind inst m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	;; (test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
@@ -1169,7 +1176,8 @@
 	)
     `(progn
        (warn "MAGICIEL: 'indirect' not implemented; failing.")
-       (magiciel--run-next (1+ ,level)))
+       ;; (magiciel--run-next (1+ ,level))
+       )
     )
   )
 
@@ -1182,7 +1190,7 @@
 
   (ignore kind m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
@@ -1190,9 +1198,11 @@
 	)
     `(progn
        (magiciel--run-call ',(cl-second test))
-       (setf --magiciel--msg
-	     (append --magiciel--value (list (format ,result))))
-       (magiciel--run-next (1+ ,level))))
+       ($acc-msg (format ,result))
+       ;; (setf --magiciel--msg
+       ;;       (append --magiciel--value (list (format ,result))))
+       ;; (magiciel--run-next (1+ ,level))
+       ))
   )
 
 
@@ -1204,16 +1214,18 @@
 
   (ignore kind m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
     `(when ,test
-       (setf --magiciel--msg
-	     (append --magiciel--value (list (format ,result))))
-       (magiciel--run-next (1+ ,level))))
+       ($acc-msg ,result)
+       ;; (setf --magiciel--msg
+       ;;       (append --magiciel--value (list (format ,result))))
+       ;; (magiciel--run-next (1+ ,level))
+       ))
   )
 
 
@@ -1225,16 +1237,18 @@
 
   (ignore kind m-name)
   
-  (let ((level  (magiciel--instruction-level inst))
+  (let (; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
     `(when ,test
-       (setf --magiciel--msg
-	     (append --magiciel--value (list (format ,result))))
-       (magiciel--run-next (1+ ,level))))
+       ($acc-msg ,result)
+       ;; (setf --magiciel--msg
+       ;;       (append --magiciel--value (list (format ,result))))
+       ;; (magiciel--run-next (1+ ,level))
+       ))
   )
 
 
@@ -1464,25 +1478,15 @@ specially.
 
 
 	 (magic-group-block-name
-	  (intern (format "bloc-%s-%d" name group-number)))
+	  (intern (format "%s-block-%d" name group-number)))
 	 
-	 ;; (i0 (cl-first instr-group))
-	 
-	 ;; (instr-nodes-alist (cl-acons 0 (magiciel--make-instr-node i0) ()))
-	 
-	 ;; (instrs-tree
-	 ;;  (magiciel--group-instrs-trees i0
-	 ;; 				(cl-rest instr-group)
-	 ;; 				() ; instr-nodes-alist
-	 ;; 				))
-
 	 (instrs-tree
 	  (magiciel--group-trees instr-group))
 	 )
 
-    ;; (message "\nMCM: instruction tree:")
+    (message "\nMCM: instruction tree:")
 
-    ;; (magiciel--dump-instr-tree instrs-tree)
+    (magiciel--dump-instr-tree instrs-tree)
     
     (cl-labels
 	((emit-tree (instr-node)
@@ -1491,17 +1495,23 @@ specially.
 		 (sub-tests
 		  (magiciel--instr-node-sub-instr-nodes instr-node))
 		 )
-	     `(cl-block ,magic-group-block-name
-		  (when %%%instr-boolean%%%
-		    ,(magiciel--emit (magiciel--instruction-kind instr)
-				     instr)
-		    ,@(cl-loop for sub-node in sub-tests
-			       collect (emit-tree sub-node)))
-		))
+	     `(; when %%%instr-boolean%%%
+		,(magiciel--emit (magiciel--instruction-kind instr)
+				 instr)
+		,@(cl-loop for sub-node in sub-tests
+			   nconc (emit-tree sub-node))
+                )
+	     )
 	   )
+
+         (emit-group-tree (instr-node)
+           ;; The `instr-node' is at level 0.
+           `(cl-block ,magic-group-block-name
+              ,@(emit-tree instr-node)))
 	 )
       
-      (magiciel--make-group-func-code magic-fname (emit-tree instrs-tree))
+      (magiciel--make-group-func-code magic-fname
+                                      (emit-group-tree instrs-tree))
       
       ;; `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
       ;; 	 (let ((--magiciel--msg "")
@@ -1539,7 +1549,7 @@ specially.
 	 
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s" name)))
-	 
+
 	 (group-fns ())
 	 (groups-named ())
 	 )
@@ -1559,29 +1569,50 @@ specially.
 		   groups-named named-groups))
     
 
-    (let ((magic-fun (cl-constantly "MAGICIEL: unknown format.")))
+    (let ((magic-fun (cl-constantly "MAGICIEL: unknown format."))
+          (magic-fun-body (cl-constantly nil))
+          )
       ;; Here we build the function for the magic entry.
 
       (if groups-named
 	  ;; Create `cl-labels' for each named group.
-	  (setq magic-fun
-		`(lambda (%bytes%	; The file/stream/buffer data.
-			  %pos%	; Where we start scanning the %%bytes%%.
-			  )
+	  (setq magic-fun-body
+		`(cl-block ,magic-fname
 		   (cl-labels ,(cl-loop for (named-name code) in groups-named
 					collect
 					`(,named-name (&rest $$$args-here%%%)
 					   ,(magiciel--group-func-code-body code)))
 		     ,@(mapcar #'magiciel--group-func-code-body group-fns)
-		     )))
+		     )
+                   ))
 	
 	;; Create a simplified function.
-	(setq magic-fun
-	      `(lambda (%bytes%
-			%pos%
-			)
+	(setq magic-fun-body
+	      `(cl-block ,magic-fname
 		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
-		 )))
+                 )
+	      ))
+
+
+      (setq magic-fun
+            `(lambda (%bytes%	; The file/stream/buffer data.
+		      %pos%	; Where we start scanning the %%bytes%%.
+		      )
+               (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
+                     (--magiciel-test-result nil)
+                     (--magiciel-msg "")
+                     )
+                 (cl-macrolet (($acc-msg (s)
+                                 `(setf --magiciel-msg
+                                        (concat --magiciel-msg ,s)))
+
+                               ($noop (&rest args)
+                                 `(progn
+                                    (ignore ',args)
+                                    t))
+                               )
+                   ,magic-fun-body))
+                 ))
       
       (list magic-fname group-fns groups-named magic-fun)
       )))
