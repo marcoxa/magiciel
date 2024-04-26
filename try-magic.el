@@ -109,7 +109,7 @@
 ;; Loading actual magic files.
 
 (defvar magiciel--pdf-magic
-  (magiciel--load-magic-file "/usr/share/file/magic/pdf"))
+  (magiciel--load-magic-file "tests/magic/pdf"))
 
 
 ;;; try-magic.el ends here
