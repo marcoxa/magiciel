@@ -1386,6 +1386,21 @@
       )))
 
 
+
+;; magiciel--group-func-code
+
+(cl-defstruct (magiciel--group-func-code
+	       (:constructor magiciel--make-group-func-code
+			     (name body &rest properties))
+	       )
+  "Internal structure packing the code blocks corresponding to \\='groups\\='."
+
+  (name (gensym "MGF-") :type symbol)
+  (body () :type list)
+  (properties () :type list)
+  )
+
+
 ;; Constructing the functions that check for a given file type.
 
 ;; (cl-defun magiciel--group-emit-saved (magic instr-group &optional (group-number 0))
@@ -1425,7 +1440,7 @@
 
 
 (cl-defun magiciel--group-emit (magic instr-group &optional (group-number 0))
-  "Builds the function that runs the i-th check.
+  "Builds the function body that runs the i-th check.
 
 The function obtained correspond to the groups obtained from the
 compilation of a magic(5) file.  The name of the function is
@@ -1446,6 +1461,10 @@ specially.
 	 
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
+
+
+	 (magic-group-block-name
+	  (intern (format "bloc-%s-%d" name group-number)))
 	 
 	 ;; (i0 (cl-first instr-group))
 	 
@@ -1472,23 +1491,45 @@ specially.
 		 (sub-tests
 		  (magiciel--instr-node-sub-instr-nodes instr-node))
 		 )
-	     `(when %%%instr-boolean%%%
-		,(magiciel--emit (magiciel--instruction-kind instr)
-				 instr)
-		,@(cl-loop for sub-node in sub-tests
-			   collect (emit-tree sub-node)))
-	     )
+	     `(cl-block ,magic-group-block-name
+		  (when %%%instr-boolean%%%
+		    ,(magiciel--emit (magiciel--instruction-kind instr)
+				     instr)
+		    ,@(cl-loop for sub-node in sub-tests
+			       collect (emit-tree sub-node)))
+		))
 	   )
 	 )
-      `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
-	 (let ((--magiciel--msg "")
-	       (--magiciel--value nil)
-	       (%pos% pos)
-	       (%test-level% 0)
-	       )
-	   ,(emit-tree instrs-tree)
-	   ))
+      
+      (magiciel--make-group-func-code magic-fname (emit-tree instrs-tree))
+      
+      ;; `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
+      ;; 	 (let ((--magiciel--msg "")
+      ;; 	       (--magiciel--value nil)
+      ;; 	       (%pos% pos)
+      ;; 	       (%test-level% 0)
+      ;; 	       )
+      ;; 	   ,(emit-tree instrs-tree)
+      ;; 	   )
+      ;; 	 )
       )))
+
+
+(cl-defun magiciel--group-is-named (ig)
+  "Check that the (first) group of IG is a \\='name\\=' one."
+
+  (let ((i1 (cl-first ig)))
+    (eq 'name (magiciel--instruction-kind i1))))
+
+
+
+(cl-defun magiciel--group-name (ig)
+  "Get the \\='name\\=' of an instruction group IG."
+
+  (let ((i1 (cl-first ig)))
+    (when (eq 'name (magiciel--instruction-kind i1))
+      (cl-second (magiciel--instruction-test i1)))))
+
 
 
 (cl-defun magiciel--magic-emit (magic instr-groups)
@@ -1499,16 +1540,51 @@ specially.
 	 (magic-fname
 	  (intern (format "magiciel--%%fn-%s" name)))
 	 
-	 (group-fns
-	  (cl-loop for ig in instr-groups
-		   for ign from 0
-		   collect (magiciel--group-emit magic ig ign))
-	  
-	  )
+	 (group-fns ())
+	 (groups-named ())
 	 )
+		      
+    (cl-loop for ig in instr-groups
+	     for ign from 0
+	     for ign-name = (magiciel--group-name ig)
+	     if ign-name
+	       collect (list ign-name (magiciel--group-emit magic ig ign))
+	       into named-groups
+	     else
+	       collect (magiciel--group-emit magic ig ign)
+	       into fns-groups
+	     end
+	     finally
+	     (setf group-fns fns-groups
+		   groups-named named-groups))
+    
+
+    (let ((magic-fun (cl-constantly "MAGICIEL: unknown format.")))
+      ;; Here we build the function for the magic entry.
+
+      (if groups-named
+	  ;; Create `cl-labels' for each named group.
+	  (setq magic-fun
+		`(lambda (%bytes%	; The file/stream/buffer data.
+			  %pos%	; Where we start scanning the %%bytes%%.
+			  )
+		   (cl-labels ,(cl-loop for (named-name code) in groups-named
+					collect
+					`(,named-name (&rest $$$args-here%%%)
+					   ,(magiciel--group-func-code-body code)))
+		     ,@(mapcar #'magiciel--group-func-code-body group-fns)
+		     )))
+	
+	;; Create a simplified function.
+	(setq magic-fun
+	      `(lambda (%bytes%
+			%pos%
+			)
+		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
+		 )))
       
-      (list magic-fname group-fns)
-      ))
+      (list magic-fname group-fns groups-named magic-fun)
+      )))
 
 
 ;; Epilogue.
