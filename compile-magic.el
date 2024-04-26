@@ -1287,7 +1287,8 @@
   (ignore m-name)
 
   (message "MAGICIEL EMIT: unhandled kind %s." kind)
-  `(cl-return-from %%test-block%% ,(magiciel--instruction-result inst))
+  `(; cl-return-from %%test-block%%
+    progn ,(magiciel--instruction-result inst))
   )
 
 
@@ -1490,24 +1491,62 @@ specially.
     
     (cl-labels
 	((emit-tree (instr-node)
-	   (let ((instr
-		  (magiciel--instr-node-instr instr-node))
-		 (sub-tests
-		  (magiciel--instr-node-sub-instr-nodes instr-node))
-		 )
-	     `(; when %%%instr-boolean%%%
-		,(magiciel--emit (magiciel--instruction-kind instr)
-				 instr)
-		,@(cl-loop for sub-node in sub-tests
-			   nconc (emit-tree sub-node))
-                )
+	   (let* ((instr
+		   (magiciel--instr-node-instr instr-node))
+                 
+		  (sub-tests
+		   (magiciel--instr-node-sub-instr-nodes instr-node))
+
+                  (instr-root-code
+                   (magiciel--emit (magiciel--instruction-kind instr)
+				   instr)
+		   )
+                  )
+
+             ;; Here comes the fun (FTTB).
+             ;; If the `instr-code-root' is a `when' clause, then I
+             ;; have to attach the `sub-test' inside it.  Same thing,
+             ;; but more involved is I have a `let'.  Otherwise, I
+             ;; must wrap everything in a (possibly useless) `progn'.
+             ;;
+             ;; I know I should resort to more sophisticated copiler
+             ;; techniques, but just bear with me.
+
+             (cl-case (cl-first instr-root-code)
+               (when (append instr-root-code
+                             (cl-loop for sub-node in sub-tests
+			              collect (emit-tree sub-node)))
+                 )
+               (let (pcase instr-root-code
+                      (`(let ,mv-bind ,when-form)
+                       (cl-assert (eq 'when (cl-first when-form)))
+                       ;; This should always be the case.
+                       `(let ,mv-bind
+                          ,(append when-form
+                                   (cl-loop for sub-node in sub-tests
+			                    collect (emit-tree sub-node))
+                                   ))
+                       ))
+                 )
+               (t
+                `(progn ,instr-root-code
+                        ,@(cl-loop for sub-node in sub-tests
+			           collect (emit-tree sub-node)))
+                ))
+             
+	     ;; `(; when %%%instr-boolean%%%
+	     ;;    ,(magiciel--emit (magiciel--instruction-kind instr)
+	     ;;    		 instr)
+	     ;;    ,@(cl-loop for sub-node in sub-tests
+	     ;;    	   nconc (emit-tree sub-node))
+             ;;    )
 	     )
 	   )
 
          (emit-group-tree (instr-node)
            ;; The `instr-node' is at level 0.
            `(cl-block ,magic-group-block-name
-              ,@(emit-tree instr-node)))
+              ,(emit-tree instr-node)))
 	 )
       
       (magiciel--make-group-func-code magic-fname
