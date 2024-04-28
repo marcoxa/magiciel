@@ -190,9 +190,11 @@
 	 (magiciel--get-uint bytes pos len endianness)
        (magiciel--get-sint bytes pos len endianness)
        ))
+    
     (magiciel--date-type-spec
      (substring-no-properties bytes pos (+ pos len))
      )
+    
     (magiciel--string-type-spec
      (substring-no-properties bytes pos (+ pos len))
      )
