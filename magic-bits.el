@@ -115,6 +115,11 @@
 			     (n-bytes 1)
 			     (endianness :le)
 			     )
+    "Reads an unsigned integer from BINARY-DATA starting at position LOC. 
+
+An unsigned integer of length N-BYTES is read in, also according to
+the ENDIANNESS parameter (either `:le' or `:be').
+"
   (let* ((unpacker
 	  (cl-ecase endianness
 	    ((:le :<) (cl-ecase n-bytes
@@ -145,6 +150,11 @@
 			     (n-bytes 1)
 			     (endianness :le)
 			     )
+  "Reads a signed integer from BINARY-DATA starting at position LOC.
+
+A signed integer of length N-BYTES is read in, also according to the
+ENDIANNESS parameter (either `:le' or `:be').
+"
   (let* ((unpacker
 	  (cl-ecase endianness
 	    ((:le :<) (cl-ecase n-bytes
@@ -173,13 +183,29 @@
 ;; Kitchen sink function.
 ;; Eventually low level access will be compiled.
 
-(cl-defun magiciel--get-value-at* (bytes
-				   pos
-				   type-spec
-				   unsigned
-				   endianness
-				   mods
-				   len)
+(cl-defun magiciel--get-value-at* (bytes ; 1
+				   pos	 ; 2
+				   type-spec ; 3
+				   unsigned  ; 4
+				   endianness ; 5
+				   mods	      ; 6
+				   len	      ; 7
+				   &optional
+				   (off-op 0)
+				   )
+
+  "Dispatches on the proper type of value to read, according to TYPE-SPEC.
+
+The function reads a value from BYTES (a vector or a buffer), starting
+at position POS, depending on TYPE-SPEC (a number, a date or a
+string).
+
+The arguments UNSIGNED and ENDIANNESS control how the value is read
+in.  For string and date values, LEN bytes are read in.
+
+MODS is ignored for the time being.
+"
+  
   (ignore mods)
   (cl-assert (not (multibyte-string-p bytes)))
 
