@@ -112,6 +112,8 @@
 				   (magiciel--offset-level offset)
 				 0))
 			      )))
+  "The `magiciel-instruction' structure."
+  
   (level 0 :type integer :read-only t)
   (kind '= :type symbol)
   offset
@@ -609,8 +611,6 @@
 			      :test `(in-special-context ,type)
 			      :result result-msg)
   )
-  
-
 
 
 (cl-defmethod magiciel--compile-instr
@@ -760,8 +760,6 @@
 
 (cl-defun magiciel--compile-test-value (test-value type-spec)
   (cond ((magiciel--numeric-type-spec-p type-spec)
-	 ;; (car (read-from-string
-	 ;;       (magiciel--lispify-number-string test-value)))
 	 (magiciel--convert-c-number test-value) ; The result may be inconsistent.
 	 )
 	((magiciel--exec-type-spec-p type-spec) ; Symmetry.
@@ -815,71 +813,6 @@
     ))
 
 
-;; (cl-defun magiciel--compile-num-access (type-spec unsigned endianness mods len)
-;;   (cl-labels				; The labels 
-;;       ((get-unpacker (unsigned endianness n-bytes)
-;; 	 (if unsigned
-;; 	     (get-u-unpacker endianness n-bytes)
-;; 	   (get-s-unpacker endianness n-bytes))
-;; 	 )
-
-;;        (get-u-unpackage (endianness n-bytes)
-;; 	 (cl-ecase endianness
-;; 	   ((:le :<) (cl-ecase n-bytes
-;; 		       (1 magiciel--*uint8le-bindat*)
-;; 		       (2 magiciel--*uint16le-bindat*)
-;; 		       (3 magiciel--*uint24le-bindat*)
-;; 		       (4 magiciel--*uint32le-bindat*)
-;; 		       (8 magiciel--*uint64le-bindat*)
-;; 		       ))
-;; 	   ((:be :>) (cl-ecase n-bytes
-;; 		       (1 magiciel--*uint8-bindat*)
-;; 		       (2 magiciel--*uint16-bindat*)
-;; 		       (3 magiciel--*uint24-bindat*)
-;; 		       (4 magiciel--*uint32-bindat*)
-;; 		       (8 magiciel--*uint64-bindat*)
-;; 		       ))
-;; 	   ))
-
-;;        (get-s-unpackage (endianness n-bytes)
-;; 	 (cl-ecase endianness
-;; 	   ((:le :<) (cl-ecase n-bytes
-;; 		       (1 magiciel--*sint8le-bindat*)
-;; 		       (2 magiciel--*sint16le-bindat*)
-;; 		       (3 magiciel--*sint24le-bindat*)
-;; 		       (4 magiciel--*sint32le-bindat*)
-;; 		       (8 magiciel--*sint64le-bindat*)
-;; 		       ))
-;; 	   ((:be :>) (cl-ecase n-bytes
-;; 		       (1 magiciel--*sint8-bindat*)
-;; 		       (2 magiciel--*sint16-bindat*)
-;; 		       (3 magiciel--*sint24-bindat*)
-;; 		       (4 magiciel--*sint32-bindat*)
-;; 		       (8 magiciel--*sint64-bindat*)
-;; 		       ))
-;; 	   ))
-;;        )
-    
-;;   (cl-etypecase type-spec
-;;     (magiciel--integer-type-spec
-;;      `(magiciel--get-value-at* magigiel-%bytes%
-;; 			       magiciel-%pos%
-;; 			       ',type-spec
-;; 			       ',type-sign
-;; 			       ',type-endian
-;; 			       ',type-mods
-;; 			       ',type-len
-;; 			       ,off-op)
-;;      )
-;;     (magiciel--real-type-spec
-;;      (warn (concat
-;; 	    "MAGICIEL: warning: "
-;; 	    "no access compiler for REAL type specifications yet."))
-;;      42.0)
-;;      )
-;;     ))
-
-
 (cl-defun magiciel--compile-num-access (type-spec
 					unsigned
 					endianness
@@ -902,7 +835,8 @@
 				 ',endianness
 				 ',mods
 				 ',len
-				 ,off-op)
+				 ;; ,off-op
+				 )
        )
       (magiciel--real-type-spec
        (warn (concat
@@ -931,7 +865,8 @@
 			      ',endianness
 			      ',mods
 			      ',len
-			      ,off-op)
+			      ;; ,off-op
+			      )
     ))
 
 
@@ -953,7 +888,8 @@
 			      ',endianness
 			      ',mods
 			      ',len
-			      ,off-op)
+			      ;; ,off-op
+			      )
     ))
   
 
@@ -994,6 +930,7 @@
   )
 
 
+;; magiciel--addr-select-subtype
 ;; The next function and its use cases will be moved in parsing.
 ;; Hence it will disapper soon.
 
