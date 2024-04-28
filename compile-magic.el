@@ -1186,24 +1186,37 @@
 			      (inst magiciel--instruction)
 			      &key
 			      (m-name (gensym "magiciel--i-n-"))
+			      (env ())
 			      &allow-other-keys)
+
+  ;; For this instruction I need to refer to the proper "name", hence
+  ;; I rely on the `env' variable.
 
   (ignore kind m-name)
   
-  (let (; (level  (magiciel--instruction-level inst))
-	;; (access (magiciel--instruction-access inst))
-	(test   (magiciel--instruction-test inst))
-	;; (value  (magiciel--instruction-test inst))
-	(result (magiciel--instruction-result inst))
-	)
-    `(progn
-       (magiciel--run-call ',(cl-second test))
-       ($acc-msg (format ,result))
-       ;; (setf --magiciel--msg
-       ;;       (append --magiciel--value (list (format ,result))))
-       ;; (magiciel--run-next (1+ ,level))
-       ))
-  )
+  (let* (	       ; (level  (magiciel--instruction-level inst))
+	 ;; (access (magiciel--instruction-access inst))
+	 (test   (magiciel--instruction-test inst))
+	 ;; (value  (magiciel--instruction-test inst))
+	 (result (magiciel--instruction-result inst))
+
+	 (name-label (assoc (cl-second test) env #'string-equal))
+	 )
+
+    (unless name-label
+      (warn "MAGICIEL: unknown label %s; test will fail."
+	    (cl-second test)))
+    
+    (if name-label
+	`(progn
+	   (magiciel--run-call ',(cdr name-label))
+	   ($acc-msg (format ,result)))
+      `(progn nil))
+    
+    ;; (setf --magiciel--msg
+    ;;       (append --magiciel--value (list (format ,result))))
+    ;; (magiciel--run-next (1+ ,level))
+    ))
 
 
 (cl-defmethod magiciel--emit ((kind (eql 'search))
@@ -1454,7 +1467,12 @@
 ;;        )))
 
 
-(cl-defun magiciel--group-emit (magic instr-group &optional (group-number 0))
+(cl-defun magiciel--group-emit (magic
+				instr-group
+				group-number
+				&optional
+				(magic-env ())
+				)
   "Builds the function body that runs the i-th check.
 
 The function obtained correspond to the groups obtained from the
@@ -1465,7 +1483,11 @@ Arguments and Values:
 
 `magic' : is a `magiciel--magic' struct.
 `instr-group' : is a list of `magiciel--instruction'.
-`group-number' : is the id of the instruction.
+`group-number' : is the id of the instruction; must be unique.
+`magic-env' : is a simple \\='enviroment\\=' (an a-list) containg
+              bindings for names used in the group/block; mostly label
+              names associated to \"name\" records, wo be used by
+              \"use\" records.
 
 Notes:
 
@@ -1499,7 +1521,8 @@ specially.
 
                   (instr-root-code
                    (magiciel--emit (magiciel--instruction-kind instr)
-				   instr)
+				   instr
+				   :env magic-env)
 		   )
                   )
 
@@ -1591,16 +1614,37 @@ specially.
 
 	 (group-fns ())
 	 (groups-named ())
+
+	 (groups-names-env ())
 	 )
-		      
+
+    ;; First, collect "name" instructions for "use" ones.
+    ;; (I should build up this environment while building the
+    ;; instructions, but the double pass shouldn't matter so much.)
+    
+    (cl-loop for ig in instr-groups
+	     for ign-name = (magiciel--group-name ig)
+	     when ign-name
+	       collect (cons ign-name
+			     (intern (format "%s-label-%s" name ign-name)))
+	       into igs-env
+	     end
+	     finally
+	     (setf groups-names-env igs-env))
+
+    ;; Some code duplication below (see `intern' -- I am to lazy to
+    ;; refactor right now).
+    
     (cl-loop for ig in instr-groups
 	     for ign from 0
 	     for ign-name = (magiciel--group-name ig)
 	     if ign-name
-	       collect (list ign-name (magiciel--group-emit magic ig ign))
+	       collect (list
+			(intern (format "%s-label-%s" name ign-name))
+			(magiciel--group-emit magic ig ign groups-names-env))
 	       into named-groups
 	     else
-	       collect (magiciel--group-emit magic ig ign)
+	       collect (magiciel--group-emit magic ig ign groups-names-env)
 	       into fns-groups
 	     end
 	     finally
