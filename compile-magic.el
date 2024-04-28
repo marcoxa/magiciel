@@ -986,7 +986,8 @@
 
 
 (cl-defmethod magiciel--compile-record ((r magiciel--special-record))
-  (magiciel--compile-instr (magiciel--make-direct-offset :level 1) ; Fake offset. Level 1 necessary.
+  (magiciel--compile-instr (magiciel--make-direct-offset :level 1)
+			   ;; Fake offset. Level 1 necessary.
 			   (magiciel--special-record-type r)
 			   (magiciel--make-test :value t)
 			   (cl-first (magiciel--special-record-value r)))
@@ -1093,20 +1094,34 @@
 
   (ignore kind m-name)
   
-  (let (; (level  (magiciel--instruction-level inst))
+  (let ((level  (magiciel--instruction-level inst))
 	(access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	(value  (magiciel--instruction-value inst))
 	(result (magiciel--instruction-result inst))
 	)
-    `(let ((--magiciel-value ,access))
-       (when (,test --magiciel--value ,value)
-         ($acc-msg (format ,result --magiciel-value))
-	 ;; (setf --magiciel--msg
-	 ;;       (append --magiciel--value
-	 ;;               (list (format ,result --magiciel-value))))
-	 ;; (magiciel--run-next (1+ ,level))
-         ))
+
+    (ignore level)
+
+    ;; Let's handle test value \\='x\\=' (cfr., "magic(5)" man page.)
+
+    (if (or (eq value 'x)
+	    (string-equal value "x")
+	    (string-equal value "X"))
+	`(let ((--magiciel-value ,access))
+	   (when t ($acc-msg (format ,result --magiciel-value)))
+	   ;; The "when" is needed because I am an idiot (FTTB).
+	   )
+    
+      `(let ((--magiciel-value ,access))
+	 (when (,test --magiciel--value ,value)
+           ($acc-msg (format ,result --magiciel-value))
+	   ;; (setf --magiciel--msg
+	   ;;       (append --magiciel--value
+	   ;;               (list (format ,result --magiciel-value))))
+	   ;; (magiciel--run-next (1+ ,level))
+           ))
+      )
     ))
 
 
@@ -1142,12 +1157,15 @@
 
   (ignore kind m-name)
   
-  (let (               ; (level  (magiciel--instruction-level inst))
+  (let ((level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
+
+    (ignore level)
+    
     `($noop ',(cl-second test) ',(cl-third test) ',result)
     ;; `(progn
     ;;    (magiciel--run-def ',(cl-second test) ',(cl-third test))
@@ -1208,9 +1226,12 @@
 	    (cl-second test)))
     
     (if name-label
-	`(progn
-	   (magiciel--run-call ',(cdr name-label))
-	   ($acc-msg (format ,result)))
+	(let ((label-name (cdr name-label))
+	      (use-block-name (intern (concat (cl-second test) "-use-block")))
+	      )
+	  `(cl-block ,use-block-name
+	     ($use ,label-name)
+	     ($acc-msg ,result)))
       `(progn nil))
     
     ;; (setf --magiciel--msg
@@ -1265,7 +1286,7 @@
   )
 
 
-(cl-defmethod magiciel--emit ((kind (eql '!:mime))
+(cl-defmethod magiciel--emit ((kind (eql '!:apple))
 			      (inst magiciel--instruction)
 			      &key
 			      (m-name (gensym "magiciel--i-n-"))
@@ -1273,9 +1294,37 @@
   (ignore m-name)
 
   
-  (message "MAGICIEL EMIT: emit MIME %s." kind)
-  `(when (%%in-context ',kind)
+  (message "MAGICIEL EMIT: emit APPLE %s." kind)
+  `(when ($in-context-p ',kind)
+     (warn "MAGICIEL: !:apple %s not properly handled yet."
+	   ,(magiciel--instruction-result inst))
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql '!:mime))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (ignore m-name)
+  
+  (message "MAGICIEL EMIT: emit MIME %s." kind)
+  `(when ($in-context-p ',kind)
+     (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql '!:strength))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (ignore m-name)
+
+  (message "MAGICIEL EMIT: emit STRENGTH %s." kind)
+  `(when ($in-context-p ',kind)
+     ($noop ,(magiciel--instruction-result inst)))
   )
 
 
@@ -1287,7 +1336,7 @@
   (ignore m-name)
 
   (message "MAGICIEL EMIT: emit EXT kind %s." kind)
-  `(when (%%in-context ',kind)
+  `(when ($in-context-p ',kind)
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
   )
 
@@ -1551,6 +1600,14 @@ specially.
                                    ))
                        ))
                  )
+	       (progn (append (cl-rest instr-root-code)
+			      (cl-loop for sub-node in sub-tests
+			               collect (emit-tree sub-node)))
+		      )
+	       (cl-block (append instr-root-code
+				 (cl-loop for sub-node in sub-tests
+					  collect (emit-tree sub-node)))
+		 )
                (t
                 `(progn ,instr-root-code
                         ,@(cl-loop for sub-node in sub-tests
@@ -1680,6 +1737,8 @@ specially.
       (setq magic-fun
             `(lambda (%bytes%	; The file/stream/buffer data.
 		      %pos%	; Where we start scanning the %%bytes%%.
+		      %context% ; ":normal", "!:mime", "!:ext", or "!:apple".
+				; "!:strength" unhandled.
 		      )
                (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
                      (--magiciel-test-result nil)
@@ -1693,6 +1752,13 @@ specially.
                                  `(progn
                                     (ignore ',args)
                                     t))
+
+			       ($in-context-p (c)
+				 `(eq %context% ,c))
+
+			       ($use (name-label)
+				 `(,name-label)
+				 )
                                )
                    ,magic-fun-body))
                  ))
