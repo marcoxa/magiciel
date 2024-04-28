@@ -20,7 +20,7 @@
 ;; `magiciel--compile-instr'.
 ;;
 ;; The "instructions" returned by the previous functions are combined
-;; in "checks", which are the end, funcallable, result of the
+;; in "checks", which are the end, funcallable result of the
 ;; "compilation".  The main function that builds the checks is
 ;; `magiciel--emit'.
 ;;
@@ -713,21 +713,21 @@
 	      )
 	  `(,ind-op
 	    ,(if (magiciel--indirect-offset-rel ind-off)
-		 `(magiciel--get-value-at* %bytes%
-					   (+ %pos% ,ind-addr)
-					   ',type-spec
-					   ',type-sign
-					   ',type-endian
-					   ()
-					   ',type-len
+		 `(magiciel--get-value-at* %bytes% ; 1
+					   (+ %pos% ,ind-addr) ; 2
+					   ',type-spec	       ; 3
+					   ',type-sign	       ; 4
+					   ',type-endian       ; 5
+					   ()		       ; 6
+					   ',type-len	       ; 7
 					   )
-	       `(magiciel--get-value-at* %bytes%
-					 ,ind-addr
-					 ',type-spec
-					 ',type-sign
-					 ',type-endian
-					 ()
-					 ',type-len
+	       `(magiciel--get-value-at* %bytes% ; 1
+					 ,ind-addr ; 2
+					 ',type-spec ; 3
+					 ',type-sign ; 4
+					 ',type-endian ; 5
+					 ()	       ; 6
+					 ',type-len    ; 7
 					 ))
 	    ,(if (listp ind-num)
 		 (if (magiciel--indirect-offset-rel ind-off)
@@ -826,16 +826,18 @@
 		  ))
 	)
 
+    (ignore off-op)
+    
     (cl-etypecase type-spec
       (magiciel--integer-type-spec
-       `(magiciel--get-value-at* %bytes%
-				 %pos%
-				 ',type-spec
-				 ',unsigned
-				 ',endianness
-				 ',mods
-				 ',len
-				 ;; ,off-op
+       `(magiciel--get-value-at* %bytes% ; 1
+				 %pos%	 ; 2
+				 ',type-spec ; 3
+				 ',unsigned  ; 4
+				 ',endianness ; 5
+				 ',mods	      ; 6
+				 ',len	      ; 7
+				 ,off-op
 				 )
        )
       (magiciel--real-type-spec
@@ -858,14 +860,17 @@
 		  offset		; Assume it is ok...
 		  ))
 	)
-    `(magiciel--get-value-at* %bytes%
-			      %pos%
-			      ',type-spec
-			      ',unsigned
-			      ',endianness
-			      ',mods
-			      ',len
-			      ;; ,off-op
+
+    (ignore off-op)
+    
+    `(magiciel--get-value-at* %bytes%	; 1
+			      %pos%	; 2
+			      ',type-spec ; 3
+			      ',unsigned  ; 4
+			      ',endianness ; 5
+			      ',mods	   ; 6
+			      ',len	   ; 7
+			      ,off-op
 			      )
     ))
 
@@ -881,14 +886,17 @@
 		  offset		; Assume it is ok...
 		  ))
 	)
-    `(magiciel--get-value-at* %bytes%
-			      %pos%
-			      ',type-spec
-			      ',unsigned
-			      ',endianness
-			      ',mods
-			      ',len
-			      ;; ,off-op
+
+    (ignore off-op)
+    
+    `(magiciel--get-value-at* %bytes%	; 1
+			      %pos%	; 2
+			      ',type-spec ; 3
+			      ',unsigned  ; 4
+			      ',endianness ; 5
+			      ',mods	   ; 6
+			      ',len	   ; 7
+			      ,off-op
 			      )
     ))
   
@@ -1123,7 +1131,8 @@
 
   (ignore kind inst m-name)
   
-  (let (; (level  (magiciel--instruction-level inst))
+  (let (
+	;; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	;; (test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
@@ -1149,7 +1158,8 @@
 
   (ignore kind m-name)
   
-  (let* (	       ; (level  (magiciel--instruction-level inst))
+  (let* (
+	 ;; (level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
 	 (test   (magiciel--instruction-test inst))
 	 ;; (value  (magiciel--instruction-test inst))
@@ -1185,7 +1195,8 @@
 
   (ignore kind m-name)
   
-  (let (; (level  (magiciel--instruction-level inst))
+  (let (
+	;; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
@@ -1208,7 +1219,8 @@
 
   (ignore kind m-name)
   
-  (let (; (level  (magiciel--instruction-level inst))
+  (let (
+	;; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
