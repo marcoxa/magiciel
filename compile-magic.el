@@ -11,13 +11,14 @@
 ;; The "compilation" is organized around four functions, each
 ;; compiling one of four "fields" of each record.
 ;; - `magiciel--compile-offset'
-;; - `magiciel--compile-test'
-;; - `magiciel--compile-test-value'
+;; - `magiciel--compile-type'
+;; - `magiciel--compile-test' (actually the "value" being tested)
 ;; - `magiciel--compile-message'
 ;;
 ;; Of course, the last two are rather simple.
 ;; The results of these functions are combined by the function
-;; `magiciel--compile-instr'.
+;; `magiciel--compile-instr', which also relies on the function
+;; `magiciel--compile-test-value'.
 ;;
 ;; The "instructions" returned by the previous functions are combined
 ;; in "checks", which are the end, funcallable result of the
@@ -111,16 +112,21 @@
 				   ;; Paranoid.
 				   (magiciel--offset-level offset)
 				 0))
+			      (displacement 0)
 			      )))
   "The `magiciel-instruction' structure."
   
   (level 0 :type integer :read-only t)
   (kind '= :type symbol)
-  offset
+  (offset nil :type (or null integer magiciel--offset))
   access
   test
   (value t)
   (result "" :type string :read-only t)
+  (displacement 0)	; How "long" is the value tested/found. It is
+			; an expression: either a constant or some
+			; measurement of the resulting value (cfr.,
+			; the `regex' test).
   )
 
 
@@ -395,6 +401,9 @@
 	 :test selected-test-op
 	 :value (magiciel--compile-test-value test-val type-spec)
 	 :result compiled-msg
+	 :displacement type-len		; It should work (except for
+					; the "wrong" specifications
+					; in "parse-magic.el").
 	 )
 	))
     ))					; magiciel--compile-inst
@@ -442,6 +451,7 @@
 	   :test `(let ((case-fold-search ',case-fold-search))
 		    (string-match ',test-val %bytes% ,off-op))
 	   :result result-msg
+	   :displacement '(length (match-string 0))
 	   ))
 	))
     ))
@@ -532,7 +542,9 @@
      :kind type
      :offset offset
      :test `(string-search ,test-val ,@limit ,off-op)
-     :result result-msg))
+     :result result-msg
+     :displacement `(length ,test-val)
+     ))
   )
 
 
@@ -895,13 +907,52 @@
 			      ',unsigned  ; 4
 			      ',endianness ; 5
 			      ',mods	   ; 6
-			      ',len	   ; 7
+			      ',len	   ; 7 ; This will most likely be wrong.
 			      ,off-op
 			      )
     ))
   
 
 ;; magiciel--compile-record
+;;
+;; The way this should work would be to have the lambda generated
+;; organized in continuation passing style, in order to take care of
+;; the "test tree" nature of the code; alas it may add too much
+;; complextiy and... unreadability.
+;;
+;; In any case the code evolved by having `magiciel--compile-record'
+;; generate an "instruction" (which may be useless, but re-reprents
+;; the record in a more convenient way, which is then "emitted"; the
+;; "-emit-" functions are those that generate the code.
+;;
+;; Code emission must keep track of "positions" in order to make sure
+;; that relative and indirect (possibly relative again) offsets are
+;; treated correcly: this implies a stack.  While "one instruction =
+;; one lambda" is conceptually simple and "easy", FTTB (2024-04-30) I
+;; opt for a "macro" wrapping code that ensures that positions
+;; bindings are undone once a piece of code is done; i.e., when it
+;; must pop up the test tree.
+;;
+;; The code emitted will therefore be, after macroexpansion, something
+;; like.
+;;
+;; (let* ((%pos% %end-pos%) ; `%end-pos%` may be the same as the "outer" `%pos%`
+;;        (%end-pos% %pos%)
+;;        )
+;;   <code-emitted-here-using %pos%>
+;;   (setf %end-pos% (computed-end-pos %pos% <code-info>))
+;;
+;;   <other-tests>
+;;   )
+;;
+;; In the above <other-tests> are themselves wrapped in the `let*'
+;; above whenever they code for sub-tests.
+;;	
+;;
+;; NOTES:
+;;
+;; Old comments: pre 2024-04-30.
+;;
 ;; Generate a lambda that does sets up all the necessary
 ;; addressing and reading.
 ;;
@@ -912,12 +963,12 @@
 ;; Methods.
 
 (cl-defmethod magiciel--compile-record ((r t))
-  (message "MAGICIEL: not a magic record: %s." r)
+  (error "MAGICIEL: not a magic record: %s." r)
   nil)
 
 
 (cl-defmethod magiciel--compile-record ((r magiciel--magic-record))
-  (message "MAGICIEL: not a normal magic record: %s." r)
+  (warn "MAGICIEL: not a usable magic record: %s." r)
   nil)
 
 
@@ -1025,6 +1076,29 @@
 ;;       >0x18  leshort  >0x3f   extended PC executable (e.g., MS Windows)
 ;; """
 
+;; Support code.
+
+;; magiciel--with-test-state
+;; Sets up and track the %pos% and %end-pos% variables (FTTB).
+;;
+;; It should probably become a macrolet in the main generate function.
+
+(cl-defmacro magiciel--with-test-state (instr-code more-instructions)
+  "The macro sets up the `%pos%` and `%end-pos%` variables locally.
+
+The variable INSTR-CODE contains code that ends by setting the
+`%end-pos%` variable and MORE-INSTRUCTIONS is the \"continuation\"
+over the next tests."
+  
+  `(let* ((%pos% %end-pos%)
+	  (%end-pos% %pos%)
+	  )
+     ,instr-code
+     ,@more-instructions
+     ))
+
+
+;; magiciel-emit methods.
 
 (cl-defmethod magiciel--emit ((kind (eql '=))
 			      (inst magiciel--instruction)
@@ -1303,6 +1377,7 @@
   )
 
 
+;; Instruction trees.
 ;; Another function to build up the instruction tree.
 
 (cl-defstruct (magiciel--instr-node
@@ -1692,10 +1767,19 @@ specially.
                (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
                      (--magiciel-test-result nil)
                      (--magiciel-msg "")
+
+		     ;; The displacement of the "previous"
+		     ;; instruction; starts at 0.  It is used for
+		     ;; "continuing" records.
+		     
+		     (--magiciel-disp 0)
                      )
-                 (cl-macrolet (($acc-msg (s)
+                 (cl-macrolet (($acc-msg-disp (s &optional (d 0))
                                  `(setf --magiciel-msg
-                                        (concat --magiciel-msg ,s)))
+                                        (concat --magiciel-msg ,s)
+
+					--magiciel-disp
+					,d))
 
                                ($noop (&rest args)
                                  `(progn
