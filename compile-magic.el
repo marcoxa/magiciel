@@ -82,7 +82,11 @@
 			       instruction
 			       &key
 			       m-name
-			       &allow-other-keys))
+			       &allow-other-keys)
+  (:documentation
+   "The main function used for code emission.
+
+The function operats on an INSTRUCTION of a given KIND."))
 
 
 ;; magiciel--instruction
@@ -1083,18 +1087,17 @@
 ;;
 ;; It should probably become a macrolet in the main generate function.
 
-(cl-defmacro magiciel--with-test-state (instr-code more-instructions)
+(cl-defmacro magiciel--with-test-pos (end-pos tests)
   "The macro sets up the `%pos%` and `%end-pos%` variables locally.
 
-The variable INSTR-CODE contains code that ends by setting the
-`%end-pos%` variable and MORE-INSTRUCTIONS is the \"continuation\"
-over the next tests."
+The variable END-POS contains an expression that represents the
+\"end\" of the value previously matched, which gets bound to the
+`%end-pos%` variable; TESTS is the code emitted for the tree tests."
+
+  ;; May need an `unwind-protect' somewhere here.
   
-  `(let* ((%pos% %end-pos%)
-	  (%end-pos% %pos%)
-	  )
-     ,instr-code
-     ,@more-instructions
+  `(let* ((%end-pos% ,end-pos))
+     ,@tests
      ))
 
 
@@ -1104,12 +1107,16 @@ over the next tests."
 			      (inst magiciel--instruction)
 			      &key
 			      (m-name (gensym "magiciel--i-n-"))
+			      (displacement 0)
 			      &allow-other-keys)
-  ;; This method is for the "regular" tests (the \\='=\\=' kind
-  ;; includes also the other boolean tests.
-  ;;
+  "This method is the main \\='emit\\=' method for regular tests.
+
+The KIND argument indicates all boolean tests.  The DISPLACEMENT
+variable is an \\='expression\\=' that comes from the \"previous\"
+test and that is used for \"continuation\" offsets."
+
   ;; Note:
-  ;; Maybe change `kind' specializer to `boolean'.
+  ;; Maybe change KIND specializer to `boolean'.
 
   (ignore kind m-name)
   
@@ -1118,6 +1125,7 @@ over the next tests."
 	(test   (magiciel--instruction-test inst))
 	(value  (magiciel--instruction-value inst))
 	(result (magiciel--instruction-result inst))
+	(disp   (magiciel--instruction-displacement inst))
 	)
 
     (ignore level)
@@ -1128,17 +1136,13 @@ over the next tests."
 	    (string-equal value "x")
 	    (string-equal value "X"))
 	`(let ((--magiciel-value ,access))
-	   (when t ($acc-msg (format ,result --magiciel-value)))
-	   ;; The "when" is needed because I am an idiot (FTTB).
+	   (when t ($acc-msg-disp (format ,result --magiciel-value)))
+	   ;; The "when" here is needed because I am an idiot (FTTB).
 	   )
     
       `(let ((--magiciel-value ,access))
 	 (when (,test --magiciel--value ,value)
-           ($acc-msg (format ,result --magiciel-value))
-	   ;; (setf --magiciel--msg
-	   ;;       (append --magiciel--value
-	   ;;               (list (format ,result --magiciel-value))))
-	   ;; (magiciel--run-next (1+ ,level))
+           ($acc-msg-disp (format ,result --magiciel-value))
            ))
       )
     ))
@@ -1159,11 +1163,7 @@ over the next tests."
 	(result (magiciel--instruction-result inst))
 	)
     `(when ,test
-       ($acc-msg (format ,result (match-string 0)))
-       ;; (setf --magiciel--msg
-       ;;       (append --magiciel--value
-       ;;  	     (list (format ,result (match-string 0)))))
-       ;; (magiciel--run-next (1+ ,level))
+       ($acc-msg-disp (format ,result (match-string 0)))
        ))
   )
 
@@ -1186,13 +1186,6 @@ over the next tests."
     (ignore level)
     
     `($noop ',(cl-second test) ',(cl-third test) ',result)
-    ;; `(progn
-    ;;    (magiciel--run-def ',(cl-second test) ',(cl-third test))
-    ;;    (setf --magiciel--msg
-    ;;          (append --magiciel--value
-    ;;     	     (list (format ,result (match-string 0)))))
-    ;;    ;; (magiciel--run-next (1+ ,level))
-    ;;    )
     )
   )
 
@@ -1214,7 +1207,6 @@ over the next tests."
 	)
     `(progn
        (warn "MAGICIEL: 'indirect' not implemented; failing.")
-       ;; (magiciel--run-next (1+ ,level))
        )
     )
   )
@@ -1252,12 +1244,8 @@ over the next tests."
 	      )
 	  `(cl-block ,use-block-name
 	     ($use ,label-name)
-	     ($acc-msg ,result)))
+	     ($acc-msg-disp ,result)))
       `(progn nil))
-    
-    ;; (setf --magiciel--msg
-    ;;       (append --magiciel--value (list (format ,result))))
-    ;; (magiciel--run-next (1+ ,level))
     ))
 
 
@@ -1277,10 +1265,7 @@ over the next tests."
 	(result (magiciel--instruction-result inst))
 	)
     `(when ,test
-       ($acc-msg ,result)
-       ;; (setf --magiciel--msg
-       ;;       (append --magiciel--value (list (format ,result))))
-       ;; (magiciel--run-next (1+ ,level))
+       ($acc-msg-disp ,result)
        ))
   )
 
@@ -1301,10 +1286,7 @@ over the next tests."
 	(result (magiciel--instruction-result inst))
 	)
     `(when ,test
-       ($acc-msg ,result)
-       ;; (setf --magiciel--msg
-       ;;       (append --magiciel--value (list (format ,result))))
-       ;; (magiciel--run-next (1+ ,level))
+       ($acc-msg-disp ,result)
        ))
   )
 
@@ -1391,6 +1373,9 @@ over the next tests."
   )
 
 
+;; magiciel--dump-instr-tree, magiciel--dump-instr-level-alist
+;; Useful debugginf functions.
+
 (cl-defun magiciel--dump-instr-tree (it &optional (indent 0))
   (unless (null it)
     (let ((i (magiciel--instr-node-instr it))
@@ -1417,6 +1402,8 @@ over the next tests."
 	   finally (message "MILA:\n")
 	   ))
 
+
+;; Construction instruction trees for groups.
 
 (cl-defun magiciel--group-trees (instr-group)
   (let ((instrs-nodes
@@ -1504,42 +1491,6 @@ over the next tests."
 
 ;; Constructing the functions that check for a given file type.
 
-;; (cl-defun magiciel--group-emit-saved (magic instr-group &optional (group-number 0))
-;;   "Builds the function that runs the i-th check.
-
-;; The function obtained correspond to the groups obtained from the
-;; compilation of a magic(5) file.  The name of the function is
-;; \\='=magiciel--<magic name>-<group-number>\\='=.
-
-;; Arguments and Values:
-
-;; `magic' : is a `magiciel--magic' struct.
-;; `instr-group' : is a list of `magiciel--instruction'.
-;; `group-number' : is the id of the instruction.
-
-;; Notes:
-
-;; Groups with \\='=name\\='= and \\='=use\\='= operation are treated
-;; specially.
-;; "
-;;   (let* ((name (magiciel--magic-name magic))
-;; 	 (magic-fname
-;; 	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
-;; 	 )
-;;     `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
-;;        (let ((--magiciel--msg "")
-;; 	     (--magiciel--value nil)
-;; 	     (%pos% pos)
-;; 	     (%test-level% 0)
-;; 	     )
-;; 	 ,@(cl-loop for instr in instr-group
-;; 		    collect (magiciel--emit (magiciel--instruction-kind
-;; 					     instr)
-;; 					    instr))
-;; 	 )
-;;        )))
-
-
 (cl-defun magiciel--group-emit (magic
 				instr-group
 				group-number
@@ -1602,7 +1553,7 @@ specially.
              ;; Here comes the fun (FTTB).
              ;; If the `instr-code-root' is a `when' clause, then I
              ;; have to attach the `sub-test' inside it.  Same thing,
-             ;; but more involved is I have a `let'.  Otherwise, I
+             ;; but more involved if I have a `let/let*'.  Otherwise, I
              ;; must wrap everything in a (possibly useless) `progn'.
              ;;
              ;; I know I should resort to more sophisticated copiler
@@ -1613,16 +1564,17 @@ specially.
                              (cl-loop for sub-node in sub-tests
 			              collect (emit-tree sub-node)))
                  )
-               (let (pcase instr-root-code
-                      (`(let ,mv-bind ,when-form)
-                       (cl-assert (eq 'when (cl-first when-form)))
-                       ;; This should always be the case.
-                       `(let ,mv-bind
-                          ,(append when-form
-                                   (cl-loop for sub-node in sub-tests
-			                    collect (emit-tree sub-node))
-                                   ))
-                       ))
+               ((let let*)
+		(pcase instr-root-code
+                  (`(let ,mv-bind ,when-form)
+                   (cl-assert (eq 'when (cl-first when-form)))
+                   ;; This should always be the case.
+                   `(let ,mv-bind
+                      ,(append when-form
+                               (cl-loop for sub-node in sub-tests
+			                collect (emit-tree sub-node))
+                               ))
+                   ))
                  )
 	       (progn (append (cl-rest instr-root-code)
 			      (cl-loop for sub-node in sub-tests
@@ -1654,17 +1606,7 @@ specially.
 	 )
       
       (magiciel--make-group-func-code magic-fname
-                                      (emit-group-tree instrs-tree))
-      
-      ;; `(cl-defun ,magic-fname (%bytes% &optional (pos 0))
-      ;; 	 (let ((--magiciel--msg "")
-      ;; 	       (--magiciel--value nil)
-      ;; 	       (%pos% pos)
-      ;; 	       (%test-level% 0)
-      ;; 	       )
-      ;; 	   ,(emit-tree instrs-tree)
-      ;; 	   )
-      ;; 	 )
+                                      (emit-group-tree instrs-tree))      
       )))
 
 
