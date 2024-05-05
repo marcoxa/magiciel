@@ -74,7 +74,7 @@
   )
 
 (cl-defgeneric magiciel--compile-access
-    (type-spec unsigned endiennes mods len offset)
+    (type-spec offset unsigned endiennes mods len)
   )
 
 
@@ -396,11 +396,11 @@ The function operats on an INSTRUCTION of a given KIND."))
 	(magiciel--make-instruction
 	 :offset off-op
 	 :access (magiciel--compile-access type-spec
+					   off-op
 					   type-sign
 					   type-endian
 					   type-mods
 					   type-len
-					   off-op
 					   )
 	 :test selected-test-op
 	 :value (magiciel--compile-test-value test-val type-spec)
@@ -650,15 +650,17 @@ The function operats on an INSTRUCTION of a given KIND."))
 ;; Methods.
 
 (cl-defmethod magiciel--compile-offset ((offset magiciel--direct-offset))
-  (if (magiciel--direct-offset-cont offset)
-      `(+ %pos% ,(magiciel--direct-offset-value offset))
-    (magiciel--direct-offset-value offset)))
+  (if (magiciel--offset-cont offset)
+      `(+ %end-pos% ,(magiciel--direct-offset-value offset))
+    (magiciel--direct-offset-value offset)) ; Actually (+ %pos% ...)
+  )
 
 
 (cl-defmethod magiciel--compile-offset ((offset magiciel--indirect-offset))
-  (if (magiciel--indirect-offset-cont offset)
-      `(+ %pos% ,(magiciel--compile-indirect-offset offset))
-    (magiciel--compile-indirect-offset offset)))
+  (if (magiciel--offset-cont offset)
+      `(+ %end-pos% ,(magiciel--compile-indirect-offset offset))
+    (magiciel--compile-indirect-offset offset)) ; Actually (+ %pos% ...)
+  )
 
 
 ;; magiciel--compile-indirect-offset
@@ -757,7 +759,6 @@ The function operats on an INSTRUCTION of a given KIND."))
   )
 
 
-
 ;; magiciel--compile-type
 ;; Methods
 
@@ -799,11 +800,12 @@ The function operats on an INSTRUCTION of a given KIND."))
 ;; magiciel--compile-access
 
 (cl-defmethod magiciel--compile-access ((type-spec symbol)
+					(offset magiciel--offset)
 					unsigned
 					endianness
 					mods
 					len
-					offset)
+					)
   (cl-etypecase type-spec
     (magiciel--numeric-type-spec
      (magiciel--compile-num-access type-spec
@@ -835,25 +837,32 @@ The function operats on an INSTRUCTION of a given KIND."))
 					mods
 					len
 					offset)
+  "Compile a number-based access.
 
-  (let ((off-op (if (magiciel--offset-p offset)
-		    (magiciel--offset-code offset)
-		  offset		; Assume it is ok...
-		  ))
-	)
+TYPE-SPEC : a `magiciel--numeric-type-spec'
+UNSIGNED  : a `boolean'
+ENDIANNESS: a `magiciel-endiannes'
+MODS      : a list of modifiers (cfr., the \"magic(5)\" specs).
+LEN       : the length, in \"bytes\" to be read off the byte stream.
+OFFSET    : a `magiciel--offset'."
 
-    (ignore off-op)
+  (let* ((off-op (magiciel--offset-code offset))
+	 (off-cont (magiciel--offset-cont offset))
+	 (pos-expr (if off-cont '%end-pos% '%pos%))
+	 )
+
+    (ignore off-cont)
     
     (cl-etypecase type-spec
       (magiciel--integer-type-spec
        `(magiciel--get-value-at* %bytes% ; 1
-				 %pos%	 ; 2
+				 ,pos-expr	 ; 2
 				 ',type-spec ; 3
 				 ',unsigned  ; 4
 				 ',endianness ; 5
 				 ',mods	      ; 6
 				 ',len	      ; 7
-				 ,off-op
+				 ,off-op      ; 8
 				 )
        )
       (magiciel--real-type-spec
@@ -1087,23 +1096,34 @@ The function operats on an INSTRUCTION of a given KIND."))
 ;;
 ;; It should probably become a macrolet in the main generate function.
 
-(cl-defmacro magiciel--with-test-pos (end-pos tests)
-  "The macro sets up the `%pos%` and `%end-pos%` variables locally.
+(cl-defmacro magiciel--check (access test &body continue-tests)
+  "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
 
-The variable END-POS contains an expression that represents the
-\"end\" of the value previously matched, which gets bound to the
-`%end-pos%` variable; TESTS is the code emitted for the tree tests."
+The variable ACCESS contains an expression that represents how
+the code will get the value to be tested by TEST (if any).
+CONTINUE-TESTS contains the code for the \"next\" tests (and
+other code as well; usually the first expression of
+CONTINUE-TESTS will be a setting of the variable `$end-pos$ ( the
+\"end\" of the value previously matched), followed by other
+house-keeping code."
+
+  (declare (indent 2))
 
   ;; May need an `unwind-protect' somewhere here.
   
-  `(let* ((%end-pos% ,end-pos))
-     ,@tests
-     ))
+  `(let* ((%saved-end-pos% %end-pos%))
+     (unwind-protect
+	 ,(if access
+	      `(let ((--magiciel-value ,access))
+		 (when ,test ,@continue-tests))
+	    `(when ,test ,@continue-tests))
+       (setq %end-pos% %saved-end-pos%)))
+  )
 
 
 ;; magiciel-emit methods.
 
-(cl-defmethod magiciel--emit ((kind (eql '=))
+(cl-defmethod magiciel--emit ((kind (eql '==)) ; Never match!
 			      (inst magiciel--instruction)
 			      &key
 			      (m-name (gensym "magiciel--i-n-"))
@@ -1118,9 +1138,10 @@ test and that is used for \"continuation\" offsets."
   ;; Note:
   ;; Maybe change KIND specializer to `boolean'.
 
-  (ignore kind m-name)
+  (ignore kind m-name displacement)
   
   (let ((level  (magiciel--instruction-level inst))
+	(offset (magiciel--instruction-offset inst))
 	(access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	(value  (magiciel--instruction-value inst))
@@ -1128,7 +1149,7 @@ test and that is used for \"continuation\" offsets."
 	(disp   (magiciel--instruction-displacement inst))
 	)
 
-    (ignore level)
+    (ignore level disp offset)
 
     ;; Let's handle test value \\='x\\=' (cfr., "magic(5)" man page.)
 
@@ -1148,6 +1169,48 @@ test and that is used for \"continuation\" offsets."
     ))
 
 
+;; This is unused FTTB.  The \\='boolean is not used (yet), but this
+;; is where I experiment.
+
+(cl-defmethod magiciel--emit ((kind (eql '=))
+			      ;; (kind (eql 'boolean))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      (displacement 0)
+			      &allow-other-keys)
+  "This method is the main \\='emit\\=' method for regular tests.
+
+The KIND argument indicates all boolean tests.  The DISPLACEMENT
+variable is an \\='expression\\=' that comes from the \"previous\"
+test and that is used for \"continuation\" offsets."
+
+  (ignore kind m-name displacement)
+  
+  (let ((level  (magiciel--instruction-level inst))
+	(offset (magiciel--instruction-offset inst))
+	(access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	(value  (magiciel--instruction-value inst))
+	(result (magiciel--instruction-result inst))
+	(disp   (magiciel--instruction-displacement inst))
+	)
+
+    (ignore level disp)
+    
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% 'pos%)))
+
+      (if (or (eq value 'x)
+	      (string-equal value "x")
+	      (string-equal value "X"))
+	  `(magiciel--check t ',test ',value
+	     ($store-access-results ',result ',pos ',disp))
+	`(magiciel--check ,access (,test --magiciel-value ,value)
+	   ($store-access-results ',result ',pos ',disp))
+	)
+      )))
+
+
 (cl-defmethod magiciel--emit ((kind (eql 'regex))
 			      (inst magiciel--instruction)
 			      &key
@@ -1156,7 +1219,7 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let (; (level  (magiciel--instruction-level inst))
+  (let (	       ; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
@@ -1584,19 +1647,16 @@ specially.
 				 (cl-loop for sub-node in sub-tests
 					  collect (emit-tree sub-node)))
 		 )
+	       (magiciel--check
+		(append instr-root-code
+			(cl-loop for sub-node in sub-tests
+				 collect (emit-tree sub-node))))
                (t
                 `(progn ,instr-root-code
                         ,@(cl-loop for sub-node in sub-tests
 			           collect (emit-tree sub-node)))
                 ))
-             
-	     ;; `(; when %%%instr-boolean%%%
-	     ;;    ,(magiciel--emit (magiciel--instruction-kind instr)
-	     ;;    		 instr)
-	     ;;    ,@(cl-loop for sub-node in sub-tests
-	     ;;    	   nconc (emit-tree sub-node))
-             ;;    )
-	     )
+             )
 	   )
 
          (emit-group-tree (instr-node)
@@ -1715,6 +1775,7 @@ specially.
 		     ;; "continuing" records.
 		     
 		     (--magiciel-disp 0)
+		     ($end-pos$ $pos$)
                      )
                  (cl-macrolet (($acc-msg-disp (s &optional (d 0))
                                  `(setf --magiciel-msg
@@ -1722,6 +1783,19 @@ specially.
 
 					--magiciel-disp
 					,d))
+
+			       ($store-access-result (&optional
+						      (result "")
+						      (start-pos '%pos)
+						      (d 0))
+				 (let ((msg (if (cl-find ?% result)
+						`(format ,result --magiciel-value)
+					      result)))
+                                   `(setf --magiciel-msg
+					  (concat --magiciel-msg ,msg)
+
+					  %end-pos%
+					  (+ ,start-pos ,d))))
 
                                ($noop (&rest args)
                                  `(progn
