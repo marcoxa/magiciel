@@ -108,8 +108,14 @@
 
 ;; Loading actual magic files.
 
+(defvar magiciel--pdf-test-file "tests/eintr.pdf")
+
 (defvar magiciel--pdf-magic
   (magiciel--load-magic-file "tests/magic/pdf"))
+
+
+(defvar magiciel--pdf-simple-magic
+  (magiciel--load-magic-file "tests/magic/pdf-simple"))
 
 
 ;;; try-magic.el ends here
