@@ -1103,7 +1103,7 @@ The variable ACCESS contains an expression that represents how
 the code will get the value to be tested by TEST (if any).
 CONTINUE-TESTS contains the code for the \"next\" tests (and
 other code as well; usually the first expression of
-CONTINUE-TESTS will be a setting of the variable `$end-pos$ ( the
+CONTINUE-TESTS will be a setting of the variable `%end-pos% ( the
 \"end\" of the value previously matched), followed by other
 house-keeping code."
 
@@ -1111,13 +1111,53 @@ house-keeping code."
 
   ;; May need an `unwind-protect' somewhere here.
   
-  `(let* ((%saved-end-pos% %end-pos%))
-     (unwind-protect
-	 ,(if access
-	      `(let ((--magiciel-value ,access))
-		 (when ,test ,@continue-tests))
-	    `(when ,test ,@continue-tests))
-       (setq %end-pos% %saved-end-pos%)))
+  `(cl-block %%test-block%%		; Maybe this is not right.
+     (let* ((%saved-end-pos% %end-pos%))
+       (unwind-protect
+	   ,(if access
+		`(let ((--magiciel-value ,access))
+		   (when ,test ,@continue-tests))
+	      `(when ,test ,@continue-tests))
+	 (setq %end-pos% %saved-end-pos%)))
+     )
+  )
+
+
+(cl-defmacro magiciel--$acc-msg-disp (s &optional (d 0))
+  `(setf --magiciel-msg
+         (concat --magiciel-msg ,s)
+	 
+	 --magiciel-disp
+	 ,d))
+
+
+(cl-defmacro magiciel--$store-access-result (&optional
+					     (result "")
+					     (start-pos '%pos%)
+					     (d 0))
+  (let ((msg (if (cl-find ?% result)
+		 `(format ,result --magiciel-value)
+	       result)))
+    `(setf --magiciel-msg
+	   (concat --magiciel-msg ,msg)
+
+	   %end-pos%
+	   (+ ,start-pos ,d)))
+  )
+
+
+(cl-defmacro magiciel--$noop (&rest args)
+  `(progn
+     (ignore ',args)
+     t))
+
+
+(cl-defmacro magiciel--$in-context-p (c)
+  `(eq %context% ,c))
+
+
+(cl-defmacro magiciel--$use (name-label)
+  `(,name-label)
   )
 
 
@@ -1157,13 +1197,13 @@ test and that is used for \"continuation\" offsets."
 	    (string-equal value "x")
 	    (string-equal value "X"))
 	`(let ((--magiciel-value ,access))
-	   (when t ($acc-msg-disp (format ,result --magiciel-value)))
+	   (when t (magiciel--$acc-msg-disp (format ,result --magiciel-value)))
 	   ;; The "when" here is needed because I am an idiot (FTTB).
 	   )
     
       `(let ((--magiciel-value ,access))
 	 (when (,test --magiciel--value ,value)
-           ($acc-msg-disp (format ,result --magiciel-value))
+           (magiciel--$acc-msg-disp (format ,result --magiciel-value))
            ))
       )
     ))
@@ -1198,17 +1238,37 @@ test and that is used for \"continuation\" offsets."
 
     (ignore level disp)
     
-    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% 'pos%)))
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
 
       (if (or (eq value 'x)
 	      (string-equal value "x")
 	      (string-equal value "X"))
-	  `(magiciel--check t ',test ',value
-	     ($store-access-results ',result ',pos ',disp))
+	  `(magiciel--check ,access t
+	     (magiciel--$store-access-result ,result ,pos ',disp))
 	`(magiciel--check ,access (,test --magiciel-value ,value)
-	   ($store-access-results ',result ',pos ',disp))
+	   (magiciel--$store-access-result ,result ,pos ',disp))
 	)
       )))
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'regex-old))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+
+  (ignore kind m-name)
+  
+  (let (	       ; (level  (magiciel--instruction-level inst))
+	;; (access (magiciel--instruction-access inst))
+	(test   (magiciel--instruction-test inst))
+	;; (value  (magiciel--instruction-test inst))
+	(result (magiciel--instruction-result inst))
+	)
+    `(when ,test
+       (magiciel--$acc-msg-disp (format ,result (match-string 0)))
+       ))
+  )
 
 
 (cl-defmethod magiciel--emit ((kind (eql 'regex))
@@ -1225,9 +1285,8 @@ test and that is used for \"continuation\" offsets."
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
-    `(when ,test
-       ($acc-msg-disp (format ,result (match-string 0)))
-       ))
+    `(magiciel--check nil ,test
+       (magiciel--$store-access-result (format ,result (match-tring 0)))))
   )
 
 
@@ -1248,7 +1307,7 @@ test and that is used for \"continuation\" offsets."
 
     (ignore level)
     
-    `($noop ',(cl-second test) ',(cl-third test) ',result)
+    `(magiciel--$noop ',(cl-second test) ',(cl-third test) ',result)
     )
   )
 
@@ -1290,6 +1349,7 @@ test and that is used for \"continuation\" offsets."
   (let* (
 	 ;; (level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
+	 (offset (magiciel--instruction-offset inst))
 	 (test   (magiciel--instruction-test inst))
 	 ;; (value  (magiciel--instruction-test inst))
 	 (result (magiciel--instruction-result inst))
@@ -1300,14 +1360,17 @@ test and that is used for \"continuation\" offsets."
     (unless name-label
       (warn "MAGICIEL: unknown label %s; test will fail."
 	    (cl-second test)))
-    
+
     (if name-label
-	(let ((label-name (cdr name-label))
+	(let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+	      (label-name (cdr name-label))
 	      (use-block-name (intern (concat (cl-second test) "-use-block")))
 	      )
 	  `(cl-block ,use-block-name
-	     ($use ,label-name)
-	     ($acc-msg-disp ,result)))
+	     (magiciel--$use ,label-name)
+	     ;; (magiciel--$acc-msg-disp ,result)
+	     (magiciel--$store-access-result ',result ,pos)
+	     ))
       `(progn nil))
     ))
 
@@ -1322,14 +1385,22 @@ test and that is used for \"continuation\" offsets."
   
   (let (
 	;; (level  (magiciel--instruction-level inst))
-	;; (access (magiciel--instruction-access inst))
+	; (access (magiciel--instruction-access inst))
+	(offset (magiciel--instruction-offset inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
+	(disp   (magiciel--instruction-displacement inst))
 	)
-    `(when ,test
-       ($acc-msg-disp ,result)
-       ))
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
+      `(magiciel--check nil ,test
+	 (magiciel--$store-access-result ',result ,pos ',disp)))
+    
+      ;; `(when ,test
+      ;;    (magiciel--$acc-msg-disp ,result)
+      ;;    )
+
+      )
   )
 
 
@@ -1344,13 +1415,19 @@ test and that is used for \"continuation\" offsets."
   (let (
 	;; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
+	(offset (magiciel--instruction-offset inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
-    `(when ,test
-       ($acc-msg-disp ,result)
-       ))
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
+      `(magiciel--check nil ,test
+	 (magiciel--$store-access-result ',result ,pos)))
+      
+    ;; `(when ,test
+    ;;    (magiciel--$acc-msg-disp ,result)
+    ;;    )
+    )
   )
 
 
@@ -1363,7 +1440,7 @@ test and that is used for \"continuation\" offsets."
 
   
   (message "MAGICIEL EMIT: emit APPLE %s." kind)
-  `(when ($in-context-p ',kind)
+  `(when (magiciel--$in-context-p ',kind)
      (warn "MAGICIEL: !:apple %s not properly handled yet."
 	   ,(magiciel--instruction-result inst))
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
@@ -1378,7 +1455,7 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
   
   (message "MAGICIEL EMIT: emit MIME %s." kind)
-  `(when ($in-context-p ',kind)
+  `(when (magiciel--$in-context-p ',kind)
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
   )
 
@@ -1391,8 +1468,8 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
 
   (message "MAGICIEL EMIT: emit STRENGTH %s." kind)
-  `(when ($in-context-p ',kind)
-     ($noop ,(magiciel--instruction-result inst)))
+  `(when (magiciel--$in-context-p ',kind)
+     (magiciel--$noop ,(magiciel--instruction-result inst)))
   )
 
 
@@ -1404,7 +1481,7 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
 
   (message "MAGICIEL EMIT: emit EXT kind %s." kind)
-  `(when ($in-context-p ',kind)
+  `(when (magiciel--$in-context-p ',kind)
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
   )
 
@@ -1687,6 +1764,135 @@ specially.
 
 
 
+;; (cl-defun magiciel--magic-emit-saved (magic instr-groups)
+;;   "Emits the function that checks for a specific \"magic\" specification."
+
+;;   (let* ((name (magiciel--magic-name magic))
+	 
+;; 	 (magic-fname
+;; 	  (intern (format "magiciel--%%fn-%s" name)))
+
+;; 	 (group-fns ())
+;; 	 (groups-named ())
+
+;; 	 (groups-names-env ())
+;; 	 )
+
+;;     ;; First, collect "name" instructions for "use" ones.
+;;     ;; (I should build up this environment while building the
+;;     ;; instructions, but the double pass shouldn't matter so much.)
+    
+;;     (cl-loop for ig in instr-groups
+;; 	     for ign-name = (magiciel--group-name ig)
+;; 	     when ign-name
+;; 	       collect (cons ign-name
+;; 			     (intern (format "%s-label-%s" name ign-name)))
+;; 	       into igs-env
+;; 	     end
+;; 	     finally
+;; 	     (setf groups-names-env igs-env))
+
+;;     ;; Some code duplication below (see `intern' -- I am to lazy to
+;;     ;; refactor right now).
+    
+;;     (cl-loop for ig in instr-groups
+;; 	     for ign from 0
+;; 	     for ign-name = (magiciel--group-name ig)
+;; 	     if ign-name
+;; 	       collect (list
+;; 			(intern (format "%s-label-%s" name ign-name))
+;; 			(magiciel--group-emit magic ig ign groups-names-env))
+;; 	       into named-groups
+;; 	     else
+;; 	       collect (magiciel--group-emit magic ig ign groups-names-env)
+;; 	       into fns-groups
+;; 	     end
+;; 	     finally
+;; 	     (setf group-fns fns-groups
+;; 		   groups-named named-groups))
+    
+
+;;     (let ((magic-fun (cl-constantly "MAGICIEL: unknown format."))
+;;           (magic-fun-body (cl-constantly nil))
+;;           )
+;;       ;; Here we build the function for the magic entry.
+
+;;       (if groups-named
+;; 	  ;; Create `cl-labels' for each named group.
+;; 	  (setq magic-fun-body
+;; 		`(cl-block ,magic-fname
+;; 		   (cl-labels ,(cl-loop for (named-name code) in groups-named
+;; 					collect
+;; 					`(,named-name (&rest $$$args-here%%%)
+;; 					   ,(magiciel--group-func-code-body code)))
+;; 		     ,@(mapcar #'magiciel--group-func-code-body group-fns)
+;; 		     )
+;;                    ))
+	
+;; 	;; Create a simplified function.
+;; 	(setq magic-fun-body
+;; 	      `(cl-block ,magic-fname
+;; 		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
+;;                  )
+;; 	      ))
+
+
+;;       (setq magic-fun
+;;             `(lambda (%bytes%	; The file/stream/buffer data.
+;; 		      %pos%	; Where we start scanning the %%bytes%%.
+;; 		      %context% ; ":normal", "!:mime", "!:ext", or "!:apple".
+;; 				; "!:strength" unhandled.
+;; 		      )
+;;                (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
+;;                      (--magiciel-test-result nil)
+;;                      (--magiciel-msg "")
+
+;; 		     ;; The displacement of the "previous"
+;; 		     ;; instruction; starts at 0.  It is used for
+;; 		     ;; "continuing" records.
+		     
+;; 		     (--magiciel-disp 0)
+;; 		     ($end-pos$ $pos$)
+;;                      )
+;;                  (cl-macrolet (($acc-msg-disp (s &optional (d 0))
+;;                                  `(setf --magiciel-msg
+;;                                         (concat --magiciel-msg ,s)
+
+;; 					--magiciel-disp
+;; 					,d))
+
+;; 			       ($store-access-result (&optional
+;; 						      (result "")
+;; 						      (start-pos '%pos%)
+;; 						      (d 0))
+;; 				 (let ((msg (if (cl-find ?% result)
+;; 						`(format ,result --magiciel-value)
+;; 					      result)))
+;;                                    `(setf --magiciel-msg
+;; 					  (concat --magiciel-msg ,msg)
+
+;; 					  %end-pos%
+;; 					  (+ ,start-pos ,d))))
+
+;;                                ($noop (&rest args)
+;;                                  `(progn
+;;                                     (ignore ',args)
+;;                                     t))
+
+;; 			       ($in-context-p (c)
+;; 				 `(eq %context% ,c))
+
+;; 			       ($use (name-label)
+;; 				 `(,name-label)
+;; 				 )
+;;                                )
+;;                    ,magic-fun-body))
+;;                  ))
+      
+;;       (list magic-fname group-fns groups-named magic-fun)
+;;       )))
+
+
 (cl-defun magiciel--magic-emit (magic instr-groups)
   "Emits the function that checks for a specific \"magic\" specification."
 
@@ -1775,44 +1981,26 @@ specially.
 		     ;; "continuing" records.
 		     
 		     (--magiciel-disp 0)
-		     ($end-pos$ $pos$)
+		     (%end-pos% %pos%)
                      )
-                 (cl-macrolet (($acc-msg-disp (s &optional (d 0))
-                                 `(setf --magiciel-msg
-                                        (concat --magiciel-msg ,s)
 
-					--magiciel-disp
-					,d))
+		 ;; The next one would be a `ignorable' declaration in CL.
+		 (ignore --magiciel-value
+			 --magiciel-test-result
+			 --magiciel-disp)
+                 ,magic-fun-body
+		 --magiciel-msg)
+               ))
 
-			       ($store-access-result (&optional
-						      (result "")
-						      (start-pos '%pos)
-						      (d 0))
-				 (let ((msg (if (cl-find ?% result)
-						`(format ,result --magiciel-value)
-					      result)))
-                                   `(setf --magiciel-msg
-					  (concat --magiciel-msg ,msg)
+      (setf (symbol-function magic-fname) magic-fun)
 
-					  %end-pos%
-					  (+ ,start-pos ,d))))
-
-                               ($noop (&rest args)
-                                 `(progn
-                                    (ignore ',args)
-                                    t))
-
-			       ($in-context-p (c)
-				 `(eq %context% ,c))
-
-			       ($use (name-label)
-				 `(,name-label)
-				 )
-                               )
-                   ,magic-fun-body))
-                 ))
+      (magiciel--add-spell name (byte-compile magic-fun))
       
-      (list magic-fname group-fns groups-named magic-fun)
+      (cl-values magic-fname
+		 group-fns
+		 groups-named
+		 magic-fun
+		 )
       )))
 
 
