@@ -191,6 +191,63 @@ The function fails with a condition if called on a non UN*X system.
   )
 
 
+(cl-defgeneric magiciel-cast-spell (spell bytes))
+
+
+(cl-defun magiciel--get-bytes (filename)
+  "Return a byte vector representing FILENAME.
+
+This is an internal function, factored out just for debugging."
+
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally filename)
+    (buffer-substring-no-properties (point-min) (point-max))
+    )
+  )
+
+  
+(cl-defun magiciel-divine (filename)
+  "The main command of the Magiciel library.
+
+The type of FILENAME will be divined by the call."
+  
+  (interactive "fFilename: ")
+  
+  (unless (file-exists-p filename)
+    (error "MAGICIEL: file '%s' does not exists." filename))
+
+  (when (file-directory-p filename)
+    (error "MAGICIEL: name '%s' denotes a directory." filename))
+
+  (unless (file-readable-p filename)
+    (error "MAGICIEL: file '%s' cannot be read." filename))
+  
+  (let ((spells (magiciel--get-spells))
+	(fs (with-temp-buffer
+	      (set-buffer-multibyte nil)
+	      (insert-file-contents-literally filename)
+	      (buffer-substring-no-properties (point-min) (point-max))
+	      )
+	    )
+	(divinations ())
+	)
+    (when (multibyte-string-p fs)
+      (error "MAGICIEL: reading file '%s',\nbut results in a multibyte buffer."
+	     filename))
+    (cl-loop for spell in spells
+	     for divination = (magiciel-cast-spell spell fs)
+	     do (message "MAGICIEL: divination %s." divination)
+	     collect divination
+	     into divinations)
+    (cl-values filename divinations)
+    ))
+
+
+(cl-defmethod magiciel-cast-spell ((spell function) bytes)
+  (funcall spell bytes 0 'magiciel--%normal-context%))
+
+
 (provide 'magiciel-spells)
 
 ;;; magiciel-spells.el ends here
