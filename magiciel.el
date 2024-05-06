@@ -32,6 +32,7 @@
 (load (expand-file-name "magic-ingredients" magiciel-path))
 
 (load (expand-file-name "magic-bits" magiciel-path))
+(load (expand-file-name "cauldron" magiciel-path))
 (load (expand-file-name "magiciel-spells" magiciel-path))
 (load (expand-file-name "parse-magic" magiciel-path))
 (load (expand-file-name "compile-magic" magiciel-path))
