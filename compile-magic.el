@@ -391,6 +391,12 @@ The function operats on an INSTRUCTION of a given KIND."))
 		     (magiciel--select-op test-op 'string))
 		    )
 	      )
+	     (actual-value (magiciel--compile-test-value test-val type-spec))
+	     (actual-length		; Kludge FTTB.
+	      (if (eql type-spec 'string)
+		  (length actual-value)
+		type-len)
+	      )
 	     )
 
 	(magiciel--make-instruction
@@ -400,10 +406,10 @@ The function operats on an INSTRUCTION of a given KIND."))
 					   type-sign
 					   type-endian
 					   type-mods
-					   type-len
+					   actual-length
 					   )
 	 :test selected-test-op
-	 :value (magiciel--compile-test-value test-val type-spec)
+	 :value actual-value
 	 :result compiled-msg
 	 :displacement type-len		; It should work (except for
 					; the "wrong" specifications
@@ -839,24 +845,25 @@ The function operats on an INSTRUCTION of a given KIND."))
 					offset)
   "Compile a number-based access.
 
-TYPE-SPEC : a `magiciel--numeric-type-spec'
-UNSIGNED  : a `boolean'
-ENDIANNESS: a `magiciel-endiannes'
-MODS      : a list of modifiers (cfr., the \"magic(5)\" specs).
-LEN       : the length, in \"bytes\" to be read off the byte stream.
-OFFSET    : a `magiciel--offset'."
+TYPE-SPEC  : a `magiciel--numeric-type-spec'
+UNSIGNED   : a `boolean'
+ENDIANNESS : a `magiciel-endiannes'
+MODS       : a list of modifiers (cfr., the \"magic(5)\" specs).
+LEN        : the length, in \"bytes\" to be read off the byte stream.
+OFFSET     : a `magiciel--offset'."
 
   (let* ((off-op (magiciel--offset-code offset))
 	 (off-cont (magiciel--offset-cont offset))
 	 (pos-expr (if off-cont '%end-pos% '%pos%))
 	 )
 
-    (ignore off-cont)
+    (ignore off-cont pos-expr)
     
     (cl-etypecase type-spec
       (magiciel--integer-type-spec
        `(magiciel--get-value-at* %bytes% ; 1
-				 ,pos-expr	 ; 2
+				 ;; ,pos-expr	 ; 2
+				 ,off-op
 				 ',type-spec ; 3
 				 ',unsigned  ; 4
 				 ',endianness ; 5
@@ -889,7 +896,8 @@ OFFSET    : a `magiciel--offset'."
     (ignore off-op)
     
     `(magiciel--get-value-at* %bytes%	; 1
-			      %pos%	; 2
+			      ;; %pos%	; 2
+			      ,off-op
 			      ',type-spec ; 3
 			      ',unsigned  ; 4
 			      ',endianness ; 5
@@ -915,7 +923,8 @@ OFFSET    : a `magiciel--offset'."
     (ignore off-op)
     
     `(magiciel--get-value-at* %bytes%	; 1
-			      %pos%	; 2
+			      ;; %pos%	; 2
+			      ,off-op
 			      ',type-spec ; 3
 			      ',unsigned  ; 4
 			      ',endianness ; 5
@@ -1135,9 +1144,15 @@ house-keeping code."
 					     (result "")
 					     (start-pos '%pos%)
 					     (d 0))
-  (let ((msg (if (cl-find ?% result)
-		 `(format ,result --magiciel-value)
-	       result)))
+  (let* ((msg1 (let ((bpos (string-search "\\b" result)))
+		 (if (and bpos (zerop bpos))
+		     (substring result 2)
+		   (concat "\n" result)	; Maybe be smarter about the initial newline.
+		   )))
+	 (msg  (if (cl-find ?% msg1)
+		   `(format ,msg1 --magiciel-value)
+		 msg1))
+	 )
     `(setf --magiciel-msg
 	   (concat --magiciel-msg ,msg)
 
@@ -1286,7 +1301,7 @@ test and that is used for \"continuation\" offsets."
 	(result (magiciel--instruction-result inst))
 	)
     `(magiciel--check nil ,test
-       (magiciel--$store-access-result (format ,result (match-tring 0)))))
+       (magiciel--$store-access-result (format ,result (match-string 0)))))
   )
 
 
@@ -1994,7 +2009,7 @@ specially.
 
       (setf (symbol-function magic-fname) magic-fun)
 
-      (magiciel--add-spell name (byte-compile magic-fun))
+      (magiciel--add-spell name (byte-compile magic-fname))
       
       (cl-values magic-fname
 		 group-fns
