@@ -8,6 +8,9 @@
 ;;
 ;; Get mime types using the "file" command on UN*X and querying the
 ;; registry on Windows.
+;;
+;; ... or, get the same by implementing a compile for the "magic(5)"
+;; database.
 
 
 ;;; Code:
