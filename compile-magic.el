@@ -1259,7 +1259,7 @@ test and that is used for \"continuation\" offsets."
 	      (string-equal value "x")
 	      (string-equal value "X"))
 	  `(magiciel--check ,access t
-	     (magiciel--$store-access-result ,result ,pos ',disp))
+	     (magiciel--$store-access-result ,result ,pos ,disp))
 	`(magiciel--check ,access (,test --magiciel-value ,value)
 	   (magiciel--$store-access-result ,result ,pos ',disp))
 	)
@@ -1384,7 +1384,7 @@ test and that is used for \"continuation\" offsets."
 	  `(cl-block ,use-block-name
 	     (magiciel--$use ,label-name)
 	     ;; (magiciel--$acc-msg-disp ,result)
-	     (magiciel--$store-access-result ',result ,pos)
+	     (magiciel--$store-access-result ,result ,pos)
 	     ))
       `(progn nil))
     ))
@@ -1409,7 +1409,7 @@ test and that is used for \"continuation\" offsets."
 	)
     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
       `(magiciel--check nil ,test
-	 (magiciel--$store-access-result ',result ,pos ',disp)))
+	 (magiciel--$store-access-result ,result ,pos ,disp)))
     
       ;; `(when ,test
       ;;    (magiciel--$acc-msg-disp ,result)
@@ -1437,7 +1437,7 @@ test and that is used for \"continuation\" offsets."
 	)
     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
       `(magiciel--check nil ,test
-	 (magiciel--$store-access-result ',result ,pos)))
+	 (magiciel--$store-access-result ,result ,pos)))
       
     ;; `(when ,test
     ;;    (magiciel--$acc-msg-disp ,result)
