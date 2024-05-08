@@ -1100,7 +1100,7 @@ OFFSET     : a `magiciel--offset'."
 
 ;; Support code.
 
-;; magiciel--with-test-state
+;; magiciel--check
 ;; Sets up and track the %pos% and %end-pos% variables (FTTB).
 ;;
 ;; It should probably become a macrolet in the main generate function.
@@ -1143,14 +1143,15 @@ house-keeping code."
 (cl-defmacro magiciel--$store-access-result (&optional
 					     (result "")
 					     (start-pos '%pos%)
-					     (d 0))
+					     (d 0)
+					     (val '--magiciel-value))
   (let* ((msg1 (let ((bpos (string-search "\\b" result)))
 		 (if (and bpos (zerop bpos))
 		     (substring result 2)
 		   (concat "\n" result)	; Maybe be smarter about the initial newline.
 		   )))
 	 (msg  (if (cl-find ?% msg1)
-		   `(format ,msg1 --magiciel-value)
+		   `(format ,msg1 ,val)
 		 msg1))
 	 )
     `(setf --magiciel-msg
@@ -1301,7 +1302,11 @@ test and that is used for \"continuation\" offsets."
 	(result (magiciel--instruction-result inst))
 	)
     `(magiciel--check nil ,test
-       (magiciel--$store-access-result (format ,result (match-string 0)))))
+       (magiciel--$store-access-result ,result
+				       %pos%
+				       (length (match-string 0 %bytes%))
+				       (format ,result
+					       (match-string 0 %bytes%)))))
   )
 
 
