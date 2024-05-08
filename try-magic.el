@@ -118,4 +118,35 @@
   (magiciel--load-magic-file "tests/magic/pdf-simple"))
 
 
+(defvar magiciel--ibm-magic
+  (magiciel--load-magic-file "tests/magic/ibm370"))
+
+
+(defvar magiciel--aout-magic
+  (magiciel--load-magic-file "tests/magic/aout"))
+
+
+(defvar magiciel--c-lang-magic
+  (magiciel--load-magic-file "tests/magic/c-lang"))
+
+
+;; Compile some of the tests.
+
+(cl-multiple-value-setq (pdfsrecs pdfsgrps)
+  (magiciel-compile-magic magiciel--pdf-simple-magic 2))
+
+(magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps)
+
+(cl-multiple-value-setq (aoutrecs aoutgrps)
+  (magiciel-compile-magic magiciel--pdf-simple-magic 2))
+
+(magiciel--magic-emit magiciel--aout-magic aoutgrps)
+
+
+;; (cl-multiple-value-setq (clangrecs clanggrps)
+;;  (magiciel-compile-magic magiciel--c-lang-magic 2))
+
+;; (magiciel--magic-emit magiciel--c-lang-magic clanggrps)
+
+
 ;;; try-magic.el ends here
