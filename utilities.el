@@ -21,15 +21,15 @@
 
 
 (defun magiciel--info (fmt &rest args)
-  (message (concat "MAGICIEL: " fmt) args))
+  (apply #'message (concat "MAGICIEL: " fmt) args))
 
 
 (defun magiciel--warn (fmt &rest args)
-  (warn (concat "MAGICIEL: " fmt) args))
+  (apply #'warn (concat "MAGICIEL: " fmt) args))
 
 
 (defun magiciel--error (fmt &rest args)
-  (error (concat "MAGICIEL: " fmt) args))
+  (apply #'error (concat "MAGICIEL: " fmt) args))
 
 
 ;; Debugging.
