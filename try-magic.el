@@ -132,21 +132,40 @@
 
 ;; Compile some of the tests.
 
+;; PDF Simple.
+
 (cl-multiple-value-setq (pdfsrecs pdfsgrps)
   (magiciel-compile-magic magiciel--pdf-simple-magic 2))
 
-(magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps)
+(setq magiciel--pdf-simple-emitted
+      (magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps))
+
+
+;; PDF
+
+(cl-multiple-value-setq (pdfrecs pdfgrps)
+  (magiciel-compile-magic magiciel--pdf-magic 2))
+
+(setq magiciel--pdf-simple-emitted
+      (magiciel--magic-emit magiciel--pdf-magic pdfsgrps))
+
+
+;; a.out
 
 (cl-multiple-value-setq (aoutrecs aoutgrps)
-  (magiciel-compile-magic magiciel--pdf-simple-magic 2))
+  (magiciel-compile-magic magiciel--aout-magic 2))
 
-(magiciel--magic-emit magiciel--aout-magic aoutgrps)
+(setq magiciel--aout-emitted
+      (magiciel--magic-emit magiciel--aout-magic aoutgrps))
 
 
-;; (cl-multiple-value-setq (clangrecs clanggrps)
-;;  (magiciel-compile-magic magiciel--c-lang-magic 2))
+;; C
 
-;; (magiciel--magic-emit magiciel--c-lang-magic clanggrps)
+(cl-multiple-value-setq (clangrecs clanggrps)
+  (magiciel-compile-magic magiciel--c-lang-magic 2))
+
+(setq magiciel-clang-emitted
+      (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
 
 
 ;;; try-magic.el ends here
