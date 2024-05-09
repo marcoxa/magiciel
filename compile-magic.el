@@ -54,7 +54,7 @@
 
 ;; Compilation functions.
 
-(cl-defgeneric magiciel--compile-record (r)
+(cl-defgeneric magiciel--compile-record (r &key &allow-other-keys)
   )
 
 (cl-defgeneric magiciel--compile-offset (offset)
@@ -105,6 +105,7 @@ The function operats on an INSTRUCTION of a given KIND."))
 (cl-defstruct (magiciel--instruction
 	       (:constructor magiciel--make-instruction
 			     (&key
+			      (group 0)
 			      (kind '=)
 			      offset
 			      access
@@ -119,7 +120,8 @@ The function operats on an INSTRUCTION of a given KIND."))
 			      (displacement 0)
 			      )))
   "The `magiciel-instruction' structure."
-  
+
+  (group 0 :type integer :read-only t)
   (level 0 :type integer :read-only t)
   (kind '= :type symbol)
   (offset nil :type (or null integer magiciel--offset))
@@ -135,7 +137,8 @@ The function operats on an INSTRUCTION of a given KIND."))
 
 
 (cl-defmethod cl-print-object ((mi magiciel--instruction) stream)
-  (princ (format "#<MAGICIEL Instruction: [L %d] %s %S %s %s %s>"
+  (princ (format "#<MAGICIEL Instruction: [GL %d/%d] %s %S %s %s %s>"
+		 (magiciel--instruction-group mi)
 		 (magiciel--instruction-level mi)
 		 (magiciel--instruction-offset mi)
 		 (magiciel--instruction-access mi)
@@ -236,7 +239,10 @@ The function operats on an INSTRUCTION of a given KIND."))
 	
 	(message "\nMAGICIEL: compiling record groups...")
 	(cl-loop for g in recs-groups
-		 collect (mapcar #'magiciel--compile-record  g)
+		 for gn from 0
+		 collect (mapcar #'(lambda (r)
+				     (magiciel--compile-record r :group-id gn))
+				 g)
 		 into cgrps
 		 finally
 		 (setf comp-rec-groups cgrps)
@@ -984,30 +990,44 @@ OFFSET     : a `magiciel--offset'."
 ;;
 ;; Methods.
 
-(cl-defmethod magiciel--compile-record ((r t))
+(cl-defmethod magiciel--compile-record ((r t)
+					&key &allow-other-keys)
   (error "MAGICIEL: not a magic record: %s." r)
   nil)
 
 
-(cl-defmethod magiciel--compile-record ((r magiciel--magic-record))
+(cl-defmethod magiciel--compile-record ((r magiciel--magic-record)
+					&key &allow-other-keys)
   (warn "MAGICIEL: not a usable magic record: %s." r)
   nil)
 
 
-(cl-defmethod magiciel--compile-record ((r magiciel--normal-record))
+(cl-defmethod magiciel--compile-record ((r magiciel--normal-record)
+					&key
+					(group-id 0)
+					&allow-other-keys
+					)
   (magiciel--compile-instr (magiciel--normal-record-offset r)
 			   (magiciel--normal-record-type r)
 			   (magiciel--normal-record-test r)
-			   (magiciel--normal-record-message r))
+			   (magiciel--normal-record-message r)
+			   :group-id group-id
+			   )
   )
 
 
-(cl-defmethod magiciel--compile-record ((r magiciel--special-record))
+(cl-defmethod magiciel--compile-record ((r magiciel--special-record)
+					&key
+					(group-id 0)
+					&allow-other-keys
+					)
   (magiciel--compile-instr (magiciel--make-direct-offset :level 1)
 			   ;; Fake offset. Level 1 necessary.
 			   (magiciel--special-record-type r)
 			   (magiciel--make-test :value t)
-			   (cl-first (magiciel--special-record-value r)))
+			   (cl-first (magiciel--special-record-value r))
+			   :group-id group-id
+			   )
   )
 
 
@@ -1105,7 +1125,7 @@ OFFSET     : a `magiciel--offset'."
 ;;
 ;; It should probably become a macrolet in the main generate function.
 
-(cl-defmacro magiciel--check (access test &body continue-tests)
+(cl-defmacro magiciel--check (tag access test &body continue-tests)
   "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
 
 The variable ACCESS contains an expression that represents how
@@ -1116,21 +1136,32 @@ CONTINUE-TESTS will be a setting of the variable `%end-pos% ( the
 \"end\" of the value previously matched), followed by other
 house-keeping code."
 
-  (declare (indent 2))
+  (declare (indent 3))
 
-  ;; May need an `unwind-protect' somewhere here.
-  
   `(cl-block %%test-block%%		; Maybe this is not right.
      (let* ((%saved-end-pos% %end-pos%))
+       (magiciel--info "running check; %s (%s) access: %s, test: %s (%d)."
+		       ,tag
+		       %pos%
+		       ',access
+		       ',test
+		       %end-pos%
+		       )
        (unwind-protect
 	   ,(if access
 		`(let ((--magiciel-value ,access))
-		   (when ,test ,@continue-tests))
-	      `(when ,test ,@continue-tests))
+		   (when ,test
+		     (magiciel--info "check succeded.")
+		     ,@continue-tests))
+	      `(when ,test
+		 (magiciel--info "check succeded.")
+		 ,@continue-tests))
 	 (setq %end-pos% %saved-end-pos%)))
      )
   )
 
+
+;; magiciel--$acc-msg-disp
 
 (cl-defmacro magiciel--$acc-msg-disp (s &optional (d 0))
   `(setf --magiciel-msg
@@ -1140,11 +1171,21 @@ house-keeping code."
 	 ,d))
 
 
+;; magiciel--$store-access-result
+
 (cl-defmacro magiciel--$store-access-result (&optional
 					     (result "")
 					     (start-pos '%pos%)
-					     (d 0)
-					     (val '--magiciel-value))
+					     (displ 0)
+					     (val '--magiciel-value)
+					     )
+  "Houskeeping macro used in generated code.
+
+Accumulates the RESULT (must be a literal string) in the final message
+returned by the compiled function.  It also records the `$end-pos$'
+based on START-POS (defaulting to `%pos%' and the displacement DISPL.
+VAL is the expression constructing the value accessed (defaulting to
+`--magiciel-value')."
   (let* ((msg1 (let ((bpos (string-search "\\b" result)))
 		 (if (and bpos (zerop bpos))
 		     (substring result 2)
@@ -1158,7 +1199,7 @@ house-keeping code."
 	   (concat --magiciel-msg ,msg)
 
 	   %end-pos%
-	   (+ ,start-pos ,d)))
+	   (+ ,start-pos ,displ)))
   )
 
 
@@ -1254,14 +1295,23 @@ test and that is used for \"continuation\" offsets."
 
     (ignore level disp)
     
-    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+	  (tag (intern (format "%s-%s" kind value)))
+	  )
 
-      (if (or (eq value 'x)
-	      (string-equal value "x")
-	      (string-equal value "X"))
-	  `(magiciel--check ,access t
+      (magiciel--info "%s" inst)
+      
+      (if (or (eql value 'x)
+	      (and (stringp value)
+		   (or (string-equal value "x")
+		       (string-equal value "X"))))
+	  `(magiciel--check ',tag
+	       ,access
+	       t
 	     (magiciel--$store-access-result ,result ,pos ,disp))
-	`(magiciel--check ,access (,test --magiciel-value ,value)
+	`(magiciel--check ',tag
+	     ,access
+	     (,test --magiciel-value ,value)
 	   (magiciel--$store-access-result ,result ,pos ',disp))
 	)
       )))
@@ -1295,13 +1345,14 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let (	       ; (level  (magiciel--instruction-level inst))
-	;; (access (magiciel--instruction-access inst))
-	(test   (magiciel--instruction-test inst))
-	;; (value  (magiciel--instruction-test inst))
-	(result (magiciel--instruction-result inst))
-	)
-    `(magiciel--check nil ,test
+  (let* (	       ; (level  (magiciel--instruction-level inst))
+	 ;; (access (magiciel--instruction-access inst))
+	 (test   (magiciel--instruction-test inst))
+	 (value  (magiciel--instruction-value inst))
+	 (result (magiciel--instruction-result inst))
+	 (tag (intern (format "regexp-%s" value)))
+	 )
+    `(magiciel--check ',tag nil ,test
        (magiciel--$store-access-result ,result
 				       %pos%
 				       (length (match-string 0 %bytes%))
@@ -1371,7 +1422,7 @@ test and that is used for \"continuation\" offsets."
 	 ;; (access (magiciel--instruction-access inst))
 	 (offset (magiciel--instruction-offset inst))
 	 (test   (magiciel--instruction-test inst))
-	 ;; (value  (magiciel--instruction-test inst))
+	 ;; (value  (magiciel--instruction-value inst))
 	 (result (magiciel--instruction-result inst))
 
 	 (name-label (assoc (cl-second test) env #'string-equal))
@@ -1403,24 +1454,19 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let (
-	;; (level  (magiciel--instruction-level inst))
-	; (access (magiciel--instruction-access inst))
-	(offset (magiciel--instruction-offset inst))
-	(test   (magiciel--instruction-test inst))
-	;; (value  (magiciel--instruction-test inst))
-	(result (magiciel--instruction-result inst))
-	(disp   (magiciel--instruction-displacement inst))
-	)
-    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
-      `(magiciel--check nil ,test
-	 (magiciel--$store-access-result ,result ,pos ,disp)))
-    
-      ;; `(when ,test
-      ;;    (magiciel--$acc-msg-disp ,result)
-      ;;    )
-
-      )
+  (let* (
+	 ;; (level  (magiciel--instruction-level inst))
+					; (access (magiciel--instruction-access inst))
+	 (offset (magiciel--instruction-offset inst))
+	 (test   (magiciel--instruction-test inst))
+	 (value  (magiciel--instruction-value inst))
+	 (result (magiciel--instruction-result inst))
+	 (disp   (magiciel--instruction-displacement inst))
+	 (tag (intern (format "search-%s" value)))
+	 (pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+	 )
+    `(magiciel--check ',tag nil ,test
+       (magiciel--$store-access-result ,result ,pos ,disp)))
   )
 
 
@@ -1440,15 +1486,50 @@ test and that is used for \"continuation\" offsets."
 	;; (value  (magiciel--instruction-test inst))
 	(result (magiciel--instruction-result inst))
 	)
-    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%)))
-      `(magiciel--check nil ,test
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+	  (tag 'default)
+	  )
+      `(magiciel--check ',tag nil ,test
 	 (magiciel--$store-access-result ,result ,pos)))
-      
-    ;; `(when ,test
-    ;;    (magiciel--$acc-msg-disp ,result)
-    ;;    )
     )
   )
+
+
+(cl-defmethod magiciel--emit ((kind (eql 'clear))
+			      (inst magiciel--instruction)
+			      &key
+			      ;; (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (let ((level  (magiciel--instruction-level inst))
+	(offset (magiciel--instruction-offset inst))
+	;; (access (magiciel--instruction-access inst))
+	;; (test   (magiciel--instruction-test inst))
+	(value  (magiciel--instruction-value inst))
+	(result (magiciel--instruction-result inst))
+	(disp   (magiciel--instruction-displacement inst))
+	)
+    
+    (ignore level disp)
+    
+    (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+	  (tag (intern (format "%s-%s" kind value)))
+	  )
+
+      (magiciel--info "%s" inst)
+      
+      (unless (or (eql value 'x)
+		  (and (stringp value)
+		       (or (string-equal value "x")
+			   (string-equal value "X"))))
+	(magiciel--warn "value for `clear' is not `x` (%s)."
+			value))
+      
+      `(magiciel--check ',tag
+	   nil
+	   t
+	 (set-match-data ())		; Living dangerously!
+	 (magiciel--$store-access-result ,result ,pos))
+      )))
 
 
 (cl-defmethod magiciel--emit ((kind (eql '!:apple))
@@ -1515,7 +1596,9 @@ test and that is used for \"continuation\" offsets."
 
   (message "MAGICIEL EMIT: unhandled kind %s." kind)
   `(; cl-return-from %%test-block%%
-    progn ,(magiciel--instruction-result inst))
+    ;; progn
+    cl-block ,kind
+     ,(magiciel--instruction-result inst))
   )
 
 
@@ -1679,21 +1762,31 @@ Groups with \\='=name\\='= and \\='=use\\='= operation are treated
 specially.
 "
   (let* ((name (magiciel--magic-name magic))
-	 
-	 (magic-fname
-	  (intern (format "magiciel--%%fn-%s-%d" name group-number)))
 
+	 (magic-fname (magiciel--magic-fname magic))
+	 
+	 (magic-group-fname
+	  (intern (format "%s-%d" magic-fname group-number)))
 
 	 (magic-group-block-name
 	  (intern (format "%s-block-%d" name group-number)))
 	 
 	 (instrs-tree
 	  (magiciel--group-trees instr-group))
+	 
+	 (exit-code
+	  `(cl-return-from ,magic-fname
+	      --magiciel-msg))
 	 )
 
     (message "\nMCM: instruction tree:")
 
     (magiciel--dump-instr-tree instrs-tree)
+
+
+    ;; The code emitted for each "tree" will cause side effects and
+    ;; will return a generalized boolean (or better, the returned
+    ;; value will be considered as such).
     
     (cl-labels
 	((emit-tree (instr-node)
@@ -1716,13 +1809,20 @@ specially.
              ;; but more involved if I have a `let/let*'.  Otherwise, I
              ;; must wrap everything in a (possibly useless) `progn'.
              ;;
-             ;; I know I should resort to more sophisticated copiler
+             ;; I know I should resort to more sophisticated compiler
              ;; techniques, but just bear with me.
+	     ;;
+	     ;; Finally, I have to bail out of the "top" function
+             ;; ("group 0" wrapping) if the main test succeds.
+	     ;;
+	     ;; Yeah, I should have proper continuations here.
 
              (cl-case (cl-first instr-root-code)
                (when (append instr-root-code
                              (cl-loop for sub-node in sub-tests
-			              collect (emit-tree sub-node)))
+			              collect (emit-tree sub-node))
+			     '(t)
+			     )
                  )
                ((let let*)
 		(pcase instr-root-code
@@ -1733,36 +1833,54 @@ specially.
                       ,(append when-form
                                (cl-loop for sub-node in sub-tests
 			                collect (emit-tree sub-node))
+			       '(t)
                                ))
                    ))
                  )
-	       (progn (append (cl-rest instr-root-code)
-			      (cl-loop for sub-node in sub-tests
-			               collect (emit-tree sub-node)))
-		      )
+	       (progn
+		 ;; I want to "flatten" the "progn's, if possible.
+		 (append (cl-rest instr-root-code)
+			 (cl-loop for sub-node in sub-tests
+			          collect (emit-tree sub-node))
+			 '(t)
+			 )
+		 )
 	       (cl-block (append instr-root-code
 				 (cl-loop for sub-node in sub-tests
-					  collect (emit-tree sub-node)))
+					  collect (emit-tree sub-node))
+				 '(t)
+				 )
 		 )
 	       (magiciel--check
 		(append instr-root-code
 			(cl-loop for sub-node in sub-tests
-				 collect (emit-tree sub-node))))
+				 collect (emit-tree sub-node))
+			'(t)
+			)
+		   )
                (t
                 `(progn ,instr-root-code
                         ,@(cl-loop for sub-node in sub-tests
-			           collect (emit-tree sub-node)))
+			           collect (emit-tree sub-node))
+			t
+			)
                 ))
              )
 	   )
 
          (emit-group-tree (instr-node)
+	   
            ;; The `instr-node' is at level 0.
+	   ;; If we get a non-nil return code, we exit the top-level
+	   ;; function.
+	   
            `(cl-block ,magic-group-block-name
-              ,(emit-tree instr-node)))
+              (when ,(emit-tree instr-node)
+		,exit-code)
+	      ))
 	 )
       
-      (magiciel--make-group-func-code magic-fname
+      (magiciel--make-group-func-code magic-group-fname
                                       (emit-group-tree instrs-tree))      
       )))
 
@@ -1783,138 +1901,10 @@ specially.
       (cl-second (magiciel--instruction-test i1)))))
 
 
-
-;; (cl-defun magiciel--magic-emit-saved (magic instr-groups)
-;;   "Emits the function that checks for a specific \"magic\" specification."
-
-;;   (let* ((name (magiciel--magic-name magic))
-	 
-;; 	 (magic-fname
-;; 	  (intern (format "magiciel--%%fn-%s" name)))
-
-;; 	 (group-fns ())
-;; 	 (groups-named ())
-
-;; 	 (groups-names-env ())
-;; 	 )
-
-;;     ;; First, collect "name" instructions for "use" ones.
-;;     ;; (I should build up this environment while building the
-;;     ;; instructions, but the double pass shouldn't matter so much.)
-    
-;;     (cl-loop for ig in instr-groups
-;; 	     for ign-name = (magiciel--group-name ig)
-;; 	     when ign-name
-;; 	       collect (cons ign-name
-;; 			     (intern (format "%s-label-%s" name ign-name)))
-;; 	       into igs-env
-;; 	     end
-;; 	     finally
-;; 	     (setf groups-names-env igs-env))
-
-;;     ;; Some code duplication below (see `intern' -- I am to lazy to
-;;     ;; refactor right now).
-    
-;;     (cl-loop for ig in instr-groups
-;; 	     for ign from 0
-;; 	     for ign-name = (magiciel--group-name ig)
-;; 	     if ign-name
-;; 	       collect (list
-;; 			(intern (format "%s-label-%s" name ign-name))
-;; 			(magiciel--group-emit magic ig ign groups-names-env))
-;; 	       into named-groups
-;; 	     else
-;; 	       collect (magiciel--group-emit magic ig ign groups-names-env)
-;; 	       into fns-groups
-;; 	     end
-;; 	     finally
-;; 	     (setf group-fns fns-groups
-;; 		   groups-named named-groups))
-    
-
-;;     (let ((magic-fun (cl-constantly "MAGICIEL: unknown format."))
-;;           (magic-fun-body (cl-constantly nil))
-;;           )
-;;       ;; Here we build the function for the magic entry.
-
-;;       (if groups-named
-;; 	  ;; Create `cl-labels' for each named group.
-;; 	  (setq magic-fun-body
-;; 		`(cl-block ,magic-fname
-;; 		   (cl-labels ,(cl-loop for (named-name code) in groups-named
-;; 					collect
-;; 					`(,named-name (&rest $$$args-here%%%)
-;; 					   ,(magiciel--group-func-code-body code)))
-;; 		     ,@(mapcar #'magiciel--group-func-code-body group-fns)
-;; 		     )
-;;                    ))
-	
-;; 	;; Create a simplified function.
-;; 	(setq magic-fun-body
-;; 	      `(cl-block ,magic-fname
-;; 		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
-;;                  )
-;; 	      ))
-
-
-;;       (setq magic-fun
-;;             `(lambda (%bytes%	; The file/stream/buffer data.
-;; 		      %pos%	; Where we start scanning the %%bytes%%.
-;; 		      %context% ; ":normal", "!:mime", "!:ext", or "!:apple".
-;; 				; "!:strength" unhandled.
-;; 		      )
-;;                (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
-;;                      (--magiciel-test-result nil)
-;;                      (--magiciel-msg "")
-
-;; 		     ;; The displacement of the "previous"
-;; 		     ;; instruction; starts at 0.  It is used for
-;; 		     ;; "continuing" records.
-		     
-;; 		     (--magiciel-disp 0)
-;; 		     ($end-pos$ $pos$)
-;;                      )
-;;                  (cl-macrolet (($acc-msg-disp (s &optional (d 0))
-;;                                  `(setf --magiciel-msg
-;;                                         (concat --magiciel-msg ,s)
-
-;; 					--magiciel-disp
-;; 					,d))
-
-;; 			       ($store-access-result (&optional
-;; 						      (result "")
-;; 						      (start-pos '%pos%)
-;; 						      (d 0))
-;; 				 (let ((msg (if (cl-find ?% result)
-;; 						`(format ,result --magiciel-value)
-;; 					      result)))
-;;                                    `(setf --magiciel-msg
-;; 					  (concat --magiciel-msg ,msg)
-
-;; 					  %end-pos%
-;; 					  (+ ,start-pos ,d))))
-
-;;                                ($noop (&rest args)
-;;                                  `(progn
-;;                                     (ignore ',args)
-;;                                     t))
-
-;; 			       ($in-context-p (c)
-;; 				 `(eq %context% ,c))
-
-;; 			       ($use (name-label)
-;; 				 `(,name-label)
-;; 				 )
-;;                                )
-;;                    ,magic-fun-body))
-;;                  ))
-      
-;;       (list magic-fname group-fns groups-named magic-fun)
-;;       )))
-
+;; magiciel--magic-emit
 
 (cl-defun magiciel--magic-emit (magic instr-groups)
-  "Emits the function that checks for a specific \"magic\" specification."
+  "Emit the function that checks for a specific \"magic\" specification."
 
   (let* ((name (magiciel--magic-name magic))
 	 
@@ -1989,8 +1979,9 @@ specially.
       (setq magic-fun
             `(lambda (%bytes%	; The file/stream/buffer data.
 		      %pos%	; Where we start scanning the %%bytes%%.
-		      %context% ; ":normal", "!:mime", "!:ext", or "!:apple".
-				; "!:strength" unhandled.
+		      %context% ; `%context' can be ':normal',
+				; '!:mime', '!:ext', or '!:apple'.
+				; '!:strength' unhandled.
 		      )
                (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
                      (--magiciel-test-result nil)
