@@ -273,7 +273,16 @@ ones are read in but untreated."
 ;; magiciel--magic
 
 (cl-defstruct (magiciel--magic
-	       (:constructor magiciel--make-magic))
+	       (:constructor magiciel--make-magic
+			     (&key
+			      name
+			      file
+			      records
+			      &aux
+			      (fname
+			       (intern (format "magiciel--%%fn-%s" name)))
+			      ))
+	       )
   "The representation of a \"magic(5)\" UN*X file.
 
 Notes:
@@ -284,6 +293,7 @@ reorder the \"records\" field."
   (name nil :type (or null string))
   (file nil :type (or null string))
   (records nil :type list)
+  (fname nil :type symbol :read-only t)
   )
 
 
