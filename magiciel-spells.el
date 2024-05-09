@@ -235,13 +235,23 @@ The type of FILENAME will be divined by the call."
     (when (multibyte-string-p fs)
       (error "MAGICIEL: reading file '%s',\nbut results in a multibyte buffer."
 	     filename))
-    (cl-loop for spell in spells
-	     for divination = (magiciel-cast-spell spell fs)
-	     do (message "MAGICIEL: divination %s." divination)
-	     collect divination
-	     into divinations)
-    (cl-values filename divinations)
-    ))
+
+    (let ((divinations ()))
+      (cl-loop for spell in spells
+	       for divination = (magiciel-cast-spell spell fs)
+	       when (and divination
+			 (not (string-empty-p divination)))
+
+	       collect divination into guesses
+	       end
+	       finally (setq divinations guesses)
+	       )
+
+      ;; (message "MD: %s." divinations)
+
+      (dolist (d divinations (cons filename divinations))
+	(message "MAGICIEL: divination %s." d))
+      )))
 
 
 (cl-defmethod magiciel-cast-spell ((spell function) bytes)
