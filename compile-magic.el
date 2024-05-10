@@ -573,13 +573,14 @@ The function operats on an INSTRUCTION of a given KIND."))
 				       test-mods
 				       &allow-other-keys
 				       )
-  (ignore test-val type-mods test-mods)
+  (ignore type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   
   (magiciel--make-instruction :kind type
 			      :offset offset
 			      :test `(default)
+			      :value (magiciel--test-value test-val)
 			      :result result-msg)
   )
 
@@ -593,13 +594,14 @@ The function operats on an INSTRUCTION of a given KIND."))
 				       test-mods
 				       &allow-other-keys
 				       )
-  (ignore test-val type-mods test-mods)
+  (ignore type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   
   (magiciel--make-instruction :kind type
 			      :offset offset
 			      :test `(clear)
+			      :value (magiciel--test-value test-val)
 			      :result result-msg)
   )
 
@@ -1149,13 +1151,21 @@ house-keeping code."
 		       )
        (unwind-protect
 	   ,(if access
-		`(let ((--magiciel-value ,access))
-		   (when ,test
-		     (magiciel--info "check succeded.")
+		`(let* ((--magiciel-value ,access)
+			(--magiciel-test-result ,test)
+			)
+		   (magiciel--info (if --magiciel-test-result
+				       "check succeded."
+				     "check failed."))
+		   (when --magiciel-test-result
 		     ,@continue-tests))
-	      `(when ,test
-		 (magiciel--info "check succeded.")
-		 ,@continue-tests))
+	      `(let ((--magiciel-test-result ,test))
+		 (magiciel--info (if --magiciel-test-result
+				     "check succeded."
+				   "check failed."))
+		 (when --magiciel-test-result
+		   (magiciel--info "check succeded.")
+		   ,@continue-tests)))
 	 (setq %end-pos% %saved-end-pos%)))
      )
   )
@@ -1524,9 +1534,7 @@ test and that is used for \"continuation\" offsets."
 	(magiciel--warn "value for `clear' is not `x` (%s)."
 			value))
       
-      `(magiciel--check ',tag
-	   nil
-	   t
+      `(cl-block ',tag
 	 (set-match-data ())		; Living dangerously!
 	 (magiciel--$store-access-result ,result ,pos))
       )))
