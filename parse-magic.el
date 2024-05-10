@@ -97,7 +97,6 @@ The \"types\" can be either in the \\='type\\=' field or in the
 	 stream))
 
 
-
 (cl-defstruct (magiciel--offset-type-spec
 	       (:include magiciel--common-type-spec)
 	       (:constructor
