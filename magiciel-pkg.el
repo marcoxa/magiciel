@@ -1,4 +1,4 @@
-;;; magiciel --- EMACS works the Iron on the (IBM) Mainframe.
+;;; magiciel --- Emacs does magic and divines file contents. 
 ;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; magiciel-pkg.el
@@ -9,7 +9,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2024-02-14
+;; Version: 2024-00-10
 ;;
 ;; Keywords: languages, operating systems.
 
@@ -20,12 +20,13 @@
 
 ;;; Code:
 
-(define-package "MAGICIEL" "2024-02-14"
+(define-package "MAGICIEL" "2024-05-10"
   "The Magiciel package.
 
-The Magiciel package is an Emacs Lisp (no C! Or, argh, Python!)
-collection of functions and tools to handle file content and type
-guessing in the spirit of the UN*X facilities 'file' and 'magic'."
+The Magiciel package is an Emacs Lisp (no C! Or -- argh --
+Python! Not even Rust!  Sorry, Julia) collection of functions and
+tools to handle file content and type guessing in the spirit of
+the UN*X facilities 'file' and 'magic'."
   )
 
 

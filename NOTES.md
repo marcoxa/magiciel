@@ -27,8 +27,10 @@ that may look like one of the "numeric" operators must be quoted; that
 is, the `regex` string `^at-bol` (there are no `"`'s in the `magic(5)`
 format) must be written as `\^at-bol` or as `=^at-bol`, effectively
 quoting the `^`.  That this is a quoting operation derives from the
-discussion about the `=` in front of strings (check whether this comes
-from github).
+discussion about the `=` in front of strings (this is inferred from
+the BNF description
+[BNF Description](https://github.com/file/file/blob/master/src/BNF "BNF
+description") on [GitHub](https://github.com).
 
 Bottom line: an *operator* character in front of a `regex` is *quoted*
 in `magic(5)` file specifications.  Therefore, `regex` "tests" must be
