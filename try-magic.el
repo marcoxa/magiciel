@@ -114,8 +114,8 @@
   (magiciel--load-magic-file "tests/magic/pdf"))
 
 
-(defvar magiciel--pdf-simple-magic
-  (magiciel--load-magic-file "tests/magic/pdf-simple"))
+;; (defvar magiciel--pdf-simple-magic
+;;   (magiciel--load-magic-file "tests/magic/pdf-simple"))
 
 
 (defvar magiciel--ibm-magic
@@ -134,11 +134,11 @@
 
 ;; PDF Simple.
 
-(cl-multiple-value-setq (pdfsrecs pdfsgrps)
-  (magiciel-compile-magic magiciel--pdf-simple-magic 2))
+;; (cl-multiple-value-setq (pdfsrecs pdfsgrps)
+;;   (magiciel-compile-magic magiciel--pdf-simple-magic 2))
 
-(setq magiciel--pdf-simple-emitted
-      (magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps))
+;; (setq magiciel--pdf-simple-emitted
+;;       (magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps))
 
 
 ;; PDF
@@ -147,7 +147,7 @@
   (magiciel-compile-magic magiciel--pdf-magic 2))
 
 (setq magiciel--pdf-simple-emitted
-      (magiciel--magic-emit magiciel--pdf-magic pdfsgrps))
+      (magiciel--magic-emit magiciel--pdf-magic pdfgrps))
 
 
 ;; a.out
