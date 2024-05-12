@@ -447,9 +447,23 @@ The function operats on an INSTRUCTION of a given KIND."))
 				(substring mods flag-pos)))
 		    (t (cl-values (string-to-number mods) nil))
 		    ))
+
+	    (fix-test-value (test-value-string)
+	      ;; See the NOTES.md file for the reason we need this
+	      ;; here. (And maybe elsewhere).
+
+	      (let ((c0 (aref test-value-string 0)))
+		(if (and (or (eql ?\\ c0) (eql ?= c0))
+			 (eql (aref test-value-string 1) ?^)) ; Should
+					; test for other operators as well?
+		    ;; Since the magic test is `regex` I can do away
+		    ;; with the `=` as well.
+		    (substring test-value-string 1)
+		  test-value-string)
+		))
 	    )				; cl-flet.
     (let ((off-op (magiciel--offset-code offset))
-	  (test-val (magiciel--test-value test))
+	  (test-val (fix-test-value (magiciel--test-value test)))
 	  )
       (cl-multiple-value-bind (range flags)
 	  (compile-type-mods (car type-mods))
@@ -1197,10 +1211,14 @@ based on START-POS (defaulting to `%pos%' and the displacement DISPL.
 VAL is the expression constructing the value accessed (defaulting to
 `--magiciel-value')."
   (let* ((msg1 (let ((bpos (string-search "\\b" result)))
-		 (if (and bpos (zerop bpos))
-		     (substring result 2)
-		   (concat "\n" result)	; Maybe be smarter about the initial newline.
-		   )))
+		 (cond ((and bpos (zerop bpos))
+			(substring result 2))
+		       ((string-empty-p result)
+			"")
+		       (t
+			(concat " " result))
+		       )))
+	 
 	 (msg  (if (cl-find ?% msg1)
 		   `(format ,msg1 ,val)
 		 msg1))
