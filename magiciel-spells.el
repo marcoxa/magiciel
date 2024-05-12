@@ -230,7 +230,6 @@ The type of FILENAME will be divined by the call."
 	      (buffer-substring-no-properties (point-min) (point-max))
 	      )
 	    )
-	(divinations ())
 	)
     (when (multibyte-string-p fs)
       (error "MAGICIEL: reading file '%s',\nbut results in a multibyte buffer."
@@ -247,10 +246,9 @@ The type of FILENAME will be divined by the call."
 	       finally (setq divinations guesses)
 	       )
 
-      ;; (message "MD: %s." divinations)
-
       (dolist (d divinations (cons filename divinations))
-	(message "MAGICIEL: divination %s." d))
+	(when (called-interactively-p 'any)
+	  (message "MAGICIEL Divination:%s." d)))
       )))
 
 
