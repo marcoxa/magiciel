@@ -26,6 +26,11 @@
   "The location the MAGICIEL library is loaded from.")
 
 
+(defvar magiciel--do-recompile-dir nil
+  "Controls whether to recompile the source folder or not.")
+
+
+
 ;; (load (expand-file-name "magiciel-pkg" magiciel-path)) 
 
 ;; (load (expand-file-name "magiciel-constants" magiciel-path)) ; This is pleonastic.
@@ -40,6 +45,12 @@
 (load (expand-file-name "parse-magic" magiciel-path))
 (load (expand-file-name "compile-magic" magiciel-path))
 (load (expand-file-name "try-magic" magiciel-path))
+
+
+;; Epilogue.
+
+(when magiciel--do-recompile-dir
+  (byte-recompile-directory magiciel-path 0))
 
 
 (provide 'magiciel)
