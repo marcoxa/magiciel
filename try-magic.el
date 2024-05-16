@@ -168,4 +168,13 @@
       (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
 
 
+;; IBM370
+
+(cl-multiple-value-setq (ibmrecs ibmgrps)
+  (magiciel-compile-magic magiciel--ibm-magic 2))
+
+(setq magiciel-clang-emitted
+      (magiciel--magic-emit magiciel--ibm-magic ibmgrps))
+
+
 ;;; try-magic.el ends here
