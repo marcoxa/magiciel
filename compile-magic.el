@@ -1574,7 +1574,7 @@ test and that is used for \"continuation\" offsets."
   )
 
 
-(cl-defmethod magiciel--emit ((kind (eql '!:mime))
+(cl-defmethod magiciel--emit ((kind (eql '!:mime-old))
 			      (inst magiciel--instruction)
 			      &key
 			      (m-name (gensym "magiciel--i-n-"))
@@ -1584,6 +1584,20 @@ test and that is used for \"continuation\" offsets."
   (message "MAGICIEL EMIT: emit MIME %s." kind)
   `(when (magiciel--$in-context-p ',kind)
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+  )
+
+
+(cl-defmethod magiciel--emit ((kind (eql '!:mime))
+			      (inst magiciel--instruction)
+			      &key
+			      (m-name (gensym "magiciel--i-n-"))
+			      &allow-other-keys)
+  (ignore m-name)
+  
+  (message "MAGICIEL EMIT: emit MIME %s." kind)
+  `(magiciel--check '!:mime-check nil (magiciel--$in-context-p ',kind)
+     (setq --magiciel-msg ,(magiciel--instruction-result inst))
+     (cl-return-from %%test-block%% --magiciel-msg))
   )
 
 
@@ -1651,7 +1665,7 @@ test and that is used for \"continuation\" offsets."
 	  (id (magiciel--instr-node-id it))
 	  (sts (magiciel--instr-node-sub-instr-nodes it))
 	  )
-      (message (format "MIT: %s%s %s %s"
+      (message (format "MDIT: %s%s %s %s"
 		       (make-string indent ? )
 		       (magiciel--instruction-level i)
 		       id
@@ -1662,8 +1676,9 @@ test and that is used for \"continuation\" offsets."
 
 
 (cl-defun magiciel--dump-instr-level-alist (instr-nodes-at-level)
+  (message "\nMILA:")
   (cl-loop for (il . instr-node) in instr-nodes-at-level
-	   do (message "\nMILA: %s => %s %s"
+	   do (message "MILA: %s => %s %s"
 		       il
 		       (magiciel--instr-node-id instr-node)
 		       (magiciel--instruction-kind
@@ -1675,6 +1690,7 @@ test and that is used for \"continuation\" offsets."
 ;; Construction instruction trees for groups.
 
 (cl-defun magiciel--group-trees (instr-group)
+  (message "MGT:")
   (let ((instrs-nodes
 	 (mapcar #'magiciel--make-instr-node instr-group))
 	)
@@ -1699,7 +1715,7 @@ test and that is used for \"continuation\" offsets."
   ;;                          the node last seen at a given level.
   ;;
   ;; The function returns a subtree rooted at the first (0 level)
-  ;; instruction. Each (sub) tree is simply a list (root . children)
+  ;; instruction. Each (sub) tree is simply a cons (root . children)
 
   (let* ((instr (magiciel--instr-node-instr instr-node))
 	 (il (magiciel--instruction-level instr))
@@ -1708,39 +1724,64 @@ test and that is used for \"continuation\" offsets."
     ;; `parent-node' is the last level (`level' - 1) node seen.
 
     
-    ;; (message "\nMGIT: %d %s"
-    ;; 	     il
-    ;; 	     (magiciel--instruction-kind instr)
-    ;; 	     )
+    (message "\nMGIT: instr level %d, instr kind '%s'."
+	     il
+	     (magiciel--instruction-kind instr)
+	     )
     
-    ;; (message "MGIT: parent %s %s"
-    ;; 	     (magiciel--instr-node-id parent-node)
-    ;; 	     (magiciel--instr-node-instr parent-node)
-    ;; 	     )
+    (message "MGIT: parent %s %s"
+	     (magiciel--instr-node-id parent-node)
+	     (magiciel--instr-node-instr parent-node)
+	     )
 
-    ;; (magiciel--dump-instr-level-alist instr-nodes-at-level)
+    (magiciel--dump-instr-level-alist instr-nodes-at-level)
     
     (when (and parent-node (not (zerop il))) ; We are not at level 0.
-      ;; Insert the node.
+      ;; Insert the node among the siblings of the parent.
       (setf (magiciel--instr-node-sub-instr-nodes parent-node)
 	    (append (magiciel--instr-node-sub-instr-nodes parent-node)
 		    (list instr-node)))
       )
 
-    ;; (when parent-node
-    ;;   (message "MGIT: parent subtrees %s"
-    ;;            (magiciel--instr-node-sub-instr-nodes parent-node))
-    ;;   (magiciel--dump-instr-tree parent-node)
-    ;;   )
+    (when parent-node
+      (message "MGIT: parent subtrees %s"
+               (magiciel--instr-node-sub-instr-nodes parent-node))
+      (magiciel--dump-instr-tree parent-node)
+      )
 
-    (if (null more-instrs)
-	(cdr (assoc 0 instr-nodes-at-level))
-      (magiciel--group-instrs-trees (car more-instrs)
-				    (cdr more-instrs)
-				    (cl-acons il instr-node
-					      instr-nodes-at-level)
-				    )
-      )))
+    (cond ((and (null parent-node) (zerop il) (null more-instrs))
+	   ;; This is a "root-only" group.
+	   ;; Return it as is.
+	   (message "MGIT: just the root %s." instr-node)
+	   instr-node
+	   )
+
+	  ;; Regular cases.
+	  ;;
+	  ;; No more siblings: return the "root".
+	  ((null more-instrs)
+	   (cdr (assoc 0 instr-nodes-at-level))
+	   )
+
+	  ;; Recur on subtrees.
+	  (t
+	   (magiciel--group-instrs-trees (car more-instrs)
+     				    (cdr more-instrs)
+     				    (cl-acons il instr-node
+     					      instr-nodes-at-level)
+     				    )
+	   )
+	  )
+	
+    ;; (if (null more-instrs)
+    ;; 	(cdr (assoc 0 instr-nodes-at-level))
+    ;;   (magiciel--group-instrs-trees (car more-instrs)
+    ;; 				    (cdr more-instrs)
+    ;; 				    (cl-acons il instr-node
+    ;; 					      instr-nodes-at-level)
+    ;; 				    )
+    ;;   )
+    ))
 
 
 
