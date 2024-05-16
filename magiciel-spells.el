@@ -191,7 +191,7 @@ The function fails with a condition if called on a non UN*X system.
   )
 
 
-(cl-defgeneric magiciel-cast-spell (spell bytes))
+(cl-defgeneric magiciel-cast-spell (spell bytes &optional context))
 
 
 (cl-defun magiciel--get-bytes (filename)
@@ -206,13 +206,19 @@ This is an internal function, factored out just for debugging."
     )
   )
 
+
+(cl-deftype magiciel--spell-context ()
+  '(member :normal !:normal !:ext !:mime))
+
   
-(cl-defun magiciel-divine (filename)
+(cl-defun magiciel-divine (filename &optional (context :normal))
   "The main command of the Magiciel library.
 
 The type of FILENAME will be divined by the call."
   
-  (interactive "fFilename: ")
+  (interactive "fFilename: \nSContext: ")
+
+  ;; The next checks work only for non-interactive calls.
   
   (unless (file-exists-p filename)
     (error "MAGICIEL: file '%s' does not exists." filename))
@@ -222,14 +228,12 @@ The type of FILENAME will be divined by the call."
 
   (unless (file-readable-p filename)
     (error "MAGICIEL: file '%s' cannot be read." filename))
+
+  (cl-check-type context magiciel--spell-context)
+  
   
   (let ((spells (magiciel--get-spells))
-	(fs (with-temp-buffer
-	      (set-buffer-multibyte nil)
-	      (insert-file-contents-literally filename)
-	      (buffer-substring-no-properties (point-min) (point-max))
-	      )
-	    )
+	(fs (magiciel--get-bytes filename))
 	)
     (when (multibyte-string-p fs)
       (error "MAGICIEL: reading file '%s',\nbut results in a multibyte buffer."
@@ -237,7 +241,7 @@ The type of FILENAME will be divined by the call."
 
     (let ((divinations ()))
       (cl-loop for spell in spells
-	       for divination = (magiciel-cast-spell spell fs)
+	       for divination = (magiciel-cast-spell spell fs context)
 	       when (and divination
 			 (not (string-empty-p divination)))
 
@@ -252,8 +256,12 @@ The type of FILENAME will be divined by the call."
       )))
 
 
-(cl-defmethod magiciel-cast-spell ((spell function) bytes)
-  (funcall spell bytes 0 'magiciel--%normal-context%))
+(cl-defmethod magiciel-cast-spell ((spell function)
+				   bytes
+				   &optional
+				   (context :normal))
+  (cl-check-type context magiciel--spell-context)
+  (funcall spell bytes 0 context))
 
 
 (provide 'magiciel-spells)
