@@ -37,3 +37,18 @@ in `magic(5)` file specifications.  Therefore, `regex` "tests" must be
 handled specially and "unquoted" before being used.
 
 Oh well!
+
+
+## 2024-05-16
+
+Interesting snag.  A string gotten from a file or buffer must be
+transformed into a proper **byte** string.  This is what the Emacs
+Lisp reader does, but not `substring-xxx`; i.e., a hex (Emacs Lisp)
+"character" represented like, say, `?\x42` (that is, the ASCII
+character `'B'`) must be translated in the proper byte `1000010`,
+which has length 1 and not 4.
+
+Now, how to do this required a lot of going back and forth the manual
+and, at the end, doing a `read-from-string`.  You can see this
+acrobatics in `magiciel--parse-test`; I am sure they will be necessary
+elsewhere as well.
