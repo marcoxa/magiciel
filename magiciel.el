@@ -36,6 +36,7 @@
 ;; (load (expand-file-name "magiciel-constants" magiciel-path)) ; This is pleonastic.
 
 (load (expand-file-name "utilities" magiciel-path))
+(load (expand-file-name "cstringizing" magiciel-path))
 
 (load (expand-file-name "magic-ingredients" magiciel-path))
 
