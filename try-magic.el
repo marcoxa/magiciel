@@ -143,14 +143,18 @@
 
 ;; PDF
 
+(message "\nMAGICIEL: PDF compiling and emitting.")
+
 (cl-multiple-value-setq (pdfrecs pdfgrps)
   (magiciel-compile-magic magiciel--pdf-magic 2))
 
-(setq magiciel--pdf-simple-emitted
+(setq magiciel--pdf-emitted
       (magiciel--magic-emit magiciel--pdf-magic pdfgrps))
 
 
 ;; a.out
+
+(message "\nMAGICIEL: aout compiling and emitting.")
 
 (cl-multiple-value-setq (aoutrecs aoutgrps)
   (magiciel-compile-magic magiciel--aout-magic 2))
@@ -161,6 +165,8 @@
 
 ;; C
 
+(message "\nMAGICIEL: c-lang compiling and emitting.")
+
 (cl-multiple-value-setq (clangrecs clanggrps)
   (magiciel-compile-magic magiciel--c-lang-magic 2))
 
@@ -169,6 +175,8 @@
 
 
 ;; IBM370
+
+(message "\nMAGICIEL: IBM compiling and emitting.")
 
 (cl-multiple-value-setq (ibmrecs ibmgrps)
   (magiciel-compile-magic magiciel--ibm-magic 2))
