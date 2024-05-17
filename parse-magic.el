@@ -939,7 +939,7 @@ This is the \"abstract\" offset type."
 		     (char-equal ?u (aref spec 0)))
 	    (setf spec (substring spec 1))
 	    t))
-	 (mods (cl-rest  spec-list))
+	 (mods (cl-rest spec-list))
 	 (endian (magiciel--machine-endiannes)) ; CHECK THIS!
 	 (spec-struct
 	  (pcase spec
@@ -1431,14 +1431,33 @@ This is the \"abstract\" offset type."
 	     (if (stringp record)  ; Useful for testing and debugging.
 		 record
 	       (magiciel--normal-record-test record))))
+	   
 	   (op (extract-op test-spec-string))
+	   
+	   (test-spec-bytes
+	    ;; Kludge to "bytify" the string. Cfr., IBM NETDATA/XMI
+	    ;; magic spec.
+	    ;;
+	    ;; Can break other cases; cfr., c-lang.
+	    ;; Resorting to homegrown `cstringizing`
+
+	    ;; (read-from-string 
+	    ;;  (concat "\""
+	    ;; 	     (if op
+	    ;; 		 (cl-subseq test-spec-string 1)
+	    ;; 	       test-spec-string
+	    ;; 	       )
+	    ;; 	     "\"")))
+
+	    (magiciel--cstringize (if op
+	     			      (cl-subseq test-spec-string 1)
+	     			    test-spec-string
+	     			    )))
 	   )
       (list
        (magiciel--make-test :test-string test-spec-string
 			    :op (if op op '=) ; = is the default.
-			    :value (if op
-				       (cl-subseq test-spec-string 1)
-				     test-spec-string)))
+			    :value test-spec-bytes))
       ))
   ) ; magiciel--parse-test
 
