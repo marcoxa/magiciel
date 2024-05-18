@@ -1154,20 +1154,18 @@ house-keeping code."
 
   (declare (indent 3))
 
-  `(cl-block %%test-block%%		; Maybe this is not right.
+  `(cl-block %%test-block%%		; Maybe this tag is not right.
      (let* ((%saved-end-pos% %end-pos%))
-       (magiciel--info "running check; %s (%s) access: %s, test: %s (%d)."
-		       ,tag
-		       %pos%
-		       ',access
-		       ',test
-		       %end-pos%
-		       )
+       (magiciel--info "running check; %s (%s)" ,tag %pos%)
+       (magiciel--info "access: %s" ',access)
+       (magiciel--info "test: %S (%d)." ',test %end-pos%)
        (unwind-protect
 	   ,(if access
 		`(let* ((--magiciel-value ,access)
 			(--magiciel-test-result ,test)
 			)
+		   (magiciel--info "accessed value: %S.\n" --magiciel-value)
+
 		   (magiciel--info (if --magiciel-test-result
 				       "check succeded."
 				     "check failed."))
