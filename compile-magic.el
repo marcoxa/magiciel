@@ -82,11 +82,16 @@
 			       instruction
 			       &key
 			       m-name
-			       &allow-other-keys)
+			       &allow-other-keys
+			       ;; f-name
+			       )
   (:documentation
    "The main function used for code emission.
 
-The function operats on an INSTRUCTION of a given KIND."))
+The function operats on an INSTRUCTION of a given KIND.  F-NAME,
+if passed among the \\='other-keys\\=', is the name of the
+top-level function INSTRUCTION will be part of; M-NAME can be the
+name of a lower level code block."))
 
 
 ;; magiciel--instruction
@@ -1249,6 +1254,7 @@ VAL is the expression constructing the value accessed (defaulting to
 (cl-defmethod magiciel--emit ((kind (eql '==)) ; Never match!
 			      (inst magiciel--instruction)
 			      &key
+			      (f-name (gensym "magiciel--%%fn-top-"))
 			      (m-name (gensym "magiciel--i-n-"))
 			      (displacement 0)
 			      &allow-other-keys)
@@ -1261,7 +1267,7 @@ test and that is used for \"continuation\" offsets."
   ;; Note:
   ;; Maybe change KIND specializer to `boolean'.
 
-  (ignore kind m-name displacement)
+  (ignore kind f-name m-name displacement)
   
   (let ((level  (magiciel--instruction-level inst))
 	(offset (magiciel--instruction-offset inst))
@@ -1299,6 +1305,7 @@ test and that is used for \"continuation\" offsets."
 			      ;; (kind (eql 'boolean))
 			      (inst magiciel--instruction)
 			      &key
+			      (f-name (gensym "magiciel--%%fn-top-"))
 			      (m-name (gensym "magiciel--i-n-"))
 			      (displacement 0)
 			      &allow-other-keys)
@@ -1308,7 +1315,7 @@ The KIND argument indicates all boolean tests.  The DISPLACEMENT
 variable is an \\='expression\\=' that comes from the \"previous\"
 test and that is used for \"continuation\" offsets."
 
-  (ignore kind m-name displacement)
+  (ignore kind f-name m-name displacement)
   
   (let ((level  (magiciel--instruction-level inst))
 	(offset (magiciel--instruction-offset inst))
@@ -1351,7 +1358,8 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let (	       ; (level  (magiciel--instruction-level inst))
+  (let (
+	;; (level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
 	;; (value  (magiciel--instruction-test inst))
@@ -1482,7 +1490,7 @@ test and that is used for \"continuation\" offsets."
   
   (let* (
 	 ;; (level  (magiciel--instruction-level inst))
-					; (access (magiciel--instruction-access inst))
+	 ;; (access (magiciel--instruction-access inst))
 	 (offset (magiciel--instruction-offset inst))
 	 (test   (magiciel--instruction-test inst))
 	 (value  (magiciel--instruction-value inst))
@@ -1559,6 +1567,7 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql '!:apple))
 			      (inst magiciel--instruction)
 			      &key
+			      (f-name (gensym "magiciel--%%fn-top-"))
 			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
   (ignore m-name)
@@ -1568,7 +1577,9 @@ test and that is used for \"continuation\" offsets."
   `(when (magiciel--$in-context-p ',kind)
      (warn "MAGICIEL: !:apple %s not properly handled yet."
 	   ,(magiciel--instruction-result inst))
-     (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+     ;; (cl-return-from %%test-block%% ,(magiciel--instruction-result inst))
+     (cl-return-from ,f-name ,(magiciel--instruction-result inst))
+     )
   )
 
 
@@ -1588,6 +1599,7 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql '!:mime))
 			      (inst magiciel--instruction)
 			      &key
+			      (f-name (gensym "magiciel--%%fn-top-"))
 			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
   (ignore m-name)
@@ -1595,7 +1607,9 @@ test and that is used for \"continuation\" offsets."
   (message "MAGICIEL EMIT: emit MIME %s." kind)
   `(magiciel--check '!:mime-check nil (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
-     (cl-return-from %%test-block%% --magiciel-msg))
+     ;; (cl-return-from %%test-block%% --magiciel-msg)
+     (cl-return-from ,f-name --magiciel-msg)
+     )
   )
 
 
@@ -1615,13 +1629,17 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql '!:ext))
 			      (inst magiciel--instruction)
 			      &key
+			      (f-name (gensym "magiciel--%%fn-top-"))
 			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
   (ignore m-name)
 
-  (message "MAGICIEL EMIT: emit EXT kind %s." kind)
-  `(when (magiciel--$in-context-p ',kind)
-     (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
+  (message "MAGICIEL EMIT: emit EXT %s (%S)." kind inst)
+  `(magiciel--check '!:ext-check nil (magiciel--$in-context-p ',kind)
+     (setq --magiciel-msg ,(magiciel--instruction-result inst))
+     ;; (cl-return-from %%test-block%% --magiciel-msg)
+     (cl-return-from ,f-name --magiciel-msg)
+     )
   )
 
 
@@ -1791,13 +1809,14 @@ test and that is used for \"continuation\" offsets."
 	       )
   "Internal structure packing the code blocks corresponding to \\='groups\\='."
 
-  (name (gensym "MGF-") :type symbol)
+  (name (gensym "MGFC-") :type symbol)
   (body () :type list)
   (properties () :type list)
   )
 
 
-;; Constructing the functions that check for a given file type.
+;; Constructing the functions that check for a given file type, mime
+;; type and extension.
 
 (cl-defun magiciel--group-emit (magic
 				instr-group
@@ -1818,7 +1837,7 @@ Arguments and Values:
 `group-number' : is the id of the instruction; must be unique.
 `magic-env' : is a simple \\='enviroment\\=' (an a-list) containg
               bindings for names used in the group/block; mostly label
-              names associated to \"name\" records, wo be used by
+              names associated to \"name\" records, to be used by
               \"use\" records.
 
 Notes:
@@ -1864,6 +1883,7 @@ specially.
                   (instr-root-code
                    (magiciel--emit (magiciel--instruction-kind instr)
 				   instr
+				   :f-name magic-fname
 				   :env magic-env)
 		   )
                   )
@@ -1973,8 +1993,7 @@ specially.
 
   (let* ((name (magiciel--magic-name magic))
 	 
-	 (magic-fname
-	  (intern (format "magiciel--%%fn-%s" name)))
+	 (magic-fname (magiciel--magic-fname magic))
 
 	 (group-fns ())
 	 (groups-named ())
@@ -2025,10 +2044,11 @@ specially.
 	  ;; Create `cl-labels' for each named group.
 	  (setq magic-fun-body
 		`(cl-block ,magic-fname
-		   (cl-labels ,(cl-loop for (named-name code) in groups-named
-					collect
-					`(,named-name (&rest $$$args-here%%%)
-					   ,(magiciel--group-func-code-body code)))
+		   (cl-labels
+		       ,(cl-loop for (named-name code) in groups-named
+				 collect
+				 `(,named-name (&rest $$$args-here%%%)
+				    ,(magiciel--group-func-code-body code)))
 		     ,@(mapcar #'magiciel--group-func-code-body group-fns)
 		     )
                    ))
@@ -2044,7 +2064,7 @@ specially.
       (setq magic-fun
             `(lambda (%bytes%	; The file/stream/buffer data.
 		      %pos%	; Where we start scanning the %%bytes%%.
-		      %context% ; `%context' can be ':normal',
+		      %context% ; `%context' can be ':normal' (or `!:normal'),
 				; '!:mime', '!:ext', or '!:apple'.
 				; '!:strength' unhandled.
 		      )
