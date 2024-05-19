@@ -39,7 +39,7 @@ below.
 
 
 ```elisp
-magiciel-divine FILENAME &optional (CONTEXT :normal) 
+(magiciel-divine FILENAME &optional (CONTEXT :normal)) 
 ```
 
 The type of *FILENAME* will be divined by the call.
@@ -48,7 +48,7 @@ The type of *FILENAME* will be divined by the call.
 function will return a description of the file content (as per the
 simple use of the UN\*X `file` command; or *CONTEXT* can be `!:mime`
 in which case it will return the MIME type of the file (or
-`\"application/octet-stream\"` or `\"data\"` as last resort.  Finally,
+`"application/octet-stream"` or `"data"` as last resort.  Finally,
 *CONTEXT* can be `!:ext`, in which case the function will return the
 most likely extension for *FILENAME*, by querying the magic spells
 (i.e., not by looking at the filename extension).
