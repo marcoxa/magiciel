@@ -266,12 +266,14 @@ operation in that case)."
     (cl-check-type context magiciel--spell-context)
     )
   
-  (let ((spells (magiciel--get-spells))
-	(fs (magiciel--get-bytes filename))
-	)
+  (let* ((fn (expand-file-name filename))
+	 (fnnd (file-name-nondirectory fn))
+	 (spells (magiciel--get-spells))
+	 (fs (magiciel--get-bytes fn))
+	 )
     (when (multibyte-string-p fs)
       (error "MAGICIEL: reading file '%s',\nbut results in a multibyte buffer."
-	     filename))
+	     fn))
 
     (let ((divinations ()))
       (cl-loop for spell in spells
@@ -284,9 +286,21 @@ operation in that case)."
 	       finally (setq divinations guesses)
 	       )
 
-      (dolist (d divinations (cons filename divinations))
+      (dolist (d divinations (cons fn divinations))
 	(when (called-interactively-p 'any)
-	  (message "MAGICIEL Divination:%s." d)))
+	  (cond ((string-empty-p d)
+		 (warn "MAGICIEL: empty divination."))
+		((or (eq context :normal)
+		     (eq context '!:normal))
+		 (message "MAGICIEL Divination: %S is a%s."
+			  fnnd d))
+		((eq context '!:mime)
+		 (message "MAGICIEL Divination: %S mime type is %S."
+			  fnnd d))
+		((eq context '!:ext)
+		 (message "MAGICIEL Divination: %S usual extension is %S."
+			  fnnd d))
+		)))
       )))
 
 
