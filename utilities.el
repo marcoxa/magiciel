@@ -66,4 +66,4 @@
 (defun curry2 (f arg1 arg2)
   #'(lambda (x) (apply f arg1 arg2 (list x))))
 
-;;; magiciel.el ends here
+;;; utilities.el ends here
