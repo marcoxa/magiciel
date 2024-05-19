@@ -32,10 +32,38 @@ To use the package, just install the folder `magiciel` in your Emacs
 setup and ensure that the file `magiciel.el` is loaded.  Eventually, it
 will get into `melpa`.
 
+## Using MAGICIEL
+
+The main command (and function) to use is `magiciel-divine`, described
+below.
+
+
+```
+magiciel-divine *FILENAME* &optional (*CONTEXT* :normal) 
+```
+
+The type of *FILENAME* will be divined by the call.
+
+*CONTEXT* can be either `:normal` or `!:normal`, in which case the
+function will return a description of the file content (as per the
+simple use of the UN\*X `file` command; or *CONTEXT* can be `!:mime`
+in which case it will return the MIME type of the file (or
+`\"application/octet-stream\"` or `\"data\"` as last resort.  Finally,
+*CONTEXT* can be `!:ext`, in which case the function will return the
+most likely extension for *FILENAME*, by querying the magic spells
+(i.e., not by looking at the filename extension).
+
+If called interactively, the command will default to `:normal`
+*CONTEXT*, unless invoked with a prefix (use the `?d` choice for
+`:normal` operation in that case).
+
+
 
 # Nice to have...
 
-Eventually, it'd be nice to have a *sexpy* `magic` format.
+- Eventually, it'd be nice to have a *sexpy* `magic` format.
+- Integration with `dired` et similia, is also a desirable goal.
+
 
 
 ## A NOTE ON FORKING
