@@ -38,8 +38,8 @@ The main command (and function) to use is `magiciel-divine`, described
 below.
 
 
-```
-magiciel-divine *FILENAME* &optional (*CONTEXT* :normal) 
+```elisp
+magiciel-divine FILENAME &optional (CONTEXT :normal) 
 ```
 
 The type of *FILENAME* will be divined by the call.
