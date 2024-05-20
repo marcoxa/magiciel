@@ -158,7 +158,7 @@ name of a lower level code block."))
 (cl-defun magiciel-compile-magic (magic &optional (steps 1))
   "Compiles a `magiciel-magic' structure."
   
-  (message "\nMAGICIEL: compiling magic...\n")
+  (magiciel--msg 1 "compiling magic...\n")
   (let ((code-recs
 	 (cl-remove-if #'(lambda (r)
 			   (or (magiciel--magic-record-is-comment r)
@@ -180,13 +180,13 @@ name of a lower level code block."))
 	     (process-magic-records recs ()))
 
 	   (finish ()
-	     (message "MAGICIEL: finishing.")
+	     (magiciel--msg 1 "finishing.")
 	     (setf recs-groups (nreverse recs-groups))
 	     )
 
 	   (process-magic-records (recs current-group  &aux (r (car recs)))
-	     (message "MAGICIEL: process-magic-records: %d to go..."
-		      (length recs))
+	     (magiciel--msg 1 "process-magic-records: %d to go..."
+			    (length recs))
 	     
 	     (cond ((null recs)
 		    (push current-group recs-groups)
@@ -204,9 +204,8 @@ name of a lower level code block."))
 	     )				; process-magic-records
 	     
 	   (process-normal-rec (r more-recs current-group)
-	     (message "MAGICIEL: process-normal-rec: %S (len %d)."
-		      r
-		      (length current-group))
+	     (magiciel--msg 1 "process-normal-rec: %S (len %d)."
+			    r (length current-group))
 
 	     (cl-assert (magiciel--magic-record-is-normal r)) ; Paranoia.
 
@@ -214,8 +213,8 @@ name of a lower level code block."))
 			 (magiciel--normal-record-offset r)))
 		 (progn
 		   (when current-group
-		     (message "MAGICIEL: current group size %d."
-			      (length current-group))
+		     (magiciel--msg 1 "current group size %d."
+				    (length current-group))
 		     (push current-group recs-groups))
 		   (process-magic-records more-recs (list r)))
 	       ;; Continue with current group...
@@ -224,15 +223,14 @@ name of a lower level code block."))
 	     )				; process-normal-rec
 
 	   (process-special-rec (r more-recs current-group)
-	     (message "MAGICIEL: process-normal-rec: %S (len %d)."
-		      r
-		      (length current-group))
+	     (magiciel--msg 1 "process-normal-rec: %S (len %d)."
+			    r (length current-group))
 	     (process-magic-records more-recs
 				    (append current-group (list r)))
 	     )				; process-special-rec
 	   )				; cl-labels
 
-	(message "\nMAGICIEL: grouping records...")
+	(magiciel--msg 1 "grouping records...")
 	(start code-recs)
 	
 	(when (<= steps 1)
@@ -242,7 +240,7 @@ name of a lower level code block."))
 	;; Step 2: compile each record in each group.
 	;; First 0-level test in each group is then treated specially.
 	
-	(message "\nMAGICIEL: compiling record groups...")
+	(magiciel--msg 1 "compiling record groups...")
 	(cl-loop for g in recs-groups
 		 for gn from 0
 		 collect (mapcar #'(lambda (r)
@@ -331,7 +329,6 @@ name of a lower level code block."))
 (cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
   '>)
-
 
 (cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'date)))
   (ignore op type)			; ELisp is a bit stupid here.
@@ -476,7 +473,7 @@ name of a lower level code block."))
 	(ignore range)
 	
 	(when (cl-find ?l flags)
-	  (warn "MAGICIEL: line flag in \"regex\" type not yet handled."))
+	  (magiciel--warn 1 "line flag in \"regex\" type not yet handled."))
 
 	(let ((case-fold-search (cl-find ?c flags))
 	      )
@@ -651,10 +648,10 @@ name of a lower level code block."))
 				       result-msg
 				       &key
 				       &allow-other-keys)
-  (message "MCI: provisional compilation of; %s." type)
-  (message "MCI: offset %s."     offset)
-  (message "MCI: test-val %s."   test-val)
-  (message "MCI: result-msg %s.\n" result-msg)
+  (magiciel--msg 1 "MCI: provisional compilation of; %s." type)
+  (magiciel--msg 1 "MCI: offset %s."       offset)
+  (magiciel--msg 1 "MCI: test-val %s."     test-val)
+  (magiciel--msg 1 "MCI: result-msg %s.\n" result-msg)
   (magiciel--make-instruction :kind type
 			      :offset offset
 			      :test `(in-special-context ,type)
@@ -900,9 +897,8 @@ OFFSET     : a `magiciel--offset'."
 				 )
        )
       (magiciel--real-type-spec
-       (warn (concat
-	      "MAGICIEL: warning: "
-	      "no access compiler for REAL type specifications yet."))
+       (magiciel--warn 1
+		       "no access compiler for REAL type specifications yet.")
        42.0)
       )
     ))
@@ -1112,7 +1108,7 @@ OFFSET     : a `magiciel--offset'."
 ;; The "machine" uses the following variables/locations/registers.
 ;;
 ;; `--magiciel--value' : the object (bytes) read by the "access" code.
-;; `--magiciel--msg'   : the "message" resulting as a description of
+;; `--magiciel-msg'   : the "message" resulting as a description of
 ;;                       the file.
 ;; `--magiciel--test-result' : a boolean that contains the result of
 ;;                             the test.
@@ -1161,27 +1157,27 @@ house-keeping code."
 
   `(cl-block %%test-block%%		; Maybe this tag is not right.
      (let* ((%saved-end-pos% %end-pos%))
-       (magiciel--info "running check; %s (%s)" ,tag %pos%)
-       (magiciel--info "access: %s" ',access)
-       (magiciel--info "test: %S (%d)." ',test %end-pos%)
+       (magiciel--msg 1 "running check; %s (%s)" ,tag %pos%)
+       (magiciel--msg 1 "access: %s" ',access)
+       (magiciel--msg 1 "test: %S (%d)." ',test %end-pos%)
        (unwind-protect
 	   ,(if access
 		`(let* ((--magiciel-value ,access)
 			(--magiciel-test-result ,test)
 			)
-		   (magiciel--info "accessed value: %S.\n" --magiciel-value)
+		   (magiciel--msg 1 "accessed value: %S.\n" --magiciel-value)
 
-		   (magiciel--info (if --magiciel-test-result
-				       "check succeded."
-				     "check failed."))
+		   (magiciel--msg 1 (if --magiciel-test-result
+					"check succeded."
+				      "check failed."))
 		   (when --magiciel-test-result
 		     ,@continue-tests))
 	      `(let ((--magiciel-test-result ,test))
-		 (magiciel--info (if --magiciel-test-result
-				     "check succeded."
-				   "check failed."))
+		 (magiciel--msg 1 (if --magiciel-test-result
+				      "check succeded."
+				    "check failed."))
 		 (when --magiciel-test-result
-		   (magiciel--info "check succeded.")
+		   (magiciel--msg 1 "check succeded.")
 		   ,@continue-tests)))
 	 (setq %end-pos% %saved-end-pos%)))
      )
@@ -1332,7 +1328,7 @@ test and that is used for \"continuation\" offsets."
 	  (tag (intern (format "%s-%s" kind value)))
 	  )
 
-      (magiciel--info "%s" inst)
+      (magiciel--msg 1 "%s" inst)
       
       (if (or (eql value 'x)
 	      (and (stringp value)
@@ -1549,7 +1545,7 @@ test and that is used for \"continuation\" offsets."
 	  (tag (intern (format "%s-%s" kind value)))
 	  )
 
-      (magiciel--info "%s" inst)
+      (magiciel--msg 1 "%s" inst)
       
       (unless (or (eql value 'x)
 		  (and (stringp value)
@@ -1573,7 +1569,7 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
 
   
-  (message "MAGICIEL EMIT: emit APPLE %s." kind)
+  (magiciel--msg 1 "EMIT: emit APPLE %s." kind)
   `(when (magiciel--$in-context-p ',kind)
      (warn "MAGICIEL: !:apple %s not properly handled yet."
 	   ,(magiciel--instruction-result inst))
@@ -1590,7 +1586,7 @@ test and that is used for \"continuation\" offsets."
 			      &allow-other-keys)
   (ignore m-name)
   
-  (message "MAGICIEL EMIT: emit MIME %s." kind)
+  (magiciel--msg 1 "EMIT: emit MIME %s." kind)
   `(when (magiciel--$in-context-p ',kind)
      (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
   )
@@ -1604,7 +1600,7 @@ test and that is used for \"continuation\" offsets."
 			      &allow-other-keys)
   (ignore m-name)
   
-  (message "MAGICIEL EMIT: emit MIME %s." kind)
+  (magiciel--msg 1 "EMIT: emit MIME %s." kind)
   `(magiciel--check '!:mime-check nil (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
      ;; (cl-return-from %%test-block%% --magiciel-msg)
@@ -1620,7 +1616,7 @@ test and that is used for \"continuation\" offsets."
 			      &allow-other-keys)
   (ignore m-name)
 
-  (message "MAGICIEL EMIT: emit STRENGTH %s." kind)
+  (magiciel--msg 1 "EMIT: emit STRENGTH %s." kind)
   `(when (magiciel--$in-context-p ',kind)
      (magiciel--$noop ,(magiciel--instruction-result inst)))
   )
@@ -1634,7 +1630,7 @@ test and that is used for \"continuation\" offsets."
 			      &allow-other-keys)
   (ignore m-name)
 
-  (message "MAGICIEL EMIT: emit EXT %s (%S)." kind inst)
+  (magiciel--msg 1 "EMIT: emit EXT %s (%S)." kind inst)
   `(magiciel--check '!:ext-check nil (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
      ;; (cl-return-from %%test-block%% --magiciel-msg)
@@ -1650,7 +1646,7 @@ test and that is used for \"continuation\" offsets."
 			      &allow-other-keys)
   (ignore m-name)
 
-  (message "MAGICIEL EMIT: unhandled kind %s." kind)
+  (magiciel--msg 1 "EMIT: unhandled kind %s." kind)
   `(; cl-return-from %%test-block%%
     ;; progn
     cl-block ,kind
@@ -1681,32 +1677,32 @@ test and that is used for \"continuation\" offsets."
 	  (id (magiciel--instr-node-id it))
 	  (sts (magiciel--instr-node-sub-instr-nodes it))
 	  )
-      (message (format "MDIT: %s%s %s %s"
-		       (make-string indent ? )
-		       (magiciel--instruction-level i)
-		       id
-		       (magiciel--instruction-kind i)))
+      (magiciel--msg 1 "MDIT: %s%s %s %s"
+		     (make-string indent ? )
+		     (magiciel--instruction-level i)
+		     id
+		     (magiciel--instruction-kind i))
       (dolist (st sts)
 	(magiciel--dump-instr-tree st (+ indent 4)))
       )))
 
 
 (cl-defun magiciel--dump-instr-level-alist (instr-nodes-at-level)
-  (message "\nMILA:")
+  (magiciel--msg 1 "\nMILA:")
   (cl-loop for (il . instr-node) in instr-nodes-at-level
-	   do (message "MILA: %s => %s %s"
-		       il
-		       (magiciel--instr-node-id instr-node)
-		       (magiciel--instruction-kind
-			(magiciel--instr-node-instr instr-node)))
-	   finally (message "MILA:\n")
+	   do (magiciel--msg 1 "MILA: %s => %s %s"
+			     il
+			     (magiciel--instr-node-id instr-node)
+			     (magiciel--instruction-kind
+			      (magiciel--instr-node-instr instr-node)))
+	   finally (magiciel--msg 1 "MILA:\n")
 	   ))
 
 
 ;; Construction instruction trees for groups.
 
 (cl-defun magiciel--group-trees (instr-group)
-  (message "MGT:")
+  (magiciel--msg 1 "MGT:")
   (let ((instrs-nodes
 	 (mapcar #'magiciel--make-instr-node instr-group))
 	)
@@ -1740,15 +1736,15 @@ test and that is used for \"continuation\" offsets."
     ;; `parent-node' is the last level (`level' - 1) node seen.
 
     
-    (message "\nMGIT: instr level %d, instr kind '%s'."
-	     il
-	     (magiciel--instruction-kind instr)
-	     )
+    (magiciel--msg 1 "\nMGIT: instr level %d, instr kind '%s'."
+		   il
+		   (magiciel--instruction-kind instr)
+		   )
     
-    (message "MGIT: parent %s %s"
-	     (magiciel--instr-node-id parent-node)
-	     (magiciel--instr-node-instr parent-node)
-	     )
+    (magiciel--msg 1 "MGIT: parent %s %s"
+		   (magiciel--instr-node-id parent-node)
+		   (magiciel--instr-node-instr parent-node)
+		   )
 
     (magiciel--dump-instr-level-alist instr-nodes-at-level)
     
@@ -1760,15 +1756,15 @@ test and that is used for \"continuation\" offsets."
       )
 
     (when parent-node
-      (message "MGIT: parent subtrees %s"
-               (magiciel--instr-node-sub-instr-nodes parent-node))
+      (magiciel--msg 1 "MGIT: parent subtrees %s"
+		     (magiciel--instr-node-sub-instr-nodes parent-node))
       (magiciel--dump-instr-tree parent-node)
       )
 
     (cond ((and (null parent-node) (zerop il) (null more-instrs))
 	   ;; This is a "root-only" group.
 	   ;; Return it as is.
-	   (message "MGIT: just the root %s." instr-node)
+	   (magiciel--msg 1 "MGIT: just the root %s." instr-node)
 	   instr-node
 	   )
 
@@ -1863,7 +1859,7 @@ specially.
 	      --magiciel-msg))
 	 )
 
-    (message "\nMCM: instruction tree:")
+    (magiciel--msg 1 "\nMCM: instruction tree:")
 
     (magiciel--dump-instr-tree instrs-tree)
 
