@@ -24,6 +24,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'magiciel-utilities)
 (require 'magic-ingredients)
 ;; (require 'platel)
 
@@ -372,7 +373,7 @@ reorder the \"records\" field."
 	 (magiciel--make-comment-record rec)
 	 )
        )				; cl-flet
-    (message "MAGICIEL: parsing line: %s." line)
+    (magiciel--msg 1 "parsing line: %s." line)
     (if (string= "" line)
 	(magiciel--make-empty-record)
       (cl-case (aref line 0)		; Check the first char.
@@ -727,8 +728,8 @@ This is the \"abstract\" offset type."
 				  index)
 	     ;; I should check to have "consumed" the whole
 	     ;; string.
-	     (message "MAGICIEL: parse-number-offset: M1 %S."
-		      (match-string 0 offset-string))
+	     (magiciel--msg 1 "parse-number-offset: M1 %S."
+			    (match-string 0 offset-string))
 		    
 	     (setf matched-string
 		   (match-string 0 offset-string))
@@ -747,8 +748,8 @@ This is the \"abstract\" offset type."
 	   (when (string-match-at magiciel--*indirect-offset-regexp*
 				  offset-string
 				  index)
-	     (message "MAGICIEL: parse-compute-offset: M1 %S."
-		      (match-string 0 offset-string))
+	     (magiciel--msg 1 "parse-compute-offset: M1 %S."
+			    (match-string 0 offset-string))
 	     ;; Munge match
 	     (setf matched-string (match-string 0 offset-string))
 	     ))
@@ -1470,7 +1471,7 @@ This is the \"abstract\" offset type."
 
 
 (cl-defmethod cl-print-object ((mm magiciel--message) stream)
-  (princ (format "#<MAGICIEL Message: %s>"
+  (princ (format "#<MAGICIEL Message: %S>"
 		 (magiciel--message-msg-string mm))
 	 stream))
 
