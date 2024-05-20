@@ -24,7 +24,7 @@
   (apply #'message (concat "MAGICIEL: " fmt) args))
 
 
-(defun magiciel--warn (fmt &rest args)
+(defun magiciel--warning (fmt &rest args)
   (apply #'warn (concat "MAGICIEL: " fmt) args))
 
 
@@ -32,8 +32,8 @@
   (apply #'error (concat "MAGICIEL: " fmt) args))
 
 
-;; Debugging.
-;; ----------
+;; Debugging/Logging.
+;; ------------------
 
 (defvar magiciel--*debug-low-level* 0)
 (defvar magiciel--*debug-mid-level* 5)
@@ -44,12 +44,22 @@
 
 
 (defun magiciel--set-debug-level (l)
-  (setq magiciel--*debug-level* l))
+  (setq magiciel--*debug-level* (magiciel--clamp-debug-level l)))
 
 
-(cl-defun magiciel--msg (fmt &rest fmt-args)
-  (when (>= magiciel--*debug-level* magiciel--*current-debug-level*)
-    (apply #'message fmt fmt-args)))
+(cl-defun magiciel--msg (level fmt &rest fmt-args)
+  (when (<= 0 level magiciel--*current-debug-level*)
+    (apply #'magiciel--info fmt fmt-args)))
+
+
+(cl-defun magiciel--warn (level fmt &rest fmt-args)
+  (when (<= 0 level magiciel--*current-debug-level*)
+    (apply #'magiciel--warning fmt fmt-args)))
+
+
+(cl-defun magiciel--err (level fmt &rest fmt-args)
+  (when (<= 0 level magiciel--*current-debug-level*)
+    (apply #'magiciel--error fmt fmt-args)))
 
 
 (cl-defmacro with-debug-level (l &body code)
@@ -57,13 +67,23 @@
      ,@code))
 
 
+(defun magiciel--clamp-debug-level (n)
+  (min (max 0 n) magiciel--*debug-top-level*))
+
+
 ;; Yeah, yeah, yeah.  Just bear with me and enjoy the curries.
 
-(defun curry1 (f arg)
+(defun magiciel--curry1 (f arg)
   #'(lambda (x) (apply f arg (list x))))
 
 
-(defun curry2 (f arg1 arg2)
+(defun magiciel--curry2 (f arg1 arg2)
   #'(lambda (x) (apply f arg1 arg2 (list x))))
+
+
+;; Epilogue.
+;; ---------
+
+(provide 'magiciel-utilities)
 
 ;;; utilities.el ends here
