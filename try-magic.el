@@ -14,6 +14,7 @@
 (require 'magiciel-parse-magic)
 (require 'magiciel-compile-magic)
 
+
 ;; Records.
 
 (defvar magiciel--r1 "0	string	foo	Record 1 parsed.")
@@ -108,6 +109,10 @@
 
 ;; Loading actual magic files.
 
+;; (magiciel--set-debug-level 4)
+
+(magiciel--msg 1 "loading PDF magic file.")
+
 (defvar magiciel--pdf-test-file "tests/eintr.pdf")
 
 (defvar magiciel--pdf-magic
@@ -118,13 +123,19 @@
 ;;   (magiciel--load-magic-file "tests/magic/pdf-simple"))
 
 
+(magiciel--msg 1 "loading IBM magic file.")
+
 (defvar magiciel--ibm-magic
   (magiciel--load-magic-file "tests/magic/ibm370"))
 
 
+(magiciel--msg 1 "loading a.out magic file.")
+
 (defvar magiciel--aout-magic
   (magiciel--load-magic-file "tests/magic/aout"))
 
+
+(magiciel--msg 1 "loading C-Lang magic file.")
 
 (defvar magiciel--c-lang-magic
   (magiciel--load-magic-file "tests/magic/c-lang"))
@@ -172,6 +183,10 @@
 
 (setq magiciel-clang-emitted
       (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
+
+(with-temp-buffer
+  (print (cl-fourth magiciel-clang-emitted) (current-buffer))
+  (write-file "temp/temp-clang-fun.el"))
 
 
 ;; IBM370
