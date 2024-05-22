@@ -44,7 +44,8 @@
 
 
 (defun magiciel--set-debug-level (l)
-  (setq magiciel--*debug-level* (magiciel--clamp-debug-level l)))
+  (setq magiciel--*current-debug-level*
+	(magiciel--clamp-debug-level l)))
 
 
 (cl-defun magiciel--msg (level fmt &rest fmt-args)
