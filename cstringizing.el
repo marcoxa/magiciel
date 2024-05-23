@@ -104,7 +104,9 @@ or 2 (verbose)."
 
 	       (advance)
 	       (msg 1 "CSTRINGIZE: processing \\%c" c)
-	       (pcase c
+	       (pcase c			; `cl-case' may be better.
+		 (?  ; (write-char ?\ )
+		  (push ?\  bytes))
 		 (?a ; (write-char ?\a)
 		  (push ?\a bytes))
 		 (?b ; (write-char ?\b)
@@ -125,7 +127,8 @@ or 2 (verbose)."
 		  (push ?\\ bytes))
 		 (?x (process-hex-escape))
 		 ((rx (in "0-7")) (maybe-process-oct-escape))
-		 (_ ; (write-char ?\\)
+		 (_
+		  ;; (write-char ?\\)
 		  (push ?\\ bytes)
 		  ;; (write-char c)
 		  (push c bytes)
@@ -176,7 +179,7 @@ or 2 (verbose)."
 		       (moveto (+ i (length hexs)))
 		       )
 		   ;; Nope. If no match, just do nothing: cfr.,
-		   ;; `read-from-string` behavior.
+		   ;; `read-from-string' behavior.
 		   )
 	       
 		 (when (end-processing) (finish))
