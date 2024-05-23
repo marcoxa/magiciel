@@ -52,3 +52,16 @@ Now, how to do this required a lot of going back and forth the manual
 and, at the end, doing a `read-from-string`.  You can see this
 acrobatics in `magiciel--parse-test`; I am sure they will be necessary
 elsewhere as well.
+
+
+## 2024-05-23
+
+Two notes.
+- The `read-from-string` bit did not work.  The result is a new file
+  (cfr., `cstringizing.el`) which contains a first cut function that
+  reads characters from a string (a buffer) and transforms them from a
+  C-ish form to a Emacs Lisp form; they **are different**!
+- The modifiers for the `type` field (and, eventually, for the `test`
+  field as well) may have a more complicated shape than just `/mods`;
+  hence some extra kludges in the parsign routines and in the
+  instruction compilation ones.
