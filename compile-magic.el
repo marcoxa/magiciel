@@ -380,7 +380,8 @@ name of a lower level code block."))
 
 	     ;; Unpack the type and the test.
 	     (type-spec   (magiciel--record-type-spec-spec compiled-type))
-	     (type-mods   (magiciel--record-type-spec-modifiers compiled-type))
+	     ;; (type-mods (magiciel--record-type-spec-modifiers compiled-type))
+	     ;; Already unpacked.
 	     (type-endian (magiciel--record-type-spec-endian compiled-type))
 	     (type-len    (magiciel--record-type-spec-byte-len compiled-type))
 	     (type-sign   (magiciel--record-type-spec-unsigned compiled-type))
@@ -441,8 +442,12 @@ name of a lower level code block."))
   (cl-flet ((compile-type-mods (mods
 				&aux
 				(flag-pos
-				 (and mods (string-match-p "[cls]" mods)))
+				 (and mods
+				      (string-match-p
+				       "[cls]"
+				       (magiciel--modifier-args mods))))
 				)
+	      (message "compile-instr regex >>>>>> mods %S" mods)
 	      (cond ((null mods) (cl-values nil nil))
 		    (flag-pos
 		     (cl-values (car (read-from-string mods 0 flag-pos))
@@ -836,35 +841,46 @@ name of a lower level code block."))
 					mods
 					len
 					)
-  (cl-etypecase type-spec
-    (magiciel--numeric-type-spec
-     (magiciel--compile-num-access type-spec
-				   unsigned
-				   endianness
-				   mods
-				   len
-				   offset))
-    (magiciel--date-type-spec
-     (magiciel--compile-date-access type-spec
-				    unsigned
-				    endianness
-				    mods
-				    len
-				    offset))
-    (magiciel--string-type-spec
-     (magiciel--compile-string-access type-spec
+
+  (let ((mod-op (and mods (magiciel--modifier-op (cl-first mods))))
+	(mod-args (and mods (magiciel--modifier-args (cl-first mods))))
+	)
+
+    (message ">>>> compiling access %S %S" mod-op mod-args)
+    
+    (cl-etypecase type-spec
+      (magiciel--numeric-type-spec
+       (magiciel--compile-num-access type-spec
+				     unsigned
+				     endianness
+				     mod-op
+				     mod-args
+				     len
+				     offset))
+      (magiciel--date-type-spec
+       (magiciel--compile-date-access type-spec
 				      unsigned
 				      endianness
-				      mods
+				      mod-op
+				      mod-args
 				      len
 				      offset))
-    ))
+      (magiciel--string-type-spec
+       (magiciel--compile-string-access type-spec
+					unsigned
+					endianness
+					mod-op
+					mod-args
+					len
+					offset))
+      )))
 
 
 (cl-defun magiciel--compile-num-access (type-spec
 					unsigned
 					endianness
-					mods
+					mod-op
+					mod-args
 					len
 					offset)
   "Compile a number-based access.
@@ -886,14 +902,14 @@ OFFSET     : a `magiciel--offset'."
     (cl-etypecase type-spec
       (magiciel--integer-type-spec
        `(magiciel--get-value-at* %bytes% ; 1
-				 ;; ,pos-expr	 ; 2
+				 ;; ,pos-expr	; 2
 				 ,off-op
-				 ',type-spec ; 3
-				 ',unsigned  ; 4
-				 ',endianness ; 5
-				 ',mods	      ; 6
-				 ',len	      ; 7
-				 ,off-op      ; 8
+				 ',type-spec	; 3
+				 ',unsigned	; 4
+				 ',endianness	; 5
+				 ',(list mod-op mod-args) ; 6; Unused FTTB.
+				 ',len		; 7
+				 ,off-op	; 8
 				 )
        )
       (magiciel--real-type-spec
@@ -907,7 +923,8 @@ OFFSET     : a `magiciel--offset'."
 (cl-defun magiciel--compile-date-access (type-spec
 					 unsigned
 					 endianness
-					 mods
+					 mod-op
+					 mod-args
 					 len
 					 offset)
   (let ((off-op (if (magiciel--offset-p offset)
@@ -924,7 +941,7 @@ OFFSET     : a `magiciel--offset'."
 			      ',type-spec ; 3
 			      ',unsigned  ; 4
 			      ',endianness ; 5
-			      ',mods	   ; 6
+			      ',(list mod-op mod-args) ; 6; Unused FTTB.
 			      ',len	   ; 7
 			      ,off-op
 			      )
@@ -934,7 +951,8 @@ OFFSET     : a `magiciel--offset'."
 (cl-defun magiciel--compile-string-access (type-spec
 					   unsigned
 					   endianness
-					   mods
+					   mod-op
+					   mod-args
 					   len
 					   offset)
   (let ((off-op (if (magiciel--offset-p offset)
@@ -951,7 +969,7 @@ OFFSET     : a `magiciel--offset'."
 			      ',type-spec ; 3
 			      ',unsigned  ; 4
 			      ',endianness ; 5
-			      ',mods	   ; 6
+			      ',(list mod-op mod-args) ; 6; Unused FTTB.
 			      ',len	   ; 7 ; This will most likely be wrong.
 			      ,off-op
 			      )
