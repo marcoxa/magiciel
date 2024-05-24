@@ -15,6 +15,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'magiciel-compile-magic)
 
 ;; (load "magiciel-constants.el")		; This is pleonastic.
 
@@ -96,6 +97,25 @@ The function fails with a condition if called on a non UN*X system.
 
   ;; Julia
   (magiciel--add-ext-mime-type "jl"   "text/x-julia")
+
+  ;; C/C++
+  (magiciel--add-ext-mime-type "c"   "text/x-c")
+  (magiciel--add-ext-mime-type "cc"  "text/x-c++")
+  (magiciel--add-ext-mime-type "C"   "text/x-c++")
+  (magiciel--add-ext-mime-type "cpp" "text/x-c++")
+  (magiciel--add-ext-mime-type "h"   "text/x-c")
+
+  ;; Java
+  (magiciel--add-ext-mime-type "java"   "text/x-java")
+
+  ;; Ada
+  (magiciel--add-ext-mime-type "ada"    "text/x-ada")
+
+  ;; Python
+  (magiciel--add-ext-mime-type "py"    "text/x-python")
+
+  ;; R
+  (magiciel--add-ext-mime-type "R"    "text/x-r")
   )
 
 
@@ -160,14 +180,14 @@ The function fails with a condition if called on a non UN*X system.
 	 (message "MAGICIEL: getting file info via the Windows Registry.")
 	 (message "MAGICIEL: not implemented yet; returning a kitchen sink.")
 	 (make-magiciel-file-info :filename filename
-				 :extension ext)
+				  :extension ext)
 	 )
 
 	((ms-dos haiku)
 	 (message "MAGICIEL: cannot get file info in MS-DOS.")
 	 (message "MAGICIEL: returning a kitchen sink.")
 	 (make-magiciel-file-info :filename filename
-				 :extension ext)
+				  :extension ext)
 	 )
 
 	(t
