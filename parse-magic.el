@@ -981,9 +981,9 @@ This is the \"abstract\" offset type."
   (cl-flet ((split-spec (type-spec-string)
 	      ;; This is unused, as I decided to use the kludge below.
 
-	      (message "\nss >>>>>> record %S." type-spec-string)
-	      (message "ss >>>>>> type-spec-string: %S."		       
-		       type-spec-string)
+	      ;; (message "\nss >>>>>> record %S." type-spec-string)
+	      ;; (message "ss >>>>>> type-spec-string: %S."		       
+	      ;;          type-spec-string)
 	      
 	      (unless (string-match magiciel--*type-spec-rx*
 				    type-spec-string)
@@ -1014,12 +1014,12 @@ This is the \"abstract\" offset type."
 	       (magiciel--normal-record-type record-or-ts))))
 	   (spec-list
 	    (progn
-	      (message "\n>>>>>> record %S."
-		       (if (stringp record-or-ts)  ; Useful for testing and debugging.
-			   record-or-ts
-			 (magiciel--normal-record-line record-or-ts)))
-	      (message ">>>>>> type-spec-string: %S."
-		       type-spec-string)
+	      ;; (message "\n>>>>>> record %S."
+	      ;; 	       (if (stringp record-or-ts)  ; Useful for testing and debugging.
+	      ;; 		   record-or-ts
+	      ;; 		 (magiciel--normal-record-line record-or-ts)))
+	      ;; (message ">>>>>> type-spec-string: %S."
+	      ;; 	       type-spec-string)
 	      (split-string type-spec-string "/" t))
 	    )
 	   (spec-list-spec (split-spec type-spec-string))
@@ -1480,9 +1480,9 @@ This is the \"abstract\" offset type."
 	      ))
 	   )				; let* bindings.
 
-      (message ">>>>>>>>>> spec-list %S" spec-list)
-      (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
-      (message ">>>>>>>>>> mods: %S" mods)
+      ;; (message ">>>>>>>>>> spec-list %S" spec-list)
+      ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
+      ;; (message ">>>>>>>>>> mods: %S" mods)
       (list spec-struct type-spec-string spec spec-list)
       )))
 
@@ -1495,9 +1495,9 @@ This is the \"abstract\" offset type."
   (cl-flet ((split-spec (type-spec-string)
 	      ;; This is unused, as I decided to use the kludge below.
 
-	      (message "\nss >>>>>> record %S." type-spec-string)
-	      (message "ss >>>>>> type-spec-string: %S."		       
-		       type-spec-string)
+	      ;; (message "\nss >>>>>> record %S." type-spec-string)
+	      ;; (message "ss >>>>>> type-spec-string: %S."		       
+	      ;;          type-spec-string)
 	      
 	      (unless (string-match magiciel--*type-spec-rx*
 				    type-spec-string)
@@ -1536,12 +1536,12 @@ This is the \"abstract\" offset type."
 	       (magiciel--normal-record-type record-or-ts))))
 	   (spec-list
 	    (progn
-	      (message "\n>>>>>> record %S."
-		       (if (stringp record-or-ts) ; Useful for testing and debugging.
-			   record-or-ts
-			 (magiciel--normal-record-line record-or-ts)))
-	      (message ">>>>>> type-spec-string: %S."
-		       type-spec-string)
+	      ;; (message "\n>>>>>> record %S."
+	      ;; 	       (if (stringp record-or-ts) ; Useful for testing and debugging.
+	      ;; 		   record-or-ts
+	      ;; 		 (magiciel--normal-record-line record-or-ts)))
+	      ;; (message ">>>>>> type-spec-string: %S."
+	      ;; 	       type-spec-string)
 	      (split-string type-spec-string "/" t))
 	    )
 	   (spec-list-spec (split-spec type-spec-string))
@@ -1564,10 +1564,10 @@ This is the \"abstract\" offset type."
 	    )
 	   )				; let* bindings.
 
-      (message ">>>>>>>>>> spec-list %S" spec-list)
-      (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
-      (message ">>>>>>>>>> mods: %S" mods)
-      (list spec-struct type-spec-string spec spec-list)
+      ;; (message ">>>>>>>>>> spec-list %S" spec-list)
+      ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
+      ;; (message ">>>>>>>>>> mods: %S" mods)
+      (List spec-struct type-spec-string spec spec-list)
       )))
 
 
@@ -1577,11 +1577,11 @@ This is the \"abstract\" offset type."
 					     endian
 					     unsigned
 					     )
-  (message "mrts >>> ts   %S" type-spec-string)
-  (message "mrts >>> mods %S" mods)
-  (message "mrts >>> spec %S" spec)
-  (message "mrts >>> endi %S" endian)
-  (message "mrts >>> unsi %S" unsigned)
+  ;; (message "mrts >>> ts   %S" type-spec-string)
+  ;; (message "mrts >>> mods %S" mods)
+  ;; (message "mrts >>> spec %S" spec)
+  ;; (message "mrts >>> endi %S" endian)
+  ;; (message "mrts >>> unsi %S" unsigned)
   
   (pcase spec
     ;; See "magic(5)" man page for list.
