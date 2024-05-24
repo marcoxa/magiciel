@@ -1545,7 +1545,8 @@ This is the \"abstract\" offset type."
 	      (split-string type-spec-string "/" t))
 	    )
 	   (spec-list-spec (split-spec type-spec-string))
-	   (spec (cl-first spec-list))
+	   ;; (spec (cl-first spec-list))
+	   (spec (cl-first spec-list-spec))
 	   (unsigned
 	    (when (and (not (string-equal "use" spec))
 		       (char-equal ?u (aref spec 0)))
@@ -1576,6 +1577,12 @@ This is the \"abstract\" offset type."
 					     endian
 					     unsigned
 					     )
+  (message "mrts >>> ts   %S" type-spec-string)
+  (message "mrts >>> mods %S" mods)
+  (message "mrts >>> spec %S" spec)
+  (message "mrts >>> endi %S" endian)
+  (message "mrts >>> unsi %S" unsigned)
+  
   (pcase spec
     ;; See "magic(5)" man page for list.
     ;; See also
