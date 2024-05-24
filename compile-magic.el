@@ -447,7 +447,7 @@ name of a lower level code block."))
 				       "[cls]"
 				       (magiciel--modifier-args mods))))
 				)
-	      (message "compile-instr regex >>>>>> mods %S" mods)
+	      ;; (message "compile-instr regex >>>>>> mods %S" mods)
 	      (cond ((null mods) (cl-values nil nil))
 		    (flag-pos
 		     (cl-values (car (read-from-string mods 0 flag-pos))
@@ -846,7 +846,7 @@ name of a lower level code block."))
 	(mod-args (and mods (magiciel--modifier-args (cl-first mods))))
 	)
 
-    (message ">>>> compiling access %S %S" mod-op mod-args)
+    ;; (message ">>>> compiling access %S %S" mod-op mod-args)
     
     (cl-etypecase type-spec
       (magiciel--numeric-type-spec
