@@ -74,6 +74,14 @@ The function fails with a condition if called on a non UN*X system.
   (make-hash-table :test #'equal))
 
 
+(cl-defun magiciel--print-ext-mime-type-map (&optional
+					     (stream standard-output)
+					     (m magiciel--*ext-mime-type-map*))
+  (cl-loop for e being the hash-key of m
+	   using (hash-value mt)
+	   do (princ (format "%S\t%S\n" e mt))))
+
+
 (defun magiciel--add-ext-mime-type (ext mime-type)
   (setf (gethash ext magiciel--*ext-mime-type-map*) mime-type))
 
