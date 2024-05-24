@@ -45,6 +45,8 @@
 (load (expand-file-name "parse-magic" magiciel-path))
 (load (expand-file-name "compile-magic" magiciel-path))
 (load (expand-file-name "magiciel-spells" magiciel-path))
+(load (expand-file-name "brew" magiciel-path))
+
 (load (expand-file-name "try-magic" magiciel-path))
 
 
