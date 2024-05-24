@@ -317,16 +317,16 @@ operation in that case)."
       (dolist (d divinations (cons fn divinations))
 	(when (called-interactively-p 'any)
 	  (cond ((string-empty-p d)
-		 (warn "MAGICIEL: empty divination."))
+		 (magiciel--warning "empty divination."))
 		((or (eq context :normal)
 		     (eq context '!:normal))
-		 (message "MAGICIEL Divination: %S is a%s."
+		 (magiciel--info "Divination: %S is a%s."
 			  fnnd d))
 		((eq context '!:mime)
-		 (message "MAGICIEL Divination: %S mime type is %S."
+		 (magiciel--info "Divination: %S mime type is %S."
 			  fnnd d))
 		((eq context '!:ext)
-		 (message "MAGICIEL Divination: %S usual extension is %S."
+		 (magiciel--info "Divination: %S usual extension is %S."
 			  fnnd d))
 		)))
       )))
