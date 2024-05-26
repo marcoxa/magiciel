@@ -122,47 +122,79 @@ code will be stored (unused for the time being)."
 (cl-defun magiciel--fill-apothecary (&optional
 				     (apothecary
 				      magiciel--*apothecary-folder*))
+  (interactive
+   (let ((ad (read-directory-name
+	      "MAGICIEL apothecary folder: "
+	      magiciel--*apothecary-folder*
+	      magiciel--*apothecary-folder*
+	      t
+	      ))
+	 )
+     (list ad)))
+  
   (cl-flet
       ((write-spell-file (mfs mfname magic-fun)
 	 (let* ((spell-name (format "%s.el" (magiciel--magic-name mfs)))
 		(spell-filename (concat apothecary spell-name))
+		(spell-buffer (get-buffer-create spell-name))
 		)
-	   (with-current-buffer spell-name
+	   (unwind-protect
+	       (with-current-buffer spell-buffer
 
-	     (insert ";;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-\n")
-	     (insert
-	      (format ";;; %s --- Guessing the content of a file in"
-		      spell-name))
-	     (insert " simple as possible way.\n")
-	     (insert ";; See the `magiciel' COPYING file for")
-	     (insert " licensing information.\n")
-	     (insert "\n")
-	     (insert ";; This is a generated file!  You have been warned!\n\n")
-	     (insert ";;; %s\n\n" mfname)
-	      
-	     (pp `(cl-defun ,mfname ,@(cl-rest magic-fun)))
+		 (insert ";;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-\n")
+		 (insert
+		  (format ";;; %s --- Guessing the content of a file in"
+			  spell-name))
+		 (insert " simple as possible way.\n")
+		 (insert ";; See the `magiciel' COPYING file for")
+		 (insert " licensing information.\n")
+		 (insert "\n")
+		 (insert ";; This is a generated file!  You have been warned!\n\n")
+		 (insert (format ";;; %s\n\n" mfname))
 
-	     (insert
-	      (format "\n\n;;; %s ends here.\n" spell-name))
-	     (write-file spell-filename)
+		 (let ((pp-max-width 80))
+		   (pp-emacs-lisp-code
+		    `(cl-defun ,mfname ,@(cl-rest magic-fun))))
+
+		 (insert
+		  (format "\n\n;;; %s ends here.\n" spell-name))
+		 (write-file spell-filename)
+		 )
+	     (kill-buffer spell-buffer)
 	     )
 	   ))
        )
     (let ((mfile-structs (magiciel-load-magic-recipes)))
+
+      (magiciel--info "magic recipes loaded.")
+      
       (dolist (mfs mfile-structs t)
 	
-	(princ (format "MAGICIEL: filling apothecary with %S."
-		       (magiciel--magic-name mfs))
-	       standard-output)
+	(if (called-interactively-p 'interactive)
+	    (magiciel--info "filling apothecary with %S."
+			    (magiciel--magic-name mfs))
+	  (princ (format "MAGICIEL: filling apothecary with %S.\n"
+			 (magiciel--magic-name mfs))
+		 standard-output))
 	
 	(cl-multiple-value-bind (recs grps)
-	    (magiciel-compile-magic mfs 2)
+	    (condition-case magic-compilation-error
+		(magiciel-compile-magic mfs 2)
+	      (error
+	       (magiciel--warning
+		(format "error %s %s while compiling %s; skipping..."
+			(car magic-compilation-error)
+			(cdr magic-compilation-error)
+			(magiciel--magic-name mfs)))
+	       (cl-values nil nil))
+	      )
 	  (ignore recs)
-	  (cl-multiple-value-bind (mfname gfns gns magic-fun)
-	      (magiciel--magic-emit mfs grps)
-	    (ignore gfns gns)
-	    (write-spell-file mfs mfname magic-fun)
-	    )))				; dolist.
+	  (when grps
+	    (cl-multiple-value-bind (mfname gfns gns magic-fun)
+		(magiciel--magic-emit mfs grps)
+	      (ignore gfns gns)
+	      (write-spell-file mfs mfname magic-fun)
+	      ))))				; dolist.
       )))
   
 
