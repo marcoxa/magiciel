@@ -1567,7 +1567,7 @@ This is the \"abstract\" offset type."
       ;; (message ">>>>>>>>>> spec-list %S" spec-list)
       ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
       ;; (message ">>>>>>>>>> mods: %S" mods)
-      (List spec-struct type-spec-string spec spec-list)
+      (list spec-struct type-spec-string spec spec-list)
       )))
 
 
