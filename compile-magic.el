@@ -184,7 +184,7 @@ name of a lower level code block."))
 	     (setf recs-groups (nreverse recs-groups))
 	     )
 
-	   (process-magic-records (recs current-group  &aux (r (car recs)))
+	   (process-magic-records (recs current-group &aux (r (car recs)))
 	     (magiciel--msg 1 "process-magic-records: %d to go..."
 			    (length recs))
 	     
@@ -291,8 +291,8 @@ name of a lower level code block."))
 	    (not (string-equal s1 s2))))
 	
 	(t
-	 (error "MAGICIEL: Cannot select a negation operator for type %s."
-		type)))
+	 (magiciel--error "cannot select a negation operator for type %s."
+			  type)))
   )
 
 
@@ -428,8 +428,30 @@ name of a lower level code block."))
     ))					; magiciel--compile-inst
 
 
+(cl-defmethod magiciel--compile-instr
+  :before ((off-op magiciel--offset)
+	   (type magiciel--record-type-spec)
+	   (test magiciel--test)
+	   result-msg
+	   &key
+	   &allow-other-keys)
+
+  (ignore result-msg)
+  
+  (let ((type-mods (magiciel--record-type-spec-modifiers type))
+	(test-mods (magiciel--test-modifiers test))
+	)
+    (magiciel--msg 1 "compile instr\n\t%S\n\t%S\n\t%S\n\t%S\n\t%S"
+		   off-op
+		   type
+		   type-mods
+		   test
+		   test-mods)
+    ))
+
+
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
-				       (type (eql 'regex))
+				       (type (eql 'regex-old))
 				       test
 				       result-msg
 				       &key
@@ -447,7 +469,7 @@ name of a lower level code block."))
 				       "[cls]"
 				       (magiciel--modifier-args mods))))
 				)
-	      ;; (message "compile-instr regex >>>>>> mods %S" mods)
+	      (magiciel--msg 1 "compile-instr regex mods %S" mods)
 	      (cond ((null mods) (cl-values nil nil))
 		    (flag-pos
 		     (cl-values (car (read-from-string mods 0 flag-pos))
@@ -474,6 +496,88 @@ name of a lower level code block."))
 	  )
       (cl-multiple-value-bind (range flags)
 	  (compile-type-mods (car type-mods))
+
+	(ignore range)
+	
+	(when (cl-find ?l flags)
+	  (magiciel--warn 1 "line flag in \"regex\" type not yet handled."))
+
+	(let ((case-fold-search (cl-find ?c flags))
+	      )
+	  (magiciel--make-instruction
+	   :kind type
+	   :offset offset
+	   :test `(let ((case-fold-search ',case-fold-search))
+		    (string-match ',test-val %bytes% ,off-op))
+	   :result result-msg
+	   :displacement '(length (match-string 0))
+	   ))
+	))
+    ))
+
+
+(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
+				       (type (eql 'regex))
+				       test
+				       result-msg
+				       &key
+				       type-mods
+				       test-mods
+				       &allow-other-keys
+				       )
+  (ignore type-mods test-mods)
+
+  (cl-assert (or (null type-mods)
+		 (magiciel--modifier-p type-mods)))
+
+  (cl-flet
+      ((compile-type-mods (mods)
+	 (magiciel--msg 1 "compile-instr regex mods %S" mods)
+
+	 (cl-assert (magiciel--modifier-p type-mods))
+
+	 (let* ((mods-args (magiciel--modifier-args mods))
+		(mod2-pos (cl-position ?/ mods-args))
+		(mods1 (substring mods-args 0 mod2-pos))
+		(mods2 (if mod2-pos
+			   (substring mods-args mod2-pos)
+			 ""
+			 ))
+   		(flag-pos1 (string-match-p "[cls]" mods1))
+		(flag-pos2 (string-match-p "[cls]" mods2))
+		)
+	   (cond (flag-pos1
+		  ;; "[cls]" in first part of modifiers
+		  (cl-values mods1
+			     (unless (string-empty-p mods2)
+			       (car (read-from-string mods2)))))
+		 (flag-pos2
+		  (cl-values (car (read-from-string mods1))
+			     mods2))
+		  
+		 (t (cl-values (string-to-number mods-args) nil))
+		 ))
+	 )
+
+       (fix-test-value (test-value-string)
+	 ;; See the NOTES.md file for the reason we need this
+	 ;; here. (And maybe elsewhere).
+
+	 (let ((c0 (aref test-value-string 0)))
+	   (if (and (or (eql ?\\ c0) (eql ?= c0))
+		    (eql (aref test-value-string 1) ?^)) ; Should
+					; test for other operators as well?
+	       ;; Since the magic test is `regex` I can do away
+	       ;; with the `=` as well.
+	       (substring test-value-string 1)
+	     test-value-string)
+	   ))
+       )				; cl-flet.
+    (let ((off-op (magiciel--offset-code offset))
+	  (test-val (fix-test-value (magiciel--test-value test)))
+	  )
+      (cl-multiple-value-bind (range flags)
+	  (and type-mods (compile-type-mods type-mods))
 
 	(ignore range)
 	
@@ -564,11 +668,14 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
-  (ignore type type-mods test-mods)
+  (ignore test-mods)
 
   (let* ((off-op (magiciel--offset-code offset))
 	 (test-val (magiciel--test-value test))
-	 (range (and type-mods (string-to-number (car type-mods))))
+	 ;; (range (and type-mods (string-to-number (car type-mods))))
+	 (range (and type-mods
+		     (string-to-number
+		      (magiciel--modifier-args type-mods))))
 	 (limit (if range
 		    `((string-limit %bytes%
 				    (+ ,off-op ,range)))
@@ -842,11 +949,13 @@ name of a lower level code block."))
 					len
 					)
 
-  (let ((mod-op (and mods (magiciel--modifier-op (cl-first mods))))
-	(mod-args (and mods (magiciel--modifier-args (cl-first mods))))
+  (cl-assert (or (null mods) (magiciel--modifier-p mods)))
+  
+  (let ((mod-op (and mods (magiciel--modifier-op mods)))
+	(mod-args (and mods (magiciel--modifier-args mods)))
 	)
 
-    ;; (message ">>>> compiling access %S %S" mod-op mod-args)
+    (magiciel--msg 1 "compiling access %S %S" mod-op mod-args)
     
     (cl-etypecase type-spec
       (magiciel--numeric-type-spec
@@ -1035,6 +1144,21 @@ OFFSET     : a `magiciel--offset'."
 					&key &allow-other-keys)
   (warn "MAGICIEL: not a usable magic record: %s." r)
   nil)
+
+
+(cl-defmethod magiciel--compile-record
+  :before ((r magiciel--magic-record) &key &allow-other-keys)
+  (magiciel--msg 1 "compiling record %S." r))
+
+  
+(cl-defmethod magiciel--compile-record
+  :around ((r magiciel--magic-record) &key &allow-other-keys)
+  (condition-case cnm-error
+      (cl-call-next-method)
+    (error
+     (magiciel--error "error %S\n\twhile compiling record\n\t%S."
+		      (error-message-string cnm-error)
+		      r))))
 
 
 (cl-defmethod magiciel--compile-record ((r magiciel--normal-record)
