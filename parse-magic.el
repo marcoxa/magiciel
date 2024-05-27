@@ -448,12 +448,15 @@ reorder the \"records\" field."
 		 into lines
 		 do (forward-line 1)
 		 finally (cl-return
-			  (magiciel--make-magic
-			   :name fname
-			   :file abs-filename
-			   :records lines))
+			  (magiciel--add-scroll
+			   fname
+			   (magiciel--make-magic
+			    :name fname
+			    :file abs-filename
+			    :records lines)))
 		 )))
     ))
+
 
 ;; magiciel--load-magic-file-raw-bytes
 ;; Used mostly for debugging.
@@ -553,6 +556,15 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	  )))
 
 
+(defconst magiciel--*sint-regexp*
+  (rx (opt ?-)
+      (or (regexp magiciel--*hex-regexp*)
+	  (regexp magiciel--*oct-regexp*)
+	  (regexp magiciel--*bin-regexp*)
+	  (regexp magiciel--*dec-regexp*)
+	  )))
+
+
 ;; Offset grammar, as inferred by the "magic(5)" man page.
 ;;
 ;;   offset = levels direct-offset
@@ -594,7 +606,8 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 (defconst magiciel--*indirect-offset-regexp*
   (rx "("
       (group (opt "&"))					 ; 1
-      (group (regexp magiciel--*uint-regexp*))		 ; 2
+      ;; (group (regexp magiciel--*uint-regexp*))		 ; 2
+      (group (regexp magiciel--*sint-regexp*))		 ; 2
       (? (group (in ".,") (in "bBcCeEfFgGhHiIlLmsSqQ"))) ; 3
 
       ;; Ok, the parentheses here may match wrongly, but the "grammar"
@@ -624,7 +637,8 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	  (? (group (in "-+*/%&|^")))		   ; op   ; 5
 	  (? (group "("))			   ; lpar ; 6
 	  (? (group (in "-+")))			   ; sign ; 7
-	  (group (regexp magiciel--*uint-regexp*)) ; offset expr ; 8
+	  ;; (group (regexp magiciel--*uint-regexp*)) ; offset expr ; 8
+	  (group (regexp magiciel--*sint-regexp*)) ; offset expr ; 8
 	  (? ")")				   ; rpar
 	  ))
       ")")
@@ -705,6 +719,8 @@ This is the \"abstract\" offset type."
 	 )
 
     ;; Hand-crafted recursive descent parser!!!
+
+    (magiciel--msg 1 "parsing offset %s." offset-string)
     
     (cl-labels
 	((start ()
@@ -767,7 +783,8 @@ This is the \"abstract\" offset type."
 		(setq direct t)))
 
 	 (parse-number-offset ()
-	   (when (string-match-at magiciel--*uint-regexp*
+	   (when (string-match-at magiciel--*sint-regexp*
+				  ;; magiciel--*uint-regexp*
 				  offset-string
 				  index)
 	     ;; I should check to have "consumed" the whole
@@ -960,7 +977,9 @@ This is the \"abstract\" offset type."
 		    :value (parse-c-integer matched-string)
 		    ))
 		  
-		  (t nil))
+		  (t
+		   nil
+		   ))
 	    
 	    offset-string index level matched-string
 	    )
@@ -970,7 +989,17 @@ This is the \"abstract\" offset type."
 (defvar magiciel--*type-spec-rx*
   (rx (group (+ alnum))
       (group (** 0 2 (in "-/+*%&|^~")))
-      (group (* num))))
+      (group (or ?/ (* alnum))))
+  "The regexp that parses type specs and modifiers.
+
+This is one of the following:
+- type
+- type/modifier
+- type<op>modifier
+- type<op>modifier1/modifier2
+
+At least this is what is inferred from various sources.
+")
 
 
 (cl-defun magiciel--parse-type-spec-saved (record-or-ts)
@@ -1509,7 +1538,7 @@ This is the \"abstract\" offset type."
 		    (spec-op   (match-string 2 type-spec-string))
 		    (spec-mods (match-string 3 type-spec-string))
 		    )
-		(magiciel--msg 1 "split-spec %S %S %S."
+		(magiciel--msg 1 "split-spec: %S %S %S."
 			       spec-type spec-op spec-mods)
 		;; (remove "" (list spec-type spec-op spec-mods))
 		(cons spec-type
@@ -1552,9 +1581,11 @@ This is the \"abstract\" offset type."
 		       (char-equal ?u (aref spec 0)))
 	      (setf spec (substring spec 1))
 	      t))
-	   (mods (cl-rest spec-list))
+	   ;; (mods (cl-rest spec-list))
+	   (mods (cl-second spec-list-spec))
 	   
 	   (endian (magiciel--machine-endiannes)) ; CHECK THIS!
+	   
 	   (spec-struct
 	    (magiciel--make-record-type-struct type-spec-string
 					       spec
@@ -1567,6 +1598,7 @@ This is the \"abstract\" offset type."
       ;; (message ">>>>>>>>>> spec-list %S" spec-list)
       ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
       ;; (message ">>>>>>>>>> mods: %S" mods)
+      
       (list spec-struct type-spec-string spec spec-list)
       )))
 
