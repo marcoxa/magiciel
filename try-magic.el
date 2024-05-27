@@ -111,39 +111,18 @@
 
 ;; (magiciel--set-debug-level 4)
 
-(magiciel--msg 1 "loading PDF magic file.")
-
-(defvar magiciel--pdf-test-file "tests/eintr.pdf")
-
-(defvar magiciel--pdf-magic
-  (magiciel--load-magic-file "tests/magic/pdf"))
 
 
-;; (defvar magiciel--pdf-simple-magic
-;;   (magiciel--load-magic-file "tests/magic/pdf-simple"))
 
 
-(magiciel--msg 1 "loading IBM magic file.")
-
-(defvar magiciel--ibm-magic
-  (magiciel--load-magic-file "tests/magic/ibm370"))
-
-
-(magiciel--msg 1 "loading a.out magic file.")
-
-(defvar magiciel--aout-magic
-  (magiciel--load-magic-file "tests/magic/aout"))
-
-
-(magiciel--msg 1 "loading C-Lang magic file.")
-
-(defvar magiciel--c-lang-magic
-  (magiciel--load-magic-file "tests/magic/c-lang"))
 
 
 ;; Compile some of the tests.
 
 ;; PDF Simple.
+
+;; (defvar magiciel--pdf-simple-magic
+;;   (magiciel--load-magic-file "tests/magic/pdf-simple"))
 
 ;; (cl-multiple-value-setq (pdfsrecs pdfsgrps)
 ;;   (magiciel-compile-magic magiciel--pdf-simple-magic 2))
@@ -153,6 +132,13 @@
 
 
 ;; PDF
+
+(magiciel--msg 1 "loading PDF magic file.")
+
+(defvar magiciel--pdf-test-file "tests/eintr.pdf")
+
+(defvar magiciel--pdf-magic
+  (magiciel--load-magic-file "tests/magic/pdf"))
 
 (message "\nMAGICIEL: PDF compiling and emitting.")
 
@@ -165,6 +151,11 @@
 
 ;; a.out
 
+(magiciel--msg 1 "loading a.out magic file.")
+
+(defvar magiciel--aout-magic
+  (magiciel--load-magic-file "tests/magic/aout"))
+
 (message "\nMAGICIEL: aout compiling and emitting.")
 
 (cl-multiple-value-setq (aoutrecs aoutgrps)
@@ -175,6 +166,11 @@
 
 
 ;; C
+
+(magiciel--msg 1 "loading C-Lang magic file.")
+
+(defvar magiciel--c-lang-magic
+  (magiciel--load-magic-file "tests/magic/c-lang"))
 
 (message "\nMAGICIEL: c-lang compiling and emitting.")
 
@@ -191,6 +187,11 @@
 
 ;; IBM370
 
+(magiciel--msg 1 "loading IBM magic file.")
+
+(defvar magiciel--ibm-magic
+  (magiciel--load-magic-file "tests/magic/ibm370"))
+
 (message "\nMAGICIEL: IBM compiling and emitting.")
 
 (message "MAGICIEL: IBM compiling...")
@@ -202,6 +203,27 @@
 
 (setq magiciel-clang-emitted
       (magiciel--magic-emit magiciel--ibm-magic ibmgrps))
+
+
+;; asf
+
+(magiciel--info "\n")
+(magiciel--info "loading afs magic file.")
+
+(defvar magiciel--asf-magic
+  (magiciel--load-magic-file "tests/magic/asf"))
+
+(magiciel--info "ASF compiling and emitting.")
+
+(magiciel--info "ASF compiling...")
+
+(cl-multiple-value-setq (asfrecs asfgrps)
+  (magiciel-compile-magic magiciel--asf-magic 2))
+
+;; (magiciel--info "ASF emitting...")
+
+;; (setq magiciel-clang-emitted
+;;   (magiciel--magic-emit magiciel--asf-magic asfgrps))
 
 
 ;;; try-magic.el ends here
