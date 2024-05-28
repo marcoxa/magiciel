@@ -155,10 +155,16 @@ name of a lower level code block."))
 
 ;; magiciel-compile-magic
 
-(cl-defun magiciel-compile-magic (magic &optional (steps 1))
+(cl-defun magiciel-compile-magic (magic
+				  &optional
+				  (steps 1)
+				  &aux
+				  (mname
+				   (magiciel--magic-name magic)))
   "Compiles a `magiciel-magic' structure."
   
-  (magiciel--msg 1 "compiling magic...\n")
+  (magiciel--msg 1 "compiling magic %S...\n" mname)
+  
   (let ((code-recs
 	 (cl-remove-if #'(lambda (r)
 			   (or (magiciel--magic-record-is-comment r)
@@ -199,7 +205,7 @@ name of a lower level code block."))
 		    (process-special-rec r (cl-rest recs) current-group))
 
 		   (t 
-		    (error "MAGICIEL: unexpected record %S." r))
+		    (magiciel--error "unexpected record %S." r))
 		   )
 	     )				; process-magic-records
 	     
@@ -230,8 +236,9 @@ name of a lower level code block."))
 	     )				; process-special-rec
 	   )				; cl-labels
 
-	(magiciel--msg 1 "grouping records...")
-	(start code-recs)
+	(magiciel--msg 1 "grouping %s records..." mname)
+
+	(when code-recs (start code-recs))
 	
 	(when (<= steps 1)
 	  (cl-return-from magiciel-compile-magic
@@ -240,7 +247,9 @@ name of a lower level code block."))
 	;; Step 2: compile each record in each group.
 	;; First 0-level test in each group is then treated specially.
 	
-	(magiciel--msg 1 "compiling record groups...")
+	(magiciel--msg 1 "compiling %d record groups..."
+		       (length recs-groups))
+	
 	(cl-loop for g in recs-groups
 		 for gn from 0
 		 collect (mapcar #'(lambda (r)
@@ -2049,10 +2058,11 @@ specially.
                  )
                ((let let*)
 		(pcase instr-root-code
-                  (`(let ,mv-bind ,when-form)
+                  ((or `(let ,mv-bind ,when-form)
+		       `(let* ,mv-bind ,when-form)) ; `pcase' forces this OR.
                    (cl-assert (eq 'when (cl-first when-form)))
                    ;; This should always be the case.
-                   `(let ,mv-bind
+                   `(,(cl-first instr-root-code) ,mv-bind
                       ,(append when-form
                                (cl-loop for sub-node in sub-tests
 			                collect (emit-tree sub-node))
@@ -2062,8 +2072,9 @@ specially.
                  )
 	       (progn
 		 ;; I want to "flatten" the "progn's, if possible.
-		 (append (cl-rest instr-root-code)
-			 (cl-loop for sub-node in sub-tests
+		 (append instr-root-code
+			 ;; (cl-rest instr-root-code)
+		  	 (cl-loop for sub-node in sub-tests
 			          collect (emit-tree sub-node))
 			 '(t)
 			 )
@@ -2178,53 +2189,57 @@ specially.
           )
       ;; Here we build the function for the magic entry.
 
-      (if groups-named
-	  ;; Create `cl-labels' for each named group.
+      (when group-fns
+	;; If there are no groups we don't need to do anything.
+	
+	(if groups-named
+	    ;; Create `cl-labels' for each named group.
+	    (setq magic-fun-body
+		  `(cl-block ,magic-fname
+		     (cl-labels
+			 ,(cl-loop for (named-name code) in groups-named
+				   collect
+				   `(,named-name (&rest $$$args-here%%%)
+				      ,(magiciel--group-func-code-body code)))
+		       ,@(mapcar #'magiciel--group-func-code-body group-fns)
+		       )
+                     ))
+	
+	  ;; Create a simplified function.
 	  (setq magic-fun-body
 		`(cl-block ,magic-fname
-		   (cl-labels
-		       ,(cl-loop for (named-name code) in groups-named
-				 collect
-				 `(,named-name (&rest $$$args-here%%%)
-				    ,(magiciel--group-func-code-body code)))
-		     ,@(mapcar #'magiciel--group-func-code-body group-fns)
-		     )
-                   ))
-	
-	;; Create a simplified function.
-	(setq magic-fun-body
-	      `(cl-block ,magic-fname
-		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
-                 )
-	      ))
+		   ,@(mapcar #'magiciel--group-func-code-body group-fns)
+                   )
+		))
 
 
-      (setq magic-fun
-            `(lambda (%bytes%	; The file/stream/buffer data.
-		      %pos%	; Where we start scanning the %%bytes%%.
-		      %context% ; `%context' can be ':normal' (or `!:normal'),
-				; '!:mime', '!:ext', or '!:apple'.
-				; '!:strength' unhandled.
-		      )
-               (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
-                     (--magiciel-test-result nil)
-                     (--magiciel-msg "")
+	(setq magic-fun
+              `(lambda (%bytes%		; The file/stream/buffer data.
+			%pos% ; Where we start scanning the %%bytes%%.
+			%context% ; `%context' can be ':normal' (or `!:normal'),
+					; '!:mime', '!:ext', or '!:apple'.
+					; '!:strength' unhandled.
+			)
+		 (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
+                       (--magiciel-test-result nil)
+                       (--magiciel-msg "")
 
-		     ;; The displacement of the "previous"
-		     ;; instruction; starts at 0.  It is used for
-		     ;; "continuing" records.
+		       ;; The displacement of the "previous"
+		       ;; instruction; starts at 0.  It is used for
+		       ;; "continuing" records.
 		     
-		     (--magiciel-disp 0)
-		     (%end-pos% %pos%)
-                     )
+		       (--magiciel-disp 0)
+		       (%end-pos% %pos%)
+                       )
 
-		 ;; The next one would be a `ignorable' declaration in CL.
-		 (ignore --magiciel-value
-			 --magiciel-test-result
-			 --magiciel-disp)
-                 ,magic-fun-body
-		 --magiciel-msg)
-               ))
+		   ;; The next one would be a `ignorable' declaration in CL.
+		   (ignore --magiciel-value
+			   --magiciel-test-result
+			   --magiciel-disp)
+                   ,magic-fun-body
+		   --magiciel-msg)
+		 ))
+	) ; when...
 
       (setf (symbol-function magic-fname) magic-fun)
 
