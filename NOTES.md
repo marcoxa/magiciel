@@ -65,3 +65,12 @@ Two notes.
   field as well) may have a more complicated shape than just `/mods`;
   hence some extra kludges in the parsign routines and in the
   instruction compilation ones.
+
+
+## 2024-05-28
+
+Checking all the entries in `/usr/share/file/magic` made me realize
+that `name` and `use` entries cross magic file boundaries, cfr.,
+`display-coff` names (just "grep" the folder).  This means that I cannot
+use the `cl-labels` scheme and must resort to more elaborate
+bookkeeping procedures.

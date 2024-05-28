@@ -65,6 +65,26 @@ If called interactively, the command will default to `:normal`
 - Integration with `dired` et similia, is also a desirable goal.
 
 
+# An Overview of the "Compilation" Flow
+
+The flow is essentially the following.
+
+1. A `magic(5)` file is read line by line.
+2. A `line` is parsed in a `magiciel--magic-record` by the function
+   `magiciel--parse-magic-record` (in file `parse-magic.el`).
+3. A `magiciel--magic-record` is "compiled" in a
+   `magiciel--instruction` by the function `magiciel--compile-record`,
+   which is actually called by `magiciel-compile-magic`; the last
+   function does also other things like organizing the *test tree*
+   implied in the `magic(5)` specifications (in file
+   `compile-magic.el`). 
+4. The function `magiciel--compile-record` is just a wrapper around
+   `magiciel--compile-instr` which generates `magiciel--instruction`s.
+5. The `magiciel-instruction`s generated are then *emitted* by
+   `magiciel--emit` (always in file `compile-magic.el`), which is
+   called by `magiciel--group-emit` from `magiciel--magic-emit`.
+
+
 
 ## A NOTE ON FORKING
 
