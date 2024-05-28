@@ -150,7 +150,7 @@ The function fails with a condition if called on a non UN*X system.
 	   (let ((file-cmd-output
 		  (magiciel--guess-with-file-cmd filename)))
 
-	     (message "MAGICIEL: file cmd output %S." file-cmd-output)
+	     (magiciel--info "file cmd output %S." file-cmd-output)
 
 	     (if (stringp file-cmd-output)
 		 (let ((parts
@@ -185,22 +185,22 @@ The function fails with a condition if called on a non UN*X system.
       ;; The cases below come from the doc string for `system-type'.
       (cl-case system-type
 	(windows-nt
-	 (message "MAGICIEL: getting file info via the Windows Registry.")
-	 (message "MAGICIEL: not implemented yet; returning a kitchen sink.")
+	 (magiciel-info "getting file info via the Windows Registry.")
+	 (magiciel-info "not implemented yet; returning a kitchen sink.")
 	 (make-magiciel-file-info :filename filename
 				  :extension ext)
 	 )
 
 	((ms-dos haiku)
-	 (message "MAGICIEL: cannot get file info in MS-DOS.")
-	 (message "MAGICIEL: returning a kitchen sink.")
+	 (magiciel-info "cannot get file info in MS-DOS.")
+	 (magiciel-info "returning a kitchen sink.")
 	 (make-magiciel-file-info :filename filename
 				  :extension ext)
 	 )
 
 	(t
 	 ;; Assumme a UN*X system with "file" available.
-	 (message "MAGICIEL: assuming UN*X system; getting file info.")
+	 (magiciel-info "assuming UN*X system; getting file info.")
 	 (condition-case nil
 	     (call-file-cmd filename ext))
 		  
@@ -283,13 +283,13 @@ operation in that case)."
 
   (unless (called-interactively-p 'interactive)
     (unless (file-exists-p filename)
-      (error "MAGICIEL: file '%s' does not exists." filename))
+      (magiciel--error "file '%s' does not exists." filename))
 
     (when (file-directory-p filename)
-      (error "MAGICIEL: name '%s' denotes a directory." filename))
+      (magiciel--error "name '%s' denotes a directory." filename))
 
     (unless (file-readable-p filename)
-      (error "MAGICIEL: file '%s' cannot be read." filename))
+      (magiciel--error "file '%s' cannot be read." filename))
 
     (cl-check-type context magiciel--spell-context)
     )
@@ -300,8 +300,8 @@ operation in that case)."
 	 (fs (magiciel--get-bytes fn))
 	 )
     (when (multibyte-string-p fs)
-      (error "MAGICIEL: reading file '%s',\nbut results in a multibyte buffer."
-	     fn))
+      (magiciel--error "reading file '%s',\nbut results in a multibyte buffer."
+		       fn))
 
     (let ((divinations ()))
       (cl-loop for spell in spells
@@ -321,13 +321,13 @@ operation in that case)."
 		((or (eq context :normal)
 		     (eq context '!:normal))
 		 (magiciel--info "Divination: %S is a%s."
-			  fnnd d))
+				 fnnd d))
 		((eq context '!:mime)
 		 (magiciel--info "Divination: %S mime type is %S."
-			  fnnd d))
+				 fnnd d))
 		((eq context '!:ext)
 		 (magiciel--info "Divination: %S usual extension is %S."
-			  fnnd d))
+				 fnnd d))
 		)))
       )))
 
