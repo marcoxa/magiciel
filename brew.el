@@ -94,8 +94,13 @@ code will be stored (unused for the time being)."
 
   (cl-loop for recipe in (directory-files magic-folder)
 	   for long-recipe = (expand-file-name recipe magic-folder)
-	   do (magiciel--info "loading recipe %S" recipe)
-	   do (magiciel--info "long recipe    %S\n" long-recipe)
+	   for scroll = (magiciel--get-scroll recipe)
+	   if scroll
+	     do (magiciel--info "found scroll %S." recipe)
+	   else
+	     do (magiciel--info "loading recipe %S" recipe)
+	     and do (magiciel--info "long recipe    %S\n" long-recipe)
+	   end
 	   unless (or (string-equal "." recipe)
 		      (string-equal ".." recipe))
 	     when (or (and step
@@ -103,8 +108,9 @@ code will be stored (unused for the time being)."
 			    (format "MAGICIEL: load the magic(5) file %S? "
 				    recipe)))
 		      (null step))
-	       collect (magiciel--load-magic-file
-			(expand-file-name recipe magic-folder))
+	       collect (or scroll
+			   (magiciel--load-magic-file
+			    (expand-file-name recipe magic-folder)))
 	       into mfs
 	   finally
 	   (cl-return
@@ -128,7 +134,10 @@ code will be stored (unused for the time being)."
   (let* ((spell-name (format "%s.el" (magiciel--magic-name mfs)))
 	 (spell-filename (concat apothecary spell-name))
 	 (spell-buffer (get-buffer-create spell-name))
-	 (spell-code `(cl-defun ,mfname ,@(cl-rest magic-fun)))
+	 (spell-code
+	  (if (compiled-function-p magic-fun)
+	      (format "\n;; MAGICIEL compiled function %S.\n" mfname)
+	      `(cl-defun ,mfname ,@(cl-rest magic-fun))))
 	 )
     (unwind-protect
 	(with-current-buffer spell-buffer
