@@ -45,8 +45,12 @@
     ))
 
 (defconst magiciel--+real-type-specs+
-  '(float double))
-
+  '(float
+    befloat lefloat
+    
+    double
+    bedouble ledouble
+    ))
 
 
 (cl-deftype magiciel--integer-type-spec ()
@@ -66,6 +70,7 @@
 	 ldate beldate leldate meldate
 	 qdate beqdate leqdate
     	 qldate beqldate leqldate
+	 qwdate beqwdate leqwdate
 	 ))
 
 (cl-deftype magiciel--date-type-spec ()
