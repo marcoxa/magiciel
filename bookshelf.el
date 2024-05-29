@@ -58,6 +58,11 @@
 	scroll-rep))
 
 
+(cl-defun magiciel--clear-bookshelf (&optional
+				     (bookshelf magiciel--*bookshelf*))
+  (clrhash (magiciel--bookshelf-scroll-index bookshelf)))
+
+
 (provide 'magiciel-bookshelf)
 
 ;;; bookshelf.el ends here
