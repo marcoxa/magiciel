@@ -243,12 +243,12 @@ ones are read in but untreated."
 
 (cl-defmethod cl-print-object ((ml magiciel--empty-record) stream)
   (ignore ml)
-  (princ "#<MAGIC-RECORD empty>" stream))
+  (princ "#<MAGICIEL-RECORD empty>" stream))
 
 
 (cl-defmethod cl-print-object ((ml magiciel--normal-record) stream)
   (let ((line (magiciel--magic-record-line ml)))
-    (princ (format "#<MAGIC-RECORD Normal %d %S>"
+    (princ (format "#<MAGICIEL-RECORD Normal %d %S>"
 		   (length line)
 		   line)
 	   stream)))
@@ -256,7 +256,7 @@ ones are read in but untreated."
 
 (cl-defmethod cl-print-object ((ml magiciel--special-record) stream)
   (let ((line (magiciel--magic-record-line ml)))
-    (princ (format "#<MAGIC-RECORD Special %d %S>"
+    (princ (format "#<MAGICIEL-RECORD Special %d %S>"
 		   (length line)
 		   line)
 	   stream)))
@@ -265,9 +265,9 @@ ones are read in but untreated."
 (cl-defmethod cl-print-object ((ml magiciel--comment-record) stream)
   (let ((line (magiciel--magic-record-line ml)))
     (if (and line (not (string-equal line "")))
-	(princ (format "#<MAGIC-RECORD Comment: %s>" line)
+	(princ (format "#<MAGICIEL-RECORD Comment: %s>" line)
 	       stream)
-      (princ (format "#<MAGIC-RECORD Comment>") stream))))
+      (princ (format "#<MAGICIEL-RECORD Comment>") stream))))
     
 
 ;; Magiciel records predicates.
@@ -324,6 +324,28 @@ reorder the \"records\" field."
 			      (magiciel--magic-records mm))
 		 (magiciel--magic-file mm))
 	 stream))
+
+
+;; Useful functions manipulating the `magiciel--magic' structure.
+
+(cl-defun magiciel--magic-normal-records (mm)
+  (cl-remove-if-not #'magiciel--magic-record-is-normal
+		    (magiciel--magic-records mm)))
+
+
+(cl-defun magiciel--magic-special-records (mm)
+  (cl-remove-if-not #'magiciel--magic-record-is-special
+		    (magiciel--magic-records mm)))
+
+
+(cl-defun magiciel--magic-empty-records (mm)
+  (cl-remove-if-not #'magiciel--magic-record-is-empty
+		    (magiciel--magic-records mm)))
+
+
+(cl-defun magiciel--magic-comment-records (mm)
+  (cl-remove-if-not #'magiciel--magic-record-is-comment
+		    (magiciel--magic-records mm)))
 
 
 ;; Regexp used to extract the four parts of a magic record.
@@ -1196,7 +1218,7 @@ At least this is what is inferred from various sources.
 
 	      ("beid3"
 	       (magiciel--make-record-type-spec type-spec-string
-						"id3"
+						"beid3"
 						mods
 						4
 						:be
@@ -1205,7 +1227,7 @@ At least this is what is inferred from various sources.
 
 	      ("beshort"
 	       (magiciel--make-record-type-spec type-spec-string
-						"short"
+						"beshort"
 						mods
 						2
 						:be
@@ -1214,7 +1236,7 @@ At least this is what is inferred from various sources.
 
 	      ("belong"
 	       (magiciel--make-record-type-spec type-spec-string
-						"long"
+						"belong"
 						mods
 						4
 						:be
@@ -1224,7 +1246,7 @@ At least this is what is inferred from various sources.
 
 	      ("bequad"
 	       (magiciel--make-record-type-spec type-spec-string
-						"quad"
+						"bequad"
 						mods
 						8
 						:be
@@ -1233,7 +1255,7 @@ At least this is what is inferred from various sources.
 
 	      ("befloat"
 	       (magiciel--make-record-type-spec type-spec-string
-						"float"
+						"befloat"
 						mods
 						4
 						:be
@@ -1242,7 +1264,7 @@ At least this is what is inferred from various sources.
 
 	      ("bedouble"
 	       (magiciel--make-record-type-spec type-spec-string
-						"double"
+						"bedouble"
 						mods
 						8
 						:be
@@ -1251,7 +1273,7 @@ At least this is what is inferred from various sources.
 
 	      ("bedate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"date"
+						"bedate"
 						mods
 						4
 						:be
@@ -1260,7 +1282,7 @@ At least this is what is inferred from various sources.
 
 	      ("beqdate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"qdate"
+						"beqdate"
 						mods
 						8
 						:be
@@ -1270,7 +1292,7 @@ At least this is what is inferred from various sources.
 
 	      ("beldate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"ldate"
+						"beldate"
 						mods
 						4
 						:be
@@ -1279,7 +1301,7 @@ At least this is what is inferred from various sources.
 
 	      ("beqldate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"qldate"
+						"beqldate"
 						mods
 						8
 						:be
@@ -1288,7 +1310,7 @@ At least this is what is inferred from various sources.
 
 	      ("beqwdate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"qwdate"
+						"beqwdate"
 						mods
 						8
 						:be
@@ -1297,7 +1319,7 @@ At least this is what is inferred from various sources.
 
 	      ("bestring16"
 	       (magiciel--make-record-type-spec type-spec-string
-						"string16"
+						"bestring16"
 						mods
 						0
 						:be
@@ -1306,7 +1328,7 @@ At least this is what is inferred from various sources.
 
 	      ("leid3"
 	       (magiciel--make-record-type-spec type-spec-string
-						"id3"
+						"leid3"
 						mods
 						4
 						:le
@@ -1315,7 +1337,7 @@ At least this is what is inferred from various sources.
 
 	      ("leshort"
 	       (magiciel--make-record-type-spec type-spec-string
-						"short"
+						"leshort"
 						mods
 						2
 						:le
@@ -1324,7 +1346,7 @@ At least this is what is inferred from various sources.
 
 	      ("lelong"
 	       (magiciel--make-record-type-spec type-spec-string
-						"long"
+						"lelong"
 						mods
 						4
 						:le
@@ -1334,7 +1356,7 @@ At least this is what is inferred from various sources.
 
 	      ("lequad"
 	       (magiciel--make-record-type-spec type-spec-string
-						"quad"
+						"lequad"
 						mods
 						8
 						:le
@@ -1343,7 +1365,7 @@ At least this is what is inferred from various sources.
 
 	      ("lefloat"
 	       (magiciel--make-record-type-spec type-spec-string
-						"float"
+						"lefloat"
 						mods
 						4
 						:le
@@ -1352,7 +1374,7 @@ At least this is what is inferred from various sources.
 
 	      ("ledouble"
 	       (magiciel--make-record-type-spec type-spec-string
-						"double"
+						"ledouble"
 						mods
 						8
 						:le
@@ -1361,7 +1383,7 @@ At least this is what is inferred from various sources.
 
 	      ("ledate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"date"
+						"ledate"
 						mods
 						4
 						:le
@@ -1370,7 +1392,7 @@ At least this is what is inferred from various sources.
 
 	      ("leqdate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"qdate"
+						"leqdate"
 						mods
 						8
 						:le
@@ -1380,7 +1402,7 @@ At least this is what is inferred from various sources.
 
 	      ("leldate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"ldate"
+						"leldate"
 						mods
 						4
 						:le
@@ -1389,7 +1411,7 @@ At least this is what is inferred from various sources.
 
 	      ("leqldate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"qldate"
+						"leqldate"
 						mods
 						8
 						:le
@@ -1398,7 +1420,7 @@ At least this is what is inferred from various sources.
 
 	      ("leqwdate"
 	       (magiciel--make-record-type-spec type-spec-string
-						"qwdate"
+						"leqwdate"
 						mods
 						8
 						:le
@@ -1407,7 +1429,7 @@ At least this is what is inferred from various sources.
 
 	      ("lestring16"
 	       (magiciel--make-record-type-spec type-spec-string
-						"string16"
+						"lestring16"
 						mods
 						0
 						:le
@@ -1850,7 +1872,7 @@ At least this is what is inferred from various sources.
 
     ("bestring16"
      (magiciel--make-record-type-spec type-spec-string
-				      "string16"
+				      "bestring16"
 				      mods
 				      0
 				      :be
@@ -1960,7 +1982,7 @@ At least this is what is inferred from various sources.
 
     ("lestring16"
      (magiciel--make-record-type-spec type-spec-string
-				      "string16"
+				      "lestring16"
 				      mods
 				      0
 				      :le
@@ -2073,7 +2095,7 @@ At least this is what is inferred from various sources.
 
 
 (cl-defmethod cl-print-object ((mt magiciel--test) stream)
-  (princ (format "#<MAGICIEL Test: %S>"
+  (princ (format "#<MAGICIEL record test: %S>"
 		 (magiciel--test-test-string mt))
 	 stream))
 
@@ -2139,7 +2161,7 @@ At least this is what is inferred from various sources.
 
 
 (cl-defmethod cl-print-object ((mm magiciel--message) stream)
-  (princ (format "#<MAGICIEL Message: %S>"
+  (princ (format "#<MAGICIEL record message: %S>"
 		 (magiciel--message-msg-string mm))
 	 stream))
 
@@ -2217,7 +2239,7 @@ At least this is what is inferred from various sources.
 ;;
 ;; They will have to be replaced with proper parsing functions.
 
-(defun magiciel--convert-c-integer (i)
+(cl-defun magiciel--convert-c-integer (i &aux (sign 1) (il (length i)))
   "Takes a string `i' and reads an integer in C syntax from it.
 
 The integer is supposed to be in position 0.
@@ -2226,6 +2248,14 @@ No checks are made for correctness.  An integer is returned if all
 goes well.
 
 Cfr., the C standard(s) for integer syntax."
+
+  (cl-assert (cl-plusp il))
+
+  (when (eql ?- (aref i 0))
+    (setq sign -1
+	  i (substring i 1))
+    (cl-assert (cl-plusp (1- il)))
+    )
   
   (if (char-equal ?0 (aref i 0))	; Octal or Hex
       (if (and (> (length i) 1)
@@ -2233,24 +2263,32 @@ Cfr., the C standard(s) for integer syntax."
 		 (or (char-equal i1 ?x)
 		     (char-equal i1 ?X))))
 	  ;; Hex
-	  (car (read-from-string (concat "#x"
-					 (substring i 2))))
+	  (* sign (car (read-from-string (concat "#x"
+						 (substring i 2)))))
 	;; Octal (or 0; the "#o0" takes care of it.
-	(car (read-from-string (concat "#o0"
-				       (substring i 1))))
+	(* sign (car (read-from-string (concat "#o0"
+					       (substring i 1)))))
 	)
     ;; Decimal
-    (car (read-from-string i))
+    (* sign (car (read-from-string i)))
     ))
 
 
-(defun magiciel--convert-c-number (i)
+(cl-defun magiciel--convert-c-number (i &aux (sign 1) (il (length i)))
   "Takes a string `i' and reads a number in C syntax from it.
 
 No checks are made for correctness.  A number is returned if all
 goes well.
 
 Cfr., the C standard(s) for number constants."
+
+  (cl-assert (cl-plusp il))
+
+  (when (eql ?- (aref i 0))
+    (setq sign -1
+	  i (substring i 1))
+    (cl-assert (cl-plusp (1- il)))
+    )
   
   (if (char-equal ?0 (aref i 0))	; Octal or Hex
       (if (and (> (length i) 1)
@@ -2258,14 +2296,14 @@ Cfr., the C standard(s) for number constants."
 		 (or (char-equal i1 ?x)
 		     (char-equal i1 ?X))))
 	  ;; Hex
-	  (car (read-from-string (concat "#x"
-					 (substring i 2))))
+	  (* sign (car (read-from-string (concat "#x"
+						 (substring i 2)))))
 	;; Octal (or 0; the "#o0" takes care of it.
-	(car (read-from-string (concat "#o0"
-				       (substring i 1))))
+	(* sign (car (read-from-string (concat "#o0"
+					       (substring i 1)))))
 	)
     ;; Decimal number.
-    (car (read-from-string i))
+    (* sign (car (read-from-string i)))
     ))
 
 
