@@ -165,7 +165,17 @@ name of a lower level code block."))
   
   (magiciel--msg 1 "compiling magic %S...\n" mname)
   
-  (let ((code-recs
+  (let ((max-lisp-eval-depth 4800)
+	
+	;; This is necessary because of the sizes of certain groups
+	;; and because of the code is not particularly smart with tail
+	;; recursion.
+	;;
+	;; The number 4800 has been empirically determined.
+	;; It works on a 2020 Intel Mac running Sonoma 14.5.
+	;; YMMV, etc. etc.
+	
+	(code-recs
 	 (cl-remove-if #'(lambda (r)
 			   (or (magiciel--magic-record-is-comment r)
 			       (magiciel--magic-record-is-empty r)))
@@ -927,7 +937,15 @@ name of a lower level code block."))
 ;; magiciel--compile-test-value
 
 (cl-defun magiciel--compile-test-value (test-value type-spec)
-  (cond ((magiciel--numeric-type-spec-p type-spec)
+  (cond ((or (string-equal test-value "x")
+	      (string-equal test-value "X"))
+					; Yes I know about
+					; `string-equal-ignore-case'.
+	 ;; This is to be treated specially.
+	 ;; Hopefully the logic is ok.
+	 test-value
+	 )
+	((magiciel--numeric-type-spec-p type-spec)
 	 (magiciel--convert-c-number test-value) ; The result may be inconsistent.
 	 )
 	((magiciel--exec-type-spec-p type-spec) ; Symmetry.
@@ -1391,8 +1409,8 @@ VAL is the expression constructing the value accessed (defaulting to
   `(eq %context% ,c))
 
 
-(cl-defmacro magiciel--$use (name-label)
-  `(,name-label)
+(cl-defmacro magiciel--$use (name-label &optional invert)
+  `(,name-label ,invert)
   )
 
 
@@ -1606,12 +1624,17 @@ test and that is used for \"continuation\" offsets."
 	 ;; (value  (magiciel--instruction-value inst))
 	 (result (magiciel--instruction-result inst))
 
-	 (name-label (assoc (cl-second test) env #'string-equal))
+	 (use-name-0 (cl-second test))
+	 (invert-endianness (char-equal ?^ (aref use-name-0 0)))
+	 (use-name (if invert-endianness
+		       (substring use-name-0 1)
+		     use-name-0))
+	 (name-label (assoc use-name env #'string-equal))
 	 )
 
     (unless name-label
-      (warn "MAGICIEL: unknown label %s; test will fail."
-	    (cl-second test)))
+      (magiciel--warning "unknown label %S; test will probably fail."
+			 use-name))
 
     (if name-label
 	(let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
@@ -1619,7 +1642,7 @@ test and that is used for \"continuation\" offsets."
 	      (use-block-name (intern (concat (cl-second test) "-use-block")))
 	      )
 	  `(cl-block ,use-block-name
-	     (magiciel--$use ,label-name)
+	     (magiciel--$use ,label-name ,invert-endianness)
 	     ;; (magiciel--$acc-msg-disp ,result)
 	     (magiciel--$store-access-result ,result ,pos)
 	     ))
@@ -2140,7 +2163,17 @@ specially.
 (cl-defun magiciel--magic-emit (magic instr-groups)
   "Emit the function that checks for a specific \"magic\" specification."
 
-  (let* ((name (magiciel--magic-name magic))
+  (let* ((max-lisp-eval-depth 4800)
+	
+	 ;; This is necessary because of the sizes of certain groups
+	 ;; and because of the code is not particularly smart with tail
+	 ;; recursion.
+	 ;;
+	 ;; The number 4800 has been empirically determined.
+	 ;; It works on a 2020 Intel Mac running Sonoma 14.5.
+	 ;; YMMV, etc. etc.
+
+	 (name (magiciel--magic-name magic))
 	 
 	 (magic-fname (magiciel--magic-fname magic))
 
