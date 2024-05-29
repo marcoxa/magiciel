@@ -628,7 +628,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 (defconst magiciel--*indirect-offset-regexp*
   (rx "("
       (group (opt "&"))					 ; 1
-      ;; (group (regexp magiciel--*uint-regexp*))		 ; 2
+      ;; (group (regexp magiciel--*uint-regexp*))      	 ; 2
       (group (regexp magiciel--*sint-regexp*))		 ; 2
       (? (group (in ".,") (in "bBcCeEfFgGhHiIlLmsSqQ"))) ; 3
 
@@ -879,9 +879,9 @@ This is the \"abstract\" offset type."
 		    (cond ((char-equal ?, (aref ind-type 0)) nil)
 			  ((char-equal ?. (aref ind-type 0)) t)
 			  (t
-			   (error "MAGICIEL: incorrect sign '%c' in %S."
-				  (aref ind-type 0)
-				  ind-type))
+			   (magiciel--error "incorrect sign '%c' in %S."
+					    (aref ind-type 0)
+					    ind-type))
 			  ))
 		   (subtype-char (aref ind-type 1))
 		   )
@@ -983,12 +983,17 @@ This is the \"abstract\" offset type."
 		      :level  level
 		      :cont   cont
 		      :rel    (and rel (not (string= "" rel)))
-		      :addr   (parse-c-integer addr)
+		      ;; :addr   (parse-c-integer addr)
+		      :addr   (magiciel--convert-c-integer addr)
 		      :type   (select-addr-subtype type)
 		      :sign   (if sign sign "")
 		      :op     (if op op "")
 		      :is-len (not (null is-len))
-		      :num    (if num (parse-c-integer num) 0)))
+		      ;; :num    (if num (parse-c-integer num) 0)
+		      :num    (if num
+				  (magiciel--convert-c-integer num)
+				0)
+		      ))
 		   )
 		  
 		  ((or direct relative)
@@ -996,7 +1001,8 @@ This is the \"abstract\" offset type."
 		    :string-rep offset-string
 		    :level level
 		    :cont  cont
-		    :value (parse-c-integer matched-string)
+		    ;; :value (parse-c-integer matched-string)
+		    :value (magiciel--convert-c-integer matched-string)
 		    ))
 		  
 		  (t
