@@ -1120,7 +1120,7 @@ OFFSET     : a `magiciel--offset'."
 ;; complextiy and... unreadability.
 ;;
 ;; In any case the code evolved by having `magiciel--compile-record'
-;; generate an "instruction" (which may be useless, but re-reprents
+;; generate an "instruction" (which may be useless, but re-represents
 ;; the record in a more convenient way, which is then "emitted"; the
 ;; "-emit-" functions are those that generate the code.
 ;;
@@ -1277,7 +1277,7 @@ OFFSET     : a `magiciel--offset'."
 ;; The "machine" uses the following variables/locations/registers.
 ;;
 ;; `--magiciel--value' : the object (bytes) read by the "access" code.
-;; `--magiciel-msg'   : the "message" resulting as a description of
+;; `--magiciel-msg'    : the "message" resulting as a description of
 ;;                       the file.
 ;; `--magiciel--test-result' : a boolean that contains the result of
 ;;                             the test.
@@ -1318,7 +1318,7 @@ The variable ACCESS contains an expression that represents how
 the code will get the value to be tested by TEST (if any).
 CONTINUE-TESTS contains the code for the \"next\" tests (and
 other code as well; usually the first expression of
-CONTINUE-TESTS will be a setting of the variable `%end-pos% ( the
+CONTINUE-TESTS will be a setting of the variable `%end-pos%` (the
 \"end\" of the value previously matched), followed by other
 house-keeping code."
 
