@@ -1306,12 +1306,12 @@ OFFSET     : a `magiciel--offset'."
 
 ;; Support code.
 
-;; magiciel--check
+;; magiciel--$check
 ;; Sets up and track the %pos% and %end-pos% variables (FTTB).
 ;;
 ;; It should probably become a macrolet in the main generate function.
 
-(cl-defmacro magiciel--check (tag access test &body continue-tests)
+(cl-defmacro magiciel--$check (tag access test &body continue-tests)
   "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
 
 The variable ACCESS contains an expression that represents how
@@ -1410,7 +1410,7 @@ VAL is the expression constructing the value accessed (defaulting to
 
 
 (cl-defmacro magiciel--$use (name-label &optional invert)
-  `(,name-label ,invert)
+  `(,name-label %bytes% %pos% %end-pos% %context% ,invert)
   )
 
 
@@ -1503,11 +1503,11 @@ test and that is used for \"continuation\" offsets."
 	      (and (stringp value)
 		   (or (string-equal value "x")
 		       (string-equal value "X"))))
-	  `(magiciel--check ',tag
+	  `(magiciel--$check ',tag
 	       ,access
 	       t
 	     (magiciel--$store-access-result ,result ,pos ,disp))
-	`(magiciel--check ',tag
+	`(magiciel--$check ',tag
 	     ,access
 	     (,test --magiciel-value ,value)
 	   (magiciel--$store-access-result ,result ,pos ',disp))
@@ -1551,7 +1551,7 @@ test and that is used for \"continuation\" offsets."
 	 (result (magiciel--instruction-result inst))
 	 (tag (intern (format "regexp-%s" value)))
 	 )
-    `(magiciel--check ',tag nil ,test
+    `(magiciel--$check ',tag nil ,test
        (magiciel--$store-access-result ,result
 				       %pos%
 				       (length (match-string 0 %bytes%))
@@ -1669,7 +1669,7 @@ test and that is used for \"continuation\" offsets."
 	 (tag (intern (format "search-%s" value)))
 	 (pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
 	 )
-    `(magiciel--check ',tag nil ,test
+    `(magiciel--$check ',tag nil ,test
        (magiciel--$store-access-result ,result ,pos ,disp)))
   )
 
@@ -1693,7 +1693,7 @@ test and that is used for \"continuation\" offsets."
     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
 	  (tag 'default)
 	  )
-      `(magiciel--check ',tag nil ,test
+      `(magiciel--$check ',tag nil ,test
 	 (magiciel--$store-access-result ,result ,pos)))
     )
   )
@@ -1775,7 +1775,7 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
   
   (magiciel--msg 1 "EMIT: emit MIME %s." kind)
-  `(magiciel--check '!:mime-check nil (magiciel--$in-context-p ',kind)
+  `(magiciel--$check '!:mime-check nil (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
      ;; (cl-return-from %%test-block%% --magiciel-msg)
      (cl-return-from ,f-name --magiciel-msg)
@@ -1805,7 +1805,7 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
 
   (magiciel--msg 1 "EMIT: emit EXT %s (%S)." kind inst)
-  `(magiciel--check '!:ext-check nil (magiciel--$in-context-p ',kind)
+  `(magiciel--$check '!:ext-check nil (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
      ;; (cl-return-from %%test-block%% --magiciel-msg)
      (cl-return-from ,f-name --magiciel-msg)
@@ -2108,7 +2108,7 @@ specially.
 				 '(t)
 				 )
 		 )
-	       (magiciel--check
+	       (magiciel--$check
 		(append instr-root-code
 			(cl-loop for sub-node in sub-tests
 				 collect (emit-tree sub-node))
@@ -2160,14 +2160,142 @@ specially.
 
 ;; magiciel--magic-emit
 
+;; (cl-defun magiciel--magic-emit-saved (magic instr-groups)
+;;   "Emit the function that checks for a specific \"magic\" specification."
+
+;;   (let* ((max-lisp-eval-depth 4800)
+	
+;; 	 ;; This is necessary because of the sizes of certain groups
+;; 	 ;; and because of the code is not particularly smart with tail
+;; 	 ;; recursion.
+;; 	 ;;
+;; 	 ;; The number 4800 has been empirically determined.
+;; 	 ;; It works on a 2020 Intel Mac running Sonoma 14.5.
+;; 	 ;; YMMV, etc. etc.
+
+;; 	 (name (magiciel--magic-name magic))
+	 
+;; 	 (magic-fname (magiciel--magic-fname magic))
+
+;; 	 (group-fns ())
+;; 	 (groups-named ())
+
+;; 	 (groups-names-env ())
+;; 	 )
+
+;;     ;; First, collect "name" instructions for "use" ones.
+;;     ;; (I should build up this environment while building the
+;;     ;; instructions, but the double pass shouldn't matter so much.)
+    
+;;     (cl-loop for ig in instr-groups
+;; 	     for ign-name = (magiciel--group-name ig)
+;; 	     when ign-name
+;; 	       collect (cons ign-name
+;; 			     (intern (format "%s-label-%s" name ign-name)))
+;; 	       into igs-env
+;; 	     end
+;; 	     finally
+;; 	     (setf groups-names-env igs-env))
+
+;;     ;; Some code duplication below (see `intern' -- I am to lazy to
+;;     ;; refactor right now).
+    
+;;     (cl-loop for ig in instr-groups
+;; 	     for ign from 0
+;; 	     for ign-name = (magiciel--group-name ig)
+;; 	     if ign-name
+;; 	       collect (list
+;; 			(intern (format "%s-label-%s" name ign-name))
+;; 			(magiciel--group-emit magic ig ign groups-names-env))
+;; 	       into named-groups
+;; 	     else
+;; 	       collect (magiciel--group-emit magic ig ign groups-names-env)
+;; 	       into fns-groups
+;; 	     end
+;; 	     finally
+;; 	     (setf group-fns fns-groups
+;; 		   groups-named named-groups))
+    
+
+;;     (let ((magic-fun (cl-constantly "MAGICIEL: unknown format."))
+;;           (magic-fun-body (cl-constantly nil))
+;;           )
+;;       ;; Here we build the function for the magic entry.
+
+;;       (when group-fns
+;; 	;; If there are no groups we don't need to do anything.
+	
+;; 	(if groups-named
+;; 	    ;; Create `cl-labels' for each named group.
+;; 	    (setq magic-fun-body
+;; 		  `(cl-block ,magic-fname
+;; 		     (cl-labels
+;; 			 ,(cl-loop for (named-name code) in groups-named
+;; 				   collect
+;; 				   `(,named-name (&rest $$$args-here%%%)
+;; 				      ,(magiciel--group-func-code-body code)))
+;; 		       ,@(mapcar #'magiciel--group-func-code-body group-fns)
+;; 		       )
+;;                      ))
+	
+;; 	  ;; Create a simplified function.
+;; 	  (setq magic-fun-body
+;; 		`(cl-block ,magic-fname
+;; 		   ,@(mapcar #'magiciel--group-func-code-body group-fns)
+;;                    )
+;; 		))
+
+
+;; 	(setq magic-fun
+;;               `(lambda (%bytes%		; The file/stream/buffer data.
+;; 			%pos% ; Where we start scanning the %%bytes%%.
+;; 			%context% ; `%context' can be ':normal' (or `!:normal'),
+;; 					; '!:mime', '!:ext', or '!:apple'.
+;; 					; '!:strength' unhandled.
+;; 			)
+;; 		 (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
+;;                        (--magiciel-test-result nil)
+;;                        (--magiciel-msg "")
+
+;; 		       ;; The displacement of the "previous"
+;; 		       ;; instruction; starts at 0.  It is used for
+;; 		       ;; "continuing" records.
+		     
+;; 		       (--magiciel-disp 0)
+;; 		       (%end-pos% %pos%)
+;;                        )
+
+;; 		   ;; The next one would be a `ignorable' declaration in CL.
+;; 		   (ignore --magiciel-value
+;; 			   --magiciel-test-result
+;; 			   --magiciel-disp)
+;;                    ,magic-fun-body
+;; 		   --magiciel-msg)
+;; 		 ))
+;; 	) ; when...
+
+;;       (setf (symbol-function magic-fname) magic-fun)
+
+;;       (magiciel--add-spell name (byte-compile magic-fname))
+      
+;;       (cl-values magic-fname
+;; 		 group-fns
+;; 		 groups-named
+;; 		 magic-fun
+;; 		 )
+;;       )))
+
+
+;; Refactored to expose the "name" entries.
+
 (cl-defun magiciel--magic-emit (magic instr-groups)
-  "Emit the function that checks for a specific \"magic\" specification."
+  "Emit the functions that check for a specific \"magic(5)\" specification."
 
   (let* ((max-lisp-eval-depth 4800)
 	
-	 ;; This is necessary because of the sizes of certain groups
-	 ;; and because of the code is not particularly smart with tail
-	 ;; recursion.
+	 ;; The extension to `max-lisp-eval-depth' is necessary
+	 ;; because of the sizes of certain groups and because of the
+	 ;; code is not particularly smart with tail recursion.
 	 ;;
 	 ;; The number 4800 has been empirically determined.
 	 ;; It works on a 2020 Intel Mac running Sonoma 14.5.
@@ -2191,11 +2319,10 @@ specially.
 	     for ign-name = (magiciel--group-name ig)
 	     when ign-name
 	       collect (cons ign-name
-			     (intern (format "%s-label-%s" name ign-name)))
+			   (intern (format "%s-label-%s" name ign-name)))
 	       into igs-env
 	     end
-	     finally
-	     (setf groups-names-env igs-env))
+	     finally (setf groups-names-env igs-env))
 
     ;; Some code duplication below (see `intern' -- I am to lazy to
     ;; refactor right now).
@@ -2212,39 +2339,72 @@ specially.
 	       collect (magiciel--group-emit magic ig ign groups-names-env)
 	       into fns-groups
 	     end
-	     finally
-	     (setf group-fns fns-groups
-		   groups-named named-groups))
+	     finally (setf group-fns fns-groups
+			   groups-named named-groups))
     
 
+    ;; Now we have all the pieces in place to build the code.
+    
     (let ((magic-fun (cl-constantly "MAGICIEL: unknown format."))
           (magic-fun-body (cl-constantly nil))
+	  (magic-external-name-funs ())
           )
+      
       ;; Here we build the function for the magic entry.
 
       (when group-fns
 	;; If there are no groups we don't need to do anything.
 	
-	(if groups-named
-	    ;; Create `cl-labels' for each named group.
-	    (setq magic-fun-body
-		  `(cl-block ,magic-fname
-		     (cl-labels
-			 ,(cl-loop for (named-name code) in groups-named
-				   collect
-				   `(,named-name (&rest $$$args-here%%%)
-				      ,(magiciel--group-func-code-body code)))
-		       ,@(mapcar #'magiciel--group-func-code-body group-fns)
-		       )
-                     ))
-	
-	  ;; Create a simplified function.
-	  (setq magic-fun-body
-		`(cl-block ,magic-fname
-		   ,@(mapcar #'magiciel--group-func-code-body group-fns)
-                   )
-		))
+	(when groups-named
 
+	  ;; Create functions for each named group.
+	    
+	  ;; (setq magic-fun-body
+	  ;; 	  `(cl-block ,magic-fname
+	  ;; 	     (cl-labels
+	  ;; 		 ,(cl-loop for (named-name code) in groups-named
+	  ;; 			   collect
+	  ;; 			   `(,named-name (&rest $$$args-here%%%)
+	  ;; 			      ,(magiciel--group-func-code-body code)))
+	  ;; 	       ,@(mapcar #'magiciel--group-func-code-body group-fns)
+	  ;; 	       )
+          ;;          ))
+
+	  (setq magic-external-name-funs
+		(cl-loop
+		 for (named-name code) in groups-named
+		 collect
+		 `(cl-defun ,named-name
+		      ;; (&rest $$$args-here%%%)
+		      (%bytes%	; The file/stream/buffer data.
+		       %pos%    ; Where we start scanning the %%bytes%%.
+		       %end-pos% 	; Where the previous test ended.
+		       %context%	; What we are looking for
+		       &optional
+		       (%invert-endiannes% nil) ; Do we invert endianness?
+		       )
+		    (ignore %bytes%
+			    %pos%
+			    %end-pos%
+			    %context%
+			    %invert-endiannes%
+			    )
+		    (cl-multiple-value-setq (--magiciel-msg
+					     %pos%
+					     %end-pos%
+					     )
+		      ;; Probably pleonastic, but...
+		      ,(magiciel--group-func-code-body code)
+		      ))
+		 ))
+	  )
+	
+	;; Create the main function body...
+	(setq magic-fun-body
+	      `(cl-block ,magic-fname
+		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
+                 )
+	      )
 
 	(setq magic-fun
               `(lambda (%bytes%		; The file/stream/buffer data.
@@ -2272,7 +2432,7 @@ specially.
                    ,magic-fun-body
 		   --magiciel-msg)
 		 ))
-	) ; when...
+	)				; when...
 
       (setf (symbol-function magic-fname) magic-fun)
 
@@ -2282,6 +2442,7 @@ specially.
 		 group-fns
 		 groups-named
 		 magic-fun
+		 magic-external-name-funs
 		 )
       )))
 

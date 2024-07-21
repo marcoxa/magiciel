@@ -128,6 +128,7 @@ code will be stored (unused for the time being)."
 (cl-defun magiciel--write-spell-file (mfs
 				      mfname
 				      magic-fun
+				      magic-name-funs
 				      &optional
 				      (apothecary
 				       magiciel--*apothecary-folder*))
@@ -153,6 +154,15 @@ code will be stored (unused for the time being)."
 	  (insert ";; This is a generated file!  You have been warned!\n\n")
 	  (insert (format ";;; %s\n\n" mfname))
 
+	  (when magic-name-funs
+	    (insert (format ";; %S named, external functions.\n\n" spell-name))
+
+	    (dolist (nf magic-name-funs)
+	      (insert (format ";; %s\n\n" (cl-second nf)))
+	      (print nf (current-buffer))
+	      (insert "\n")
+	      ))
+
 	  ;; Nice, but awfully slow and ureliable.
 	  ;; (let ((pp-max-width
 	  ;; 	 ;; 80
@@ -172,10 +182,10 @@ code will be stored (unused for the time being)."
 
 (cl-defun magiciel--brew-potion (recipe
 				 &optional
-				 (apothecary
-				  magiciel--*apothecary-folder*)
 				 (magic-folder
 				  magiciel--*magic-folder*)
+				 (apothecary
+				  magiciel--*apothecary-folder*)
 				 )
   ;; `recipe' is a file name.
   
@@ -194,10 +204,14 @@ code will be stored (unused for the time being)."
 	  )
       (ignore frecs)
       (when fgrps
-	(cl-multiple-value-bind (mfname gfns gns magic-fun)
+	(cl-multiple-value-bind (mfname gfns gns magic-fun magic-name-funs)
 	    (magiciel--magic-emit magic-s fgrps)
 	  (ignore gfns gns)
-	  (magiciel--write-spell-file magic-s mfname magic-fun apothecary)
+	  (magiciel--write-spell-file magic-s
+				      mfname
+				      magic-fun
+				      magic-name-funs
+				      apothecary)
 	  ))
       )))
 
@@ -244,10 +258,14 @@ code will be stored (unused for the time being)."
 	    )
 	(ignore recs)
 	(when grps
-	  (cl-multiple-value-bind (mfname gfns gns magic-fun)
+	  (cl-multiple-value-bind (mfname gfns gns magic-fun magic-name-funs)
 	      (magiciel--magic-emit mfs grps)
 	    (ignore gfns gns)
-	    (magiciel--write-spell-file mfs mfname magic-fun apothecary)
+	    (magiciel--write-spell-file mfs
+					mfname
+					magic-fun
+					magic-name-funs
+					apothecary)
 	    ))))			; dolist.
     ))
 

@@ -95,6 +95,8 @@ The \"types\" can be either in the \\='type\\=' field or in the
 					   (endian :le)
 					   unsigned
 					   )
+  "Constructor for `magiciel--record-type-spec'."
+  
   (magiciel--%make-record-type-spec type-spec-string
 				    (intern spec)
 				    modifiers
@@ -137,6 +139,8 @@ The \"types\" can be either in the \\='type\\=' field or in the
 					   (endian :le)
 					   unsigned
 					   )
+  "Constructor for `magiciel--offset-type-spec'."
+  
   (magiciel--%make-offset-type-spec type-spec-string
 				    (cl-etypecase spec
 				      (string (intern spec))
@@ -407,12 +411,13 @@ reorder the \"records\" field."
 
 	 (unless (string-match magiciel--*normal-record-regexp* rec)
 	     ;; (string-match magiciel--*normal-record-rx* rec)
-	   (error (concat "MAGICIEL: could not parse record:\n"
-			  "MAGICIEL: |%s|")
-		  line))
+	   (magiciel--error (concat "could not parse record:\n"
+				    "MAGICIEL: |%s|")
+			    line))
 
 	 ;; Get stuff out of match-data before it gets
 	 ;; clobbered.
+	 
 	 (let ((offset-m (match-string 1 rec))
 	       (type-m   (match-string 2 rec))
 	       (test-m   (match-string 3 rec))
@@ -439,6 +444,7 @@ reorder the \"records\" field."
 	 (magiciel--make-comment-record rec)
 	 )
        )				; cl-flet
+    
     (magiciel--msg 1 "parsing line: %s." line)
     (if (string= "" line)
 	(magiciel--make-empty-record)
@@ -456,9 +462,17 @@ reorder the \"records\" field."
 ;; magiciel--load-magic-file
 
 (defun magiciel--load-magic-file (filename)
+  "Load FILENAME and parses it as a \\='magic(5)\\=' file.
+
+The function parses each line of FILENAME calling
+`magiciel--parse-magic-record' and finally returns a `magiciel--magic'
+structure.  It also caches it in the `magiciel--bookshelf'."
+  
   (let ((fname (file-name-base filename)))
     (with-temp-buffer
-      ;; I should ensure the buffer is unibyte.
+      ;; Ensure that the buffer is unibyte.
+      (set-buffer-multibyte nil)
+      
       (cl-destructuring-bind (abs-filename nchars)
 	  (insert-file-contents filename)
 	(ignore nchars)
@@ -504,7 +518,7 @@ reorder the \"records\" field."
 
 Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 \"#o7\" and \"0b01\" into \"#b01\"; no \"radix\" handling."
-  
+
   (let ((xp (or (cl-position ?x ns :start start :end end)
 		(cl-position ?X ns :start start :end end)))
 	)
@@ -512,7 +526,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
     (cond ((and xp (cl-plusp xp))
 	   (setf (aref ns (1- xp)) ?#))
 	  ((and xp (zerop xp))
-	   (error "MAGICIEL: not a numberish string %S." ns))
+	   (magiciel--error "not a numberish string %S." ns))
 	  (t
 	   (let ((op (or (cl-position ?o ns :start start :end end)
 			 (cl-position ?O ns :start start :end end)))
@@ -521,7 +535,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	     (cond ((and op (cl-plusp op))
 		    (setf (aref ns (1- op)) ?#))
 		   ((and op (zerop op))
-		    (error "MAGICIEL: not a numberish string %S." ns))
+		    (magiciel--error "not a numberish string %S." ns))
 		   (t
 		    (let ((bp (or (cl-position ?b ns :start start :end end)
 				  (cl-position ?B ns :start start :end end)))
@@ -530,7 +544,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 		      (cond ((and bp (cl-plusp bp))
 			     (setf (aref ns (1- bp)) ?#))
 			    ((and bp (zerop bp))
-			     (error "MAGICIEL: not a numberish string %S." ns))
+			     (magiciel--error "not a numberish string %S." ns))
 			    (t
 			     ;; (and (null xp) (null op) (null bp))
 			     ns)	; Pointless return here.
@@ -670,7 +684,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 ;; Offset types.
 
 (cl-defstruct (magiciel--offset (:constructor nil))
-  "The representation of a magic(5) \"offset\".
+  "The representation of a \\='magic(5)\\=' \"offset\".
 
 This is the \"abstract\" offset type."
   (string-rep "" :type string)
@@ -719,6 +733,9 @@ This is the \"abstract\" offset type."
 ;; magiciel--parse-offset
 
 (cl-defun magiciel--parse-offset (record)
+  "Parse the \=='offset\\=' part of RECORD.
+
+Return a `magiciel--offset' structure."
   
   (unless (or (stringp record)
 	      (magiciel--magic-record-is-normal record))
@@ -836,30 +853,10 @@ This is the \"abstract\" offset type."
 	     ;; Munge match
 	     (setf matched-string (match-string 0 offset-string))
 	     ))
-
-	 (parse-c-integer (i)
-	   ;; `i' is a string.
-	   ;; The numbers are in C syntax.
-	   (if (char-equal ?0 (aref i 0)) ; Octal or Hex
-	       (if (and (> (length i) 1)
-			(let ((i1 (aref i 1)))
-			  (or (char-equal i1 ?x)
-			      (char-equal i1 ?X))))
-		   ;; Hex
-		   (car (read-from-string (concat "#x"
-						  (substring i 2))))
-		 ;; Octal (or 0; the "#o0" takes care of it.
-		 (car (read-from-string (concat "#o0"
-						(substring i 1))))
-		 )
-	     ;; Decimal
-	     (car (read-from-string i))
-	     ))
 		
 	 (finish ()
 	   ;; Do stuff.
 	   )
-
 
 	 (select-addr-subtype (ind-type)
 	   (cl-block select-addr-subtype-blk
@@ -1030,521 +1027,12 @@ At least this is what is inferred from various sources.
 ")
 
 
-(cl-defun magiciel--parse-type-spec-saved (record-or-ts)
-  (unless (or (stringp record-or-ts)
-	      (magiciel--magic-record-is-normal record-or-ts))
-    (cl-return-from magiciel--parse-offset nil))
-
-  (cl-flet ((split-spec (type-spec-string)
-	      ;; This is unused, as I decided to use the kludge below.
-
-	      ;; (message "\nss >>>>>> record %S." type-spec-string)
-	      ;; (message "ss >>>>>> type-spec-string: %S."		       
-	      ;;          type-spec-string)
-	      
-	      (unless (string-match magiciel--*type-spec-rx*
-				    type-spec-string)
-		;; It should never get here...
-		(magiciel--error "cannot parse type spec %S."
-				 type-spec-string))
-
-	      (let ((spec-type (match-string 1 type-spec-string))
-		    (spec-op   (match-string 2 type-spec-string))
-		    (spec-mods (match-string 3 type-spec-string))
-		    )
-		(magiciel--msg 1 "split-spec %S %S %S."
-			       spec-type spec-op spec-mods)
-		(remove "" (list spec-type spec-op spec-mods)))
-	      )
-
-	    (parse-mods (mods)
-	      ;; By looking at the BNF grammar, it appears that the
-	      ;; mods are dependent on the type.  Therefore the simple
-	      ;; "split at /" may not work.
-	      mods
-	      )
-	    )
-    (let* ((type-spec-string
-	    (copy-sequence     ; Make sure to have stuff to muck with.
-	     (if (stringp record-or-ts)  ; Useful for testing and debugging.
-		 record-or-ts
-	       (magiciel--normal-record-type record-or-ts))))
-	   (spec-list
-	    (progn
-	      ;; (message "\n>>>>>> record %S."
-	      ;; 	       (if (stringp record-or-ts)  ; Useful for testing and debugging.
-	      ;; 		   record-or-ts
-	      ;; 		 (magiciel--normal-record-line record-or-ts)))
-	      ;; (message ">>>>>> type-spec-string: %S."
-	      ;; 	       type-spec-string)
-	      (split-string type-spec-string "/" t))
-	    )
-	   (spec-list-spec (split-spec type-spec-string))
-	   (spec (cl-first spec-list))
-	   (unsigned
-	    (when (and (not (string-equal "use" spec))
-		       (char-equal ?u (aref spec 0)))
-	      (setf spec (substring spec 1))
-	      t))
-	   (mods (cl-rest spec-list))
-	   
-	   (endian (magiciel--machine-endiannes)) ; CHECK THIS!
-	   (spec-struct
-	    (pcase spec
-	      ;; See "magic(5)" man page for list.
-	      ;; See also
-	      ;; "https://www.commandlinux.com/man-page/man5/magic.5.html"
-	    
-	      ("byte"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						1
-						endian
-						unsigned
-						))
-
-	      ("id3"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						4
-						endian
-						unsigned
-						))
-
-	      ("short"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						2
-						endian
-						unsigned
-						))
-
-	      ("long"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						4
-						endian
-						unsigned
-						))
-
-	      ("quad"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						8
-						endian
-						unsigned
-						))
-
-	      ("float"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						4
-						endian
-						unsigned
-						))
-
-	      ("double"
-	       (magiciel--make-record-type-spec type-spec-string
-						(intern spec)
-						mods
-						8
-						endian
-						unsigned
-						))
-
-
-	      ("string"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						0 ; Depends on the test value.
-						endian
-						unsigned
-						))
-
-	      ("pstring"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						0 ; Depends on the test value.
-						endian
-						unsigned
-						))
-	      ("date"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						4
-						endian
-						unsigned
-						))
-
-	      ("qdate"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						8
-						endian
-						unsigned
-						))
-
-
-	      ("ldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						4
-						endian
-						unsigned
-						))
-
-	      ("qldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						8
-						endian
-						unsigned
-						))
-
-	      ("qwdate"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						8
-						endian
-						unsigned
-						))
-
-	      ("beid3"
-	       (magiciel--make-record-type-spec type-spec-string
-						"beid3"
-						mods
-						4
-						:be
-						unsigned
-						))
-
-	      ("beshort"
-	       (magiciel--make-record-type-spec type-spec-string
-						"beshort"
-						mods
-						2
-						:be
-						unsigned
-						))
-
-	      ("belong"
-	       (magiciel--make-record-type-spec type-spec-string
-						"belong"
-						mods
-						4
-						:be
-						unsigned
-						))
-
-
-	      ("bequad"
-	       (magiciel--make-record-type-spec type-spec-string
-						"bequad"
-						mods
-						8
-						:be
-						unsigned
-						))
-
-	      ("befloat"
-	       (magiciel--make-record-type-spec type-spec-string
-						"befloat"
-						mods
-						4
-						:be
-						unsigned
-						))
-
-	      ("bedouble"
-	       (magiciel--make-record-type-spec type-spec-string
-						"bedouble"
-						mods
-						8
-						:be
-						unsigned
-						))
-
-	      ("bedate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"bedate"
-						mods
-						4
-						:be
-						unsigned
-						))
-
-	      ("beqdate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"beqdate"
-						mods
-						8
-						:be
-						unsigned
-						))
-
-
-	      ("beldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"beldate"
-						mods
-						4
-						:be
-						unsigned
-						))
-
-	      ("beqldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"beqldate"
-						mods
-						8
-						:be
-						unsigned
-						))
-
-	      ("beqwdate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"beqwdate"
-						mods
-						8
-						:be
-						unsigned
-						))
-
-	      ("bestring16"
-	       (magiciel--make-record-type-spec type-spec-string
-						"bestring16"
-						mods
-						0
-						:be
-						unsigned
-						))
-
-	      ("leid3"
-	       (magiciel--make-record-type-spec type-spec-string
-						"leid3"
-						mods
-						4
-						:le
-						unsigned
-						))
-
-	      ("leshort"
-	       (magiciel--make-record-type-spec type-spec-string
-						"leshort"
-						mods
-						2
-						:le
-						unsigned
-						))
-
-	      ("lelong"
-	       (magiciel--make-record-type-spec type-spec-string
-						"lelong"
-						mods
-						4
-						:le
-						unsigned
-						))
-
-
-	      ("lequad"
-	       (magiciel--make-record-type-spec type-spec-string
-						"lequad"
-						mods
-						8
-						:le
-						unsigned
-						))
-
-	      ("lefloat"
-	       (magiciel--make-record-type-spec type-spec-string
-						"lefloat"
-						mods
-						4
-						:le
-						unsigned
-						))
-
-	      ("ledouble"
-	       (magiciel--make-record-type-spec type-spec-string
-						"ledouble"
-						mods
-						8
-						:le
-						unsigned
-						))
-
-	      ("ledate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"ledate"
-						mods
-						4
-						:le
-						unsigned
-						))
-
-	      ("leqdate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"leqdate"
-						mods
-						8
-						:le
-						unsigned
-						))
-
-
-	      ("leldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"leldate"
-						mods
-						4
-						:le
-						unsigned
-						))
-
-	      ("leqldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"leqldate"
-						mods
-						8
-						:le
-						unsigned
-						))
-
-	      ("leqwdate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"leqwdate"
-						mods
-						8
-						:le
-						unsigned
-						))
-
-	      ("lestring16"
-	       (magiciel--make-record-type-spec type-spec-string
-						"lestring16"
-						mods
-						0
-						:le
-						unsigned
-						))
-
-	      ("melong"
-	       (magiciel--make-record-type-spec type-spec-string
-						"long"
-						mods
-						4
-						:me
-						unsigned
-						))
-
-	      ("medate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"date"
-						mods
-						4
-						:me
-						unsigned
-						))
-
-	      ("meldate"
-	       (magiciel--make-record-type-spec type-spec-string
-						"ldate"
-						mods
-						4
-						:me
-						unsigned
-						))
-
-	      ("indirect"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("name"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("use"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("regex"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("search"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("default"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("clear"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("der"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						))
-
-	      ("guid"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						36
-						))
-
-	      ("offset"
-	       (magiciel--make-record-type-spec type-spec-string
-						spec
-						mods
-						8
-						))
-
-	      (_
-	       (error "MAGICIEL: unknown spec %s." spec))
-		    
-	      ))
-	   )				; let* bindings.
-
-      ;; (message ">>>>>>>>>> spec-list %S" spec-list)
-      ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
-      ;; (message ">>>>>>>>>> mods: %S" mods)
-      (list spec-struct type-spec-string spec spec-list)
-      )))
-
-
 (cl-defun magiciel--parse-type-spec (record-or-ts)
+  "Parse the \\='type\\=' part of a \\='magic(5)\\=' record RECORD-OR-TS.
+
+Returns a `magiciel--record-type-spec'.
+"
+  
   (unless (or (stringp record-or-ts)
 	      (magiciel--magic-record-is-normal record-or-ts))
     (cl-return-from magiciel--parse-offset nil))
@@ -1579,36 +1067,42 @@ At least this is what is inferred from various sources.
 			  ))))
 		))			; split-spec
 
-	    (parse-mods (mods)
-	      ;; By looking at the BNF grammar, it appears that the
-	      ;; mods are dependent on the type.  Therefore the simple
-	      ;; "split at /" may not work.
-	      mods
-	      )
-	    )
+	    ;; (parse-mods (mods)
+	    ;;   ;; By looking at the BNF grammar, it appears that the
+	    ;;   ;; mods are dependent on the type.  Therefore the simple
+	    ;;   ;; "split at /" may not work.
+	    ;;   mods
+	    ;;   )
+	    )				; cl-flet
+    
     (let* ((type-spec-string
 	    (copy-sequence     ; Make sure to have stuff to muck with.
 	     (if (stringp record-or-ts)	; Useful for testing and debugging.
 		 record-or-ts
 	       (magiciel--normal-record-type record-or-ts))))
-	   (spec-list
-	    (progn
-	      ;; (message "\n>>>>>> record %S."
-	      ;; 	       (if (stringp record-or-ts) ; Useful for testing and debugging.
-	      ;; 		   record-or-ts
-	      ;; 		 (magiciel--normal-record-line record-or-ts)))
-	      ;; (message ">>>>>> type-spec-string: %S."
-	      ;; 	       type-spec-string)
-	      (split-string type-spec-string "/" t))
-	    )
+	   
+	   ;; (spec-list
+	   ;;  (progn
+	   ;;    ;; (message "\n>>>>>> record %S."
+	   ;;    ;; 	       (if (stringp record-or-ts) ; Useful for testing and debugging.
+	   ;;    ;; 		   record-or-ts
+	   ;;    ;; 		 (magiciel--normal-record-line record-or-ts)))
+	   ;;    ;; (message ">>>>>> type-spec-string: %S."
+	   ;;    ;; 	       type-spec-string)
+	   ;;    (split-string type-spec-string "/" t))
+	   ;;  )
+	   
 	   (spec-list-spec (split-spec type-spec-string))
+	   
 	   ;; (spec (cl-first spec-list))
 	   (spec (cl-first spec-list-spec))
+	   
 	   (unsigned
 	    (when (and (not (string-equal "use" spec))
 		       (char-equal ?u (aref spec 0)))
 	      (setf spec (substring spec 1))
 	      t))
+	   
 	   ;; (mods (cl-rest spec-list))
 	   (mods (cl-second spec-list-spec))
 	   
@@ -1627,7 +1121,12 @@ At least this is what is inferred from various sources.
       ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
       ;; (message ">>>>>>>>>> mods: %S" mods)
       
-      (list spec-struct type-spec-string spec spec-list)
+      (list spec-struct
+	    type-spec-string
+	    spec
+	    ;; spec-list
+	    spec-list-spec
+	    )
       )))
 
 
@@ -1637,6 +1136,12 @@ At least this is what is inferred from various sources.
 					     endian
 					     unsigned
 					     )
+  "Return a `magiciel--record-type-spec' choosing some appropriate defaults.
+
+The result is build by dispatching on SPEC.  TYPE-SPEC-STRING, MODS,
+ENDIAN and UNSIGNED may be used to provide more information to the
+constructor."
+  
   ;; (message "mrts >>> ts   %S" type-spec-string)
   ;; (message "mrts >>> mods %S" mods)
   ;; (message "mrts >>> spec %S" spec)
@@ -2084,7 +1589,7 @@ At least this is what is inferred from various sources.
 				      8
 				      ))
     (_
-     (error "MAGICIEL: unknown spec %s." spec))
+     (magiciel--error "unknown spec %s." spec))
     )
   )
 
@@ -2093,6 +1598,11 @@ At least this is what is inferred from various sources.
 
 (cl-defstruct (magiciel--test
 	       (:constructor magiciel--make-test))
+  "The `magiciel-test` Structure.
+
+This structure represents the \\='test\\=' part of a \\='magic(5)\\='
+record."
+  
   (test-string "" :type string)
   (op nil :type symbol)
   (value nil)
@@ -2109,6 +1619,8 @@ At least this is what is inferred from various sources.
 ;; magiciel--parse-test
 
 (cl-defun magiciel--parse-test (record)
+  "Parse the \\='test\\=' part of a \\='magic(5)\\=' record."
+  
   (unless (or (stringp record)
 	      (magiciel--magic-record-is-normal record))
     (cl-return-from magiciel--parse-test nil))
@@ -2221,7 +1733,7 @@ At least this is what is inferred from various sources.
       )))
   
 
-;; Utilities
+;; Utilities.
 
 (cl-defun magiciel--machine-endiannes ()
   ;; This MUST be checked!
@@ -2241,7 +1753,8 @@ At least this is what is inferred from various sources.
 ;; magiciel--convert-c-integer
 ;; magiciel--convert-c-number
 ;;
-;; Kludgy (very kludgy) functions to get a integer or a number from a string.
+;; Kludgy (very kludgy) functions to get a integer or a number from a
+;; string in C-syntax.
 ;;
 ;; They will have to be replaced with proper parsing functions.
 
