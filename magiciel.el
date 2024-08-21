@@ -48,6 +48,9 @@
 (load (expand-file-name "magiciel-spells" magiciel-path))
 (load (expand-file-name "brew" magiciel-path))
 
+
+;; Testing, actually.
+
 (load (expand-file-name "try-magic" magiciel-path))
 
 
