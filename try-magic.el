@@ -121,109 +121,32 @@
 
 ;; PDF Simple.
 
-;; (defvar magiciel--pdf-simple-magic
-;;   (magiciel--load-magic-file "tests/magic/pdf-simple"))
-
-;; (cl-multiple-value-setq (pdfsrecs pdfsgrps)
-;;   (magiciel-compile-magic magiciel--pdf-simple-magic 2))
-
-;; (setq magiciel--pdf-simple-emitted
-;;       (magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps))
+(load (expand-file-name "tests/elisp-tests/pdf-simple.el" magiciel-path))
 
 
 ;; PDF
 
-(magiciel--msg 1 "loading PDF magic file.")
-
-(defvar magiciel--pdf-test-file "tests/eintr.pdf")
-
-(defvar magiciel--pdf-magic
-  (magiciel--load-magic-file "tests/magic/pdf"))
-
-(message "\nMAGICIEL: PDF compiling and emitting.")
-
-(cl-multiple-value-setq (pdfrecs pdfgrps)
-  (magiciel-compile-magic magiciel--pdf-magic 2))
-
-(setq magiciel--pdf-emitted
-      (magiciel--magic-emit magiciel--pdf-magic pdfgrps))
+(load (expand-file-name "tests/elisp-tests/pdf.el" magiciel-path))
 
 
 ;; a.out
 
-(magiciel--msg 1 "loading a.out magic file.")
-
-(defvar magiciel--aout-magic
-  (magiciel--load-magic-file "tests/magic/aout"))
-
-(message "\nMAGICIEL: aout compiling and emitting.")
-
-(cl-multiple-value-setq (aoutrecs aoutgrps)
-  (magiciel-compile-magic magiciel--aout-magic 2))
-
-(setq magiciel--aout-emitted
-      (magiciel--magic-emit magiciel--aout-magic aoutgrps))
+(load (expand-file-name "tests/elisp-tests/aout.el" magiciel-path))
 
 
 ;; C
 
-(magiciel--msg 1 "loading C-Lang magic file.")
-
-(defvar magiciel--c-lang-magic
-  (magiciel--load-magic-file "tests/magic/c-lang"))
-
-(message "\nMAGICIEL: c-lang compiling and emitting.")
-
-(cl-multiple-value-setq (clangrecs clanggrps)
-  (magiciel-compile-magic magiciel--c-lang-magic 2))
-
-(setq magiciel-clang-emitted
-      (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
-
-(with-temp-buffer
-  (print (cl-fourth magiciel-clang-emitted) (current-buffer))
-  (write-file "temp/temp-clang-fun.el"))
+(load (expand-file-name "tests/elisp-tests/clang.el" magiciel-path))
 
 
 ;; IBM370
 
-(magiciel--msg 1 "loading IBM magic file.")
-
-(defvar magiciel--ibm-magic
-  (magiciel--load-magic-file "tests/magic/ibm370"))
-
-(message "\nMAGICIEL: IBM compiling and emitting.")
-
-(message "MAGICIEL: IBM compiling...")
-
-(cl-multiple-value-setq (ibmrecs ibmgrps)
-  (magiciel-compile-magic magiciel--ibm-magic 2))
-
-(message "MAGICIEL: IBM emitting...")
-
-(setq magiciel-clang-emitted
-      (magiciel--magic-emit magiciel--ibm-magic ibmgrps))
+(load (expand-file-name "tests/elisp-tests/ibm370.el" magiciel-path))
 
 
 ;; asf
 
-(magiciel--info "\n")
-(magiciel--info "loading afs magic file.")
-
-(defvar magiciel--asf-magic
-  (magiciel--load-magic-file "tests/magic/asf"))
-
-(magiciel--info "ASF compiling and emitting.")
-
-(magiciel--info "ASF compiling...")
-
-(cl-multiple-value-setq (asfrecs asfgrps)
-  (magiciel-compile-magic magiciel--asf-magic 2))
-
-;; (magiciel--info "ASF emitting...")
-
-;; (setq magiciel-clang-emitted
-;;   (magiciel--magic-emit magiciel--asf-magic asfgrps))
+(load (expand-file-name "tests/elisp-tests/asf.el" magiciel-path))
 
 
-;;; try-magic.el ends here
+;;; try-magic.el ends here.
