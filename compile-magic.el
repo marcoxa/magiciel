@@ -470,72 +470,6 @@ name of a lower level code block."))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
-				       (type (eql 'regex-old))
-				       test
-				       result-msg
-				       &key
-				       type-mods
-				       test-mods
-				       &allow-other-keys
-				       )
-  (ignore type-mods test-mods)
-
-  (cl-flet ((compile-type-mods (mods
-				&aux
-				(flag-pos
-				 (and mods
-				      (string-match-p
-				       "[cls]"
-				       (magiciel--modifier-args mods))))
-				)
-	      (magiciel--msg 1 "compile-instr regex mods %S" mods)
-	      (cond ((null mods) (cl-values nil nil))
-		    (flag-pos
-		     (cl-values (car (read-from-string mods 0 flag-pos))
-				(substring mods flag-pos)))
-		    (t (cl-values (string-to-number mods) nil))
-		    ))
-
-	    (fix-test-value (test-value-string)
-	      ;; See the NOTES.md file for the reason we need this
-	      ;; here. (And maybe elsewhere).
-
-	      (let ((c0 (aref test-value-string 0)))
-		(if (and (or (eql ?\\ c0) (eql ?= c0))
-			 (eql (aref test-value-string 1) ?^)) ; Should
-					; test for other operators as well?
-		    ;; Since the magic test is `regex` I can do away
-		    ;; with the `=` as well.
-		    (substring test-value-string 1)
-		  test-value-string)
-		))
-	    )				; cl-flet.
-    (let ((off-op (magiciel--offset-code offset))
-	  (test-val (fix-test-value (magiciel--test-value test)))
-	  )
-      (cl-multiple-value-bind (range flags)
-	  (compile-type-mods (car type-mods))
-
-	(ignore range)
-	
-	(when (cl-find ?l flags)
-	  (magiciel--warn 1 "line flag in \"regex\" type not yet handled."))
-
-	(let ((case-fold-search (cl-find ?c flags))
-	      )
-	  (magiciel--make-instruction
-	   :kind type
-	   :offset offset
-	   :test `(let ((case-fold-search ',case-fold-search))
-		    (string-match ',test-val %bytes% ,off-op))
-	   :result result-msg
-	   :displacement '(length (match-string 0))
-	   ))
-	))
-    ))
-
-
-(cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'regex))
 				       test
 				       result-msg
@@ -1119,7 +1053,7 @@ OFFSET     : a `magiciel--offset'."
 ;; the "test tree" nature of the code; alas it may add too much
 ;; complextiy and... unreadability.
 ;;
-;; In any case the code evolved by having `magiciel--compile-record'
+;; In any case, the code evolved by having `magiciel--compile-record'
 ;; generate an "instruction" (which may be useless, but re-represents
 ;; the record in a more convenient way, which is then "emitted"; the
 ;; "-emit-" functions are those that generate the code.
@@ -1409,8 +1343,29 @@ VAL is the expression constructing the value accessed (defaulting to
   `(eq %context% ,c))
 
 
+;; Old version.
+
+
+;; (cl-defmacro magiciel--$use (name-label &optional invert)
+;;   `(,name-label %bytes% %pos% %end-pos% %context% ,invert)
+;;   )
+
+;; New version that allows for "external calls".  It assumes that the
+;; "used" function (the `name-label') returns the "displacement" and
+;; the "message" if produced.
+
 (cl-defmacro magiciel--$use (name-label &optional invert)
-  `(,name-label %bytes% %pos% %end-pos% %context% ,invert)
+  `(cl-multiple-value-bind (%displ% %message%)
+       (,name-label %bytes% %pos% %end-pos% %context% ,invert)
+
+     ;; I cannot use `magiciel--$store-access-result' because of the
+     ;; macro-expansion time processing of the first argument.
+     ;; There fore I just deal with `%disp%' and `%message' directly.
+     ;;
+     ;; (magiciel--$store-access-result %message% '%pos% %disp%)
+     (setf --magiciel-msg %message%
+	   %end-pos% (+ %pos% %displ%))
+     )
   )
 
 
@@ -1513,27 +1468,6 @@ test and that is used for \"continuation\" offsets."
 	   (magiciel--$store-access-result ,result ,pos ',disp))
 	)
       )))
-
-
-(cl-defmethod magiciel--emit ((kind (eql 'regex-old))
-			      (inst magiciel--instruction)
-			      &key
-			      (m-name (gensym "magiciel--i-n-"))
-			      &allow-other-keys)
-
-  (ignore kind m-name)
-  
-  (let (
-	;; (level  (magiciel--instruction-level inst))
-	;; (access (magiciel--instruction-access inst))
-	(test   (magiciel--instruction-test inst))
-	;; (value  (magiciel--instruction-test inst))
-	(result (magiciel--instruction-result inst))
-	)
-    `(when ,test
-       (magiciel--$acc-msg-disp (format ,result (match-string 0)))
-       ))
-  )
 
 
 (cl-defmethod magiciel--emit ((kind (eql 'regex))
@@ -1753,19 +1687,6 @@ test and that is used for \"continuation\" offsets."
   )
 
 
-(cl-defmethod magiciel--emit ((kind (eql '!:mime-old))
-			      (inst magiciel--instruction)
-			      &key
-			      (m-name (gensym "magiciel--i-n-"))
-			      &allow-other-keys)
-  (ignore m-name)
-  
-  (magiciel--msg 1 "EMIT: emit MIME %s." kind)
-  `(when (magiciel--$in-context-p ',kind)
-     (cl-return-from %%test-block%% ,(magiciel--instruction-result inst)))
-  )
-
-
 (cl-defmethod magiciel--emit ((kind (eql '!:mime))
 			      (inst magiciel--instruction)
 			      &key
@@ -1843,7 +1764,7 @@ test and that is used for \"continuation\" offsets."
 
 
 ;; magiciel--dump-instr-tree, magiciel--dump-instr-level-alist
-;; Useful debugginf functions.
+;; Useful debugging functions.
 
 (cl-defun magiciel--dump-instr-tree (it &optional (indent 0))
   (unless (null it)
@@ -1952,23 +1873,13 @@ test and that is used for \"continuation\" offsets."
 	  ;; Recur on subtrees.
 	  (t
 	   (magiciel--group-instrs-trees (car more-instrs)
-     				    (cdr more-instrs)
-     				    (cl-acons il instr-node
-     					      instr-nodes-at-level)
-     				    )
+     					 (cdr more-instrs)
+     					 (cl-acons il instr-node
+     						   instr-nodes-at-level)
+     					 )
 	   )
 	  )
-	
-    ;; (if (null more-instrs)
-    ;; 	(cdr (assoc 0 instr-nodes-at-level))
-    ;;   (magiciel--group-instrs-trees (car more-instrs)
-    ;; 				    (cdr more-instrs)
-    ;; 				    (cl-acons il instr-node
-    ;; 					      instr-nodes-at-level)
-    ;; 				    )
-    ;;   )
     ))
-
 
 
 ;; magiciel--group-func-code
@@ -2063,6 +1974,9 @@ specially.
              ;; have to attach the `sub-test' inside it.  Same thing,
              ;; but more involved if I have a `let/let*'.  Otherwise, I
              ;; must wrap everything in a (possibly useless) `progn'.
+	     ;;
+	     ;; As it turned out, `when', `progn', `cl-block' and
+             ;; `magicier--$check' work pretty much the same.
              ;;
              ;; I know I should resort to more sophisticated compiler
              ;; techniques, but just bear with me.
@@ -2073,12 +1987,13 @@ specially.
 	     ;; Yeah, I should have proper continuations here.
 
              (cl-case (cl-first instr-root-code)
-               (when (append instr-root-code
-                             (cl-loop for sub-node in sub-tests
-			              collect (emit-tree sub-node))
-			     '(t)
-			     )
-                 )
+               ((when)	      ; Just to emphasize that this is "code".
+		(append instr-root-code
+                        (cl-loop for sub-node in sub-tests
+			         collect (emit-tree sub-node))
+			'(t)
+			)
+                )
                ((let let*)
 		(pcase instr-root-code
                   ((or `(let ,mv-bind ,when-form)
@@ -2086,35 +2001,36 @@ specially.
                    (cl-assert (eq 'when (cl-first when-form)))
                    ;; This should always be the case.
                    `(,(cl-first instr-root-code) ,mv-bind
-                      ,(append when-form
-                               (cl-loop for sub-node in sub-tests
-			                collect (emit-tree sub-node))
-			       '(t)
-                               ))
+                     ,(append when-form
+                              (cl-loop for sub-node in sub-tests
+			               collect (emit-tree sub-node))
+			      '(t)
+                              ))
                    ))
-                 )
-	       (progn
-		 ;; I want to "flatten" the "progn's, if possible.
-		 (append instr-root-code
-			 ;; (cl-rest instr-root-code)
-		  	 (cl-loop for sub-node in sub-tests
-			          collect (emit-tree sub-node))
-			 '(t)
-			 )
-		 )
-	       (cl-block (append instr-root-code
-				 (cl-loop for sub-node in sub-tests
-					  collect (emit-tree sub-node))
-				 '(t)
-				 )
-		 )
-	       (magiciel--$check
+                )
+	       ((progn)	      ; Just to emphasize that this is "code".
+		;; I want to "flatten" the "progn's, if possible.
+		(append instr-root-code
+			;; (cl-rest instr-root-code)
+		  	(cl-loop for sub-node in sub-tests
+			         collect (emit-tree sub-node))
+			'(t)
+			)
+		)
+	       ((cl-block)
 		(append instr-root-code
 			(cl-loop for sub-node in sub-tests
 				 collect (emit-tree sub-node))
 			'(t)
 			)
-		   )
+		)
+	       ((magiciel--$check)
+		(append instr-root-code
+			(cl-loop for sub-node in sub-tests
+				 collect (emit-tree sub-node))
+			'(t)
+			)
+		)
                (t
                 `(progn ,instr-root-code
                         ,@(cl-loop for sub-node in sub-tests
@@ -2160,132 +2076,6 @@ specially.
 
 ;; magiciel--magic-emit
 
-;; (cl-defun magiciel--magic-emit-saved (magic instr-groups)
-;;   "Emit the function that checks for a specific \"magic\" specification."
-
-;;   (let* ((max-lisp-eval-depth 4800)
-	
-;; 	 ;; This is necessary because of the sizes of certain groups
-;; 	 ;; and because of the code is not particularly smart with tail
-;; 	 ;; recursion.
-;; 	 ;;
-;; 	 ;; The number 4800 has been empirically determined.
-;; 	 ;; It works on a 2020 Intel Mac running Sonoma 14.5.
-;; 	 ;; YMMV, etc. etc.
-
-;; 	 (name (magiciel--magic-name magic))
-	 
-;; 	 (magic-fname (magiciel--magic-fname magic))
-
-;; 	 (group-fns ())
-;; 	 (groups-named ())
-
-;; 	 (groups-names-env ())
-;; 	 )
-
-;;     ;; First, collect "name" instructions for "use" ones.
-;;     ;; (I should build up this environment while building the
-;;     ;; instructions, but the double pass shouldn't matter so much.)
-    
-;;     (cl-loop for ig in instr-groups
-;; 	     for ign-name = (magiciel--group-name ig)
-;; 	     when ign-name
-;; 	       collect (cons ign-name
-;; 			     (intern (format "%s-label-%s" name ign-name)))
-;; 	       into igs-env
-;; 	     end
-;; 	     finally
-;; 	     (setf groups-names-env igs-env))
-
-;;     ;; Some code duplication below (see `intern' -- I am to lazy to
-;;     ;; refactor right now).
-    
-;;     (cl-loop for ig in instr-groups
-;; 	     for ign from 0
-;; 	     for ign-name = (magiciel--group-name ig)
-;; 	     if ign-name
-;; 	       collect (list
-;; 			(intern (format "%s-label-%s" name ign-name))
-;; 			(magiciel--group-emit magic ig ign groups-names-env))
-;; 	       into named-groups
-;; 	     else
-;; 	       collect (magiciel--group-emit magic ig ign groups-names-env)
-;; 	       into fns-groups
-;; 	     end
-;; 	     finally
-;; 	     (setf group-fns fns-groups
-;; 		   groups-named named-groups))
-    
-
-;;     (let ((magic-fun (cl-constantly "MAGICIEL: unknown format."))
-;;           (magic-fun-body (cl-constantly nil))
-;;           )
-;;       ;; Here we build the function for the magic entry.
-
-;;       (when group-fns
-;; 	;; If there are no groups we don't need to do anything.
-	
-;; 	(if groups-named
-;; 	    ;; Create `cl-labels' for each named group.
-;; 	    (setq magic-fun-body
-;; 		  `(cl-block ,magic-fname
-;; 		     (cl-labels
-;; 			 ,(cl-loop for (named-name code) in groups-named
-;; 				   collect
-;; 				   `(,named-name (&rest $$$args-here%%%)
-;; 				      ,(magiciel--group-func-code-body code)))
-;; 		       ,@(mapcar #'magiciel--group-func-code-body group-fns)
-;; 		       )
-;;                      ))
-	
-;; 	  ;; Create a simplified function.
-;; 	  (setq magic-fun-body
-;; 		`(cl-block ,magic-fname
-;; 		   ,@(mapcar #'magiciel--group-func-code-body group-fns)
-;;                    )
-;; 		))
-
-
-;; 	(setq magic-fun
-;;               `(lambda (%bytes%		; The file/stream/buffer data.
-;; 			%pos% ; Where we start scanning the %%bytes%%.
-;; 			%context% ; `%context' can be ':normal' (or `!:normal'),
-;; 					; '!:mime', '!:ext', or '!:apple'.
-;; 					; '!:strength' unhandled.
-;; 			)
-;; 		 (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
-;;                        (--magiciel-test-result nil)
-;;                        (--magiciel-msg "")
-
-;; 		       ;; The displacement of the "previous"
-;; 		       ;; instruction; starts at 0.  It is used for
-;; 		       ;; "continuing" records.
-		     
-;; 		       (--magiciel-disp 0)
-;; 		       (%end-pos% %pos%)
-;;                        )
-
-;; 		   ;; The next one would be a `ignorable' declaration in CL.
-;; 		   (ignore --magiciel-value
-;; 			   --magiciel-test-result
-;; 			   --magiciel-disp)
-;;                    ,magic-fun-body
-;; 		   --magiciel-msg)
-;; 		 ))
-;; 	) ; when...
-
-;;       (setf (symbol-function magic-fname) magic-fun)
-
-;;       (magiciel--add-spell name (byte-compile magic-fname))
-      
-;;       (cl-values magic-fname
-;; 		 group-fns
-;; 		 groups-named
-;; 		 magic-fun
-;; 		 )
-;;       )))
-
-
 ;; Refactored to expose the "name" entries.
 
 (cl-defun magiciel--magic-emit (magic instr-groups)
@@ -2319,7 +2109,7 @@ specially.
 	     for ign-name = (magiciel--group-name ig)
 	     when ign-name
 	       collect (cons ign-name
-			   (intern (format "%s-label-%s" name ign-name)))
+			     (intern (format "%s-name-%s" name ign-name)))
 	       into igs-env
 	     end
 	     finally (setf groups-names-env igs-env))
@@ -2332,7 +2122,7 @@ specially.
 	     for ign-name = (magiciel--group-name ig)
 	     if ign-name
 	       collect (list
-			(intern (format "%s-label-%s" name ign-name))
+			(intern (format "%s-name-%s" name ign-name))
 			(magiciel--group-emit magic ig ign groups-names-env))
 	       into named-groups
 	     else
@@ -2358,18 +2148,7 @@ specially.
 	(when groups-named
 
 	  ;; Create functions for each named group.
-	    
-	  ;; (setq magic-fun-body
-	  ;; 	  `(cl-block ,magic-fname
-	  ;; 	     (cl-labels
-	  ;; 		 ,(cl-loop for (named-name code) in groups-named
-	  ;; 			   collect
-	  ;; 			   `(,named-name (&rest $$$args-here%%%)
-	  ;; 			      ,(magiciel--group-func-code-body code)))
-	  ;; 	       ,@(mapcar #'magiciel--group-func-code-body group-fns)
-	  ;; 	       )
-          ;;          ))
-
+	  
 	  (setq magic-external-name-funs
 		(cl-loop
 		 for (named-name code) in groups-named
@@ -2434,6 +2213,8 @@ specially.
 		 ))
 	)				; when...
 
+      (magiciel--eval-compile-fns magic-external-name-funs)
+      
       (setf (symbol-function magic-fname) magic-fun)
 
       (magiciel--add-spell name (byte-compile magic-fname))
@@ -2445,6 +2226,18 @@ specially.
 		 magic-external-name-funs
 		 )
       )))
+
+
+;; magiciel--eval-compile-fns
+;; Evals and possibly compiles a list of `defun's.
+;; Used internally to compile "use" functions.
+
+(cl-defun magiciel--eval-compile-fns (funs &optional (do-byte-compile t))
+  (cl-loop for f in funs
+	   for (nil name) = f
+
+	   do (eval f t)
+	   when do-byte-compile do (byte-compile name)))
 
 
 ;; Epilogue.
