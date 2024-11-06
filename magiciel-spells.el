@@ -303,6 +303,9 @@ operation in that case)."
       (magiciel--error "reading file '%s',\nbut results in a multibyte buffer."
 		       fn))
 
+    (magiciel--info "Divination: trying %d different spells."
+		    (length spells))
+    
     (let ((divinations ()))
       (cl-loop for spell in spells
 	       for divination = (magiciel-cast-spell spell fs context)
@@ -314,7 +317,10 @@ operation in that case)."
 	       finally (setq divinations guesses)
 	       )
 
-      (dolist (d divinations (cons fn divinations))
+      (when (zerop (length divinations))
+	(magiciel--info "Divination: collected 0 divinations."))
+
+      (dolist (d divinations)
 	(when (called-interactively-p 'any)
 	  (cond ((string-empty-p d)
 		 (magiciel--warning "empty divination."))
@@ -329,6 +335,8 @@ operation in that case)."
 		 (magiciel--info "Divination: %S usual extension is %S."
 				 fnnd d))
 		)))
+
+      (cons fn divinations)
       )))
 
 
