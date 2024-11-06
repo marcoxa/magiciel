@@ -72,6 +72,19 @@
   (min (max 0 n) magiciel--*debug-top-level*))
 
 
+;; Saving code to files
+
+(cl-defun magiciel--save-code (code filename &optional append)
+  (with-temp-buffer
+    (let ((pp-max-width 80))
+      (pp-emacs-lisp-code code))
+    (if append
+	(append-to-file (beginning-of-buffer)
+			(end-of-buffer
+			 filename))
+      (write-file filename))))
+
+
 ;; Yeah, yeah, yeah.  Just bear with me and enjoy the curries.
 
 (defun magiciel--curry1 (f arg)
