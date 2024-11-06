@@ -2232,8 +2232,19 @@ specially.
 			    %context%
 			    %invert-endiannes%
 			    )
+
+		    ;; Ensure that the following variables are *dynamic*
+		    ;; (I should also change the naming convention to the
+		    ;; usual earmuff one)
+		    
+		    (defvar --magiciel-value)
+		    (defvar --magiciel-test-result)
+		    (defvar --magiciel-msg)
+		    (defvar --magiciel-disp)
+		    (defvar %end-pos%)
+		    
 		    (cl-multiple-value-setq (--magiciel-msg
-					     %pos%
+					     %pos% ; This may not work.
 					     %end-pos%
 					     )
 		      ;; Probably pleonastic, but...
@@ -2256,6 +2267,16 @@ specially.
 					; '!:mime', '!:ext', or '!:apple'.
 					; '!:strength' unhandled.
 			)
+		 ;; Ensure that the following variables are *dynamic*
+		 ;; (I should also change the naming convention to the
+		 ;; usual earmuff one)
+
+		 (defvar --magiciel-value)
+		 (defvar --magiciel-test-result)
+		 (defvar --magiciel-msg)
+		 (defvar --magiciel-disp)
+		 (defvar %end-pos%)
+		 
 		 (let ((--magiciel-value 0) ; Actually `#\NULL' in Common Lisp.
                        (--magiciel-test-result nil)
                        (--magiciel-msg "")
