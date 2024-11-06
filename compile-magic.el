@@ -1240,10 +1240,32 @@ OFFSET     : a `magiciel--offset'."
 
 ;; Support code.
 
+;; magiciel--check-state
+;; A structure that contains the current "state" of the check.
+;; This is passed around the various functions that implement the
+;; scanning of a file.
+;;
+;; "New" state can be created as necessary.
+
+(cl-defstruct (magiciel--check-state
+	       (:constructor magiciel--make-check-state))
+
+  (value nil)				; The recognized value
+					; (usually a string).
+  (msg "" :type string)			; Accumulated "printout"
+					; string.
+  (start 0 :type integer)		; Starting position for check.
+  (end   0 :type integer)		; End position of a check.
+  (result nil :type boolean)		; A boolean containing the
+					; result of the test.
+  (level 0 :type integer)		; The "level" of the test.
+  )
+
+
 ;; magiciel--$check
 ;; Sets up and track the %pos% and %end-pos% variables (FTTB).
 ;;
-;; It should probably become a macrolet in the main generate function.
+;; It should probably become a macrolet in the main generated function.
 
 (cl-defmacro magiciel--$check (tag access test &body continue-tests)
   "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
@@ -1478,7 +1500,8 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let* (	       ; (level  (magiciel--instruction-level inst))
+  (let* (
+	 ;; (level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
 	 (test   (magiciel--instruction-test inst))
 	 (value  (magiciel--instruction-value inst))
@@ -1976,7 +1999,7 @@ specially.
              ;; must wrap everything in a (possibly useless) `progn'.
 	     ;;
 	     ;; As it turned out, `when', `progn', `cl-block' and
-             ;; `magicier--$check' work pretty much the same.
+             ;; `magiciel--$check' work pretty much the same.
              ;;
              ;; I know I should resort to more sophisticated compiler
              ;; techniques, but just bear with me.
@@ -2075,6 +2098,47 @@ specially.
 
 
 ;; magiciel--magic-emit
+;;
+;; Notes:
+;;
+;; 2024-11-05:
+;; Changing the overall architecture using proper continuations.
+;; The main function will be something like the following (just like
+;; in the old version.
+
+;; (defun magiciel--<magic-file-name>-fn (%bytes% %pos% %context%)
+;;   ...
+;;   )
+
+;; Each test is a function of the form
+
+;; (defun magiciel--<magic-file-name>-test%<d>
+;;     (ckeck-state cont)
+;;   ...)
+
+;; where `cont' is the continuation, which takes a
+;; `magiciel-check-state' (I hope this will work); that is, at a
+;; minumum, a
+;;
+;; (lambda (check-state)
+;;   (if (not (magiciel--check-state-result check-state))
+;;       check-state
+;;     (funcall cont
+;; 	     (magiciel--<magic-file-name>-test%<d+1>
+;; 	      %bytes%
+;; 	      %context%
+;; 	      (magiciel--check-state-start check-state)
+;; 	      (magiciel--check-state-end check-state)
+;; 	      (MUNGE (magiciel--check-state-msg
+;; 		      check-state))
+;; 	      (1+ (magiciel--check-state-level check-state))
+;; 	      ))))
+;;
+;; 2024-11-06:
+;; Deour.  Try using dynamic variables instead of re-doing the whole
+;; thing.
+
+
 
 ;; Refactored to expose the "name" entries.
 
