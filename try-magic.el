@@ -121,32 +121,32 @@
 
 ;; PDF Simple.
 
-(load (expand-file-name "tests/elisp-tests/pdf-simple.el" magiciel-path))
+(load (expand-file-name "tests/elisp-tests/pdf-simple-test.el" magiciel-path))
 
 
 ;; PDF
 
-(load (expand-file-name "tests/elisp-tests/pdf.el" magiciel-path))
+(load (expand-file-name "tests/elisp-tests/pdf-test.el" magiciel-path))
 
 
 ;; a.out
 
-(load (expand-file-name "tests/elisp-tests/aout.el" magiciel-path))
+(load (expand-file-name "tests/elisp-tests/aout-test.el" magiciel-path))
 
 
 ;; C
 
-(load (expand-file-name "tests/elisp-tests/clang.el" magiciel-path))
+(load (expand-file-name "tests/elisp-tests/clang-test.el" magiciel-path))
 
 
 ;; IBM370
 
-(load (expand-file-name "tests/elisp-tests/ibm370.el" magiciel-path))
+(load (expand-file-name "tests/elisp-tests/ibm370-test.el" magiciel-path))
 
 
 ;; asf
 
-(load (expand-file-name "tests/elisp-tests/asf.el" magiciel-path))
+(load (expand-file-name "tests/elisp-tests/asf-test.el" magiciel-path))
 
 
 ;;; try-magic.el ends here.
