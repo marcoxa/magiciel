@@ -320,21 +320,27 @@ operation in that case)."
       (when (zerop (length divinations))
 	(magiciel--info "Divination: collected 0 divinations."))
 
-      (dolist (d divinations)
+      (if divinations
+	  (dolist (d divinations)
+	    (when (called-interactively-p 'any)
+	      (cond ((string-empty-p d)
+		     (magiciel--warning "empty divination."))
+		    ((or (eq context :normal)
+			 (eq context '!:normal))
+		     (magiciel--info "Divination: %S is a%s."
+				     fnnd d))
+		    ((eq context '!:mime)
+		     (magiciel--info "Divination: %S mime type is %S."
+				     fnnd d))
+		    ((eq context '!:ext)
+		     (magiciel--info "Divination: %S usual extension is %S."
+				     fnnd d))
+		    )))
 	(when (called-interactively-p 'any)
-	  (cond ((string-empty-p d)
-		 (magiciel--warning "empty divination."))
-		((or (eq context :normal)
-		     (eq context '!:normal))
-		 (magiciel--info "Divination: %S is a%s."
-				 fnnd d))
-		((eq context '!:mime)
-		 (magiciel--info "Divination: %S mime type is %S."
-				 fnnd d))
-		((eq context '!:ext)
-		 (magiciel--info "Divination: %S usual extension is %S."
-				 fnnd d))
-		)))
+	  (magiciel--info "Divination: %S is undivinable, but it is %d bytes long."
+			  fnnd
+			  (length fs)))
+	)
 
       (cons fn divinations)
       )))
