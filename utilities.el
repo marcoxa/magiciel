@@ -76,8 +76,7 @@
 
 (cl-defun magiciel--save-code (code filename &optional append)
   (with-temp-buffer
-    (let ((pp-max-width 80))
-      (pp-emacs-lisp-code code))
+    (pp-emacs-lisp-code code)
     (if append
 	(append-to-file (beginning-of-buffer)
 			(end-of-buffer
