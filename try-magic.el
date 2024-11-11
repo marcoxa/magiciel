@@ -109,15 +109,10 @@
 
 ;; Loading actual magic files.
 
-;; (magiciel--set-debug-level 4)
+;; (magiciel--set-debug-level magiciel--*debug-mid-level*)
 
+(magiciel--info "Tests: loading test files.\n")
 
-
-
-
-
-
-;; Compile some of the tests.
 
 ;; PDF Simple.
 
