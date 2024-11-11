@@ -1,0 +1,60 @@
+;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
+
+;;; pdf.el
+
+;; PDF.
+
+(magiciel--msg 0 "loading PDF magic file.")
+
+(defvar magiciel--pdf-test-file
+  (expand-file-name "tests/eintr.pdf" magiciel-path))
+
+(defvar magiciel--pdf-magic
+  (magiciel--load-magic-file
+   (expand-file-name "tests/magic/pdf" magiciel-path)))
+
+(magiciel--msg 0 "PDF compiling.")
+
+(cl-multiple-value-setq (pdfrecs pdfgrps)
+  (magiciel-compile-magic magiciel--pdf-magic 2))
+
+(magiciel--msg 0 "PDF compiled.")
+
+(magiciel--msg 0 "PDF emitting.")
+
+(magiciel--set-debug-level magiciel--*debug-mid-level*)
+
+(cl-multiple-value-setq (pdffname
+			 pdfgrpfns
+			 pdfgrpnamed
+			 pdf-magic-fun
+			 pdf-external-funs)
+  (magiciel--magic-emit magiciel--pdf-magic pdfgrps))
+
+(magiciel--msg 0 "PDF emitted.")
+
+(magiciel--msg 0 "saving code to file.")
+
+(magiciel--write-spell-file magiciel--pdf-magic
+			    pdffname
+			    pdf-magic-fun
+			    pdf-external-funs
+			    (expand-file-name "temp/apothecary/"
+					      magiciel-path)
+			    )
+
+;; (magiciel--save-code pdf-magic-fun
+;; 		     "tests/magic/pdf-saved.el")
+
+;; (magiciel--save-code pdf-external-funs
+;; 		     "tests/magic/pdf-saved.el"
+;; 		     t)
+
+(magiciel--set-debug-level magiciel--*debug-low-level*)
+
+(magiciel--msg 0 "code to file \"tests/magic/pdf-saved.el\".")
+
+(magiciel--msg 0 "pdf processing completed.")
+
+
+;;; pdf.el ends here.

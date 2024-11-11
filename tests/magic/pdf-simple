@@ -1,0 +1,15 @@
+# pdf-simple
+# Simple test 1 for magiciel.
+
+#------------------------------------------------------------------------------
+# $File: pdf,v 1.16 2021/07/30 11:47:07 christos Exp $
+# pdf:  file(1) magic for Portable Document Format
+#
+
+0	string		%PDF-		PDF document
+!:mime	application/pdf
+!:strength +60
+!:ext	pdf
+>5	byte		x		\b, version %c
+>7	byte		x		\b.%c
+# >0	use		pdf
