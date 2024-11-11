@@ -1246,6 +1246,9 @@ OFFSET     : a `magiciel--offset'."
 ;; scanning of a file.
 ;;
 ;; "New" state can be created as necessary.
+;;
+;; Notes:
+;; 2024-11-11: unused, FTTB.
 
 (cl-defstruct (magiciel--check-state
 	       (:constructor magiciel--make-check-state))
@@ -1961,13 +1964,25 @@ specially.
 	 
 	 (instrs-tree
 	  (magiciel--group-trees instr-group))
+
+	 (instrs-tree-name
+	  (magiciel--group-name instr-group))
 	 
 	 (exit-code
-	  `(cl-return-from ,magic-fname
-	      --magiciel-msg))
+	  (if instrs-tree-name		; We have a "name" group.
+	      `(cl-return-from ,instrs-tree-name
+		 (cl-values
+		  ;; %end-pos%		; Or maybe (- %end-pos% %pos%)
+		  --magiciel-disp
+		  --magiciel-msg))
+	    
+	    `(cl-return-from ,magic-fname
+	       --magiciel-msg))
+	  )
 	 )
 
-    (magiciel--msg 1 "\nMCM: instruction tree:")
+    (magiciel--msg 1 "MCM: instruction tree:")
+    (magiciel--msg 1 "MCM: instruction tree is named (%s):" instrs-tree-name)
 
     (magiciel--dump-instr-tree instrs-tree)
 
