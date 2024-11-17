@@ -22,7 +22,7 @@
 
 (magiciel--msg 0 "PDF emitting.")
 
-(magiciel--set-debug-level magiciel--*debug-mid-level*)
+;; (magiciel--set-debug-level magiciel--*debug-mid-level*)
 
 (cl-multiple-value-setq (pdffname
 			 pdfgrpfns
