@@ -1321,7 +1321,7 @@ OFFSET     : a `magiciel--offset'."
 (cl-defmacro magiciel--$check (tag
 			       access
 			       test
-			       test-false-go-label
+			       test-false-throw-label
 			       &body continue-tests)
   "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
 
@@ -1346,23 +1346,35 @@ house-keeping code."
 	      
 	      `(let ((--magiciel-value ,access))
 		 (setq --magiciel-test-result ,test)
-		 (magiciel--msg 1 "accessed value: %S.\n" --magiciel-value)
+		 (magiciel--msg 1 "accessed value: %S." --magiciel-value)
 
 		 (magiciel--msg 1 (if --magiciel-test-result
-				      "check succeded."
-				    "check failed."))
+				      "check succeded.\n"
+				    "check failed.\n"))
 		 (if --magiciel-test-result
 		     ,@continue-tests
-		   (go ,test-false-go-label)))
+		   ;; (go ,test-false-throw-label)
+		   (throw '%%exit-level%%
+			  (cl-values
+			 --magiciel-msg
+			 --magiciel-disp
+			 --magiciel-test-result ; This will be `nil'.
+			 ))))
 	    
 	    `(progn
 	       (setq --magiciel-test-result ,test)
 	       (magiciel--msg 1 (if --magiciel-test-result
-				    "check succeded."
-				  "check failed."))
+				    "check succeded.\n"
+				  "check failed.\n"))
 	       (if --magiciel-test-result
 		   ,@continue-tests
-		 (go ,test-false-go-label)))
+		 ;; (go ,test-false-throw-label)
+		 (throw '%%exit-level%%
+			(cl-values
+			 --magiciel-msg
+			 --magiciel-disp
+			 --magiciel-test-result ; This will be `nil'.
+			 ))))
 	    )
        (unless --magiciel-test-result
 	 (setq %end-pos% %saved-end-pos%)))
@@ -1412,7 +1424,8 @@ VAL is the expression constructing the value accessed (defaulting to
 	   (concat --magiciel-msg ,msg)
 
 	   %end-pos%
-	   (+ ,start-pos ,displ)))
+	   (+ ,start-pos ,displ))
+    )
   )
 
 
@@ -2239,15 +2252,17 @@ specially.
 	      `(cl-return-from ,instrs-tree-name
 		 (cl-values
 		  --magiciel-msg
-		  --magiciel-disp
-		  ;; %end-pos%		; Or maybe (- %end-pos% %pos%)
+		  %pos%
+		  ;; --magiciel-disp	; Or maybe (- %end-pos% %pos%)
+		  %end-pos%	
 		  ))
 	    
 	    `(cl-return-from ,magic-fname
 	       (cl-values
 		--magiciel-msg
-		--magiciel-disp
-		;; %end-pos%		; Or maybe (- %end-pos% %pos%)
+		%pos%
+		;; --magiciel-disp	; Or maybe (- %end-pos% %pos%)
+		%end-pos%	
 		)))
 	  )
 	 )
@@ -2284,7 +2299,7 @@ specially.
 
 	     (cl-case (cl-first instr-root-code)
 
-	       ((progn-no)	      ; Just to emphasize that this is "code".
+	       ((progn-no)    ; Just to emphasize that this is "code".
 		;; I want to "flatten" the "progn's, if possible.
 		(magiciel--msg 1 "MGE: progn: %s." (cl-first instr-root-code))
 		(append instr-root-code
@@ -2302,12 +2317,17 @@ specially.
 		)
 	       (t
 		(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
-                `(,instr-root-code
-		   (cl-block ,magic-subgroup-block-name
-		     ,@(cl-loop for sub-node in sub-tests
-				append (emit-tree sub-node (1+ level))
-				))
-                   )))
+		(if sub-tests
+                    `(,instr-root-code
+		  (;; cl-block ,magic-subgroup-block-name
+		   catch '%%exit-level%%
+		   ,@(cl-loop for sub-node in sub-tests
+			      append (emit-tree sub-node (1+ level))
+			      ))
+                  )
+		  `(,instr-root-code)
+		  ))
+	       )
              ))
 
          (emit-group-tree (instr-node)
@@ -2317,14 +2337,25 @@ specially.
 	   ;; function.
 	   
            `(cl-block ,magic-group-block-name
-	      (cl-tagbody
-               ,@(cl-subst magic-group-exit-label
-			   '%%exit-label%%
-			   (emit-tree instr-node))
-	       ,magic-group-exit-label
-	       ,exit-code
-	       ,magic-group-continue-label
-	       )))
+
+	      
+	      ;; (cl-tagbody
+              ;;  ,@(cl-subst magic-group-exit-label
+	      ;; 		   '%%exit-label%%
+	      ;; 		   (emit-tree instr-node))
+	      ;;  ,magic-group-exit-label
+	      ;;  ,exit-code
+	      ;;  ,magic-group-continue-label
+	      ;;  )
+
+	      
+	      (catch '%%exit-level%%
+		,@(emit-tree instr-node))
+	      (cl-return-from ,magic-group-block-name
+		;; (cl-values --magiciel-msg --magiciel-disp)
+		(cl-values --magiciel-msg %pos% %end-pos%)
+		)
+	      ))
 	 )				; labels
       
       (magiciel--make-group-func-code magic-group-fname
@@ -2470,10 +2501,10 @@ specially.
 		 collect
 		 `(cl-defun ,named-name
 		      ;; (&rest $$$args-here%%%)
-		      (%bytes%	; The file/stream/buffer data.
-		       %pos%    ; Where we start scanning the %%bytes%%.
-		       %end-pos% 	; Where the previous test ended.
-		       %context%	; What we are looking for
+		      (%bytes%		; The file/stream/buffer data.
+		       %pos%  ; Where we start scanning the %%bytes%%.
+		       %end-pos%      ; Where the previous test ended.
+		       %context%      ; What we are looking for
 		       &optional
 		       (%invert-endiannes% nil) ; Do we invert endianness?
 		       )
@@ -2500,8 +2531,13 @@ specially.
 					     )
 		      ;; Probably pleonastic, but...
 		      ,(magiciel--group-func-code-body code)
-		      ))
-		 ))
+		      )
+		    (cl-values --magiciel-msg
+			       %pos%	; This may not work.
+			       %end-pos%
+			       )
+		    ))
+		)
 	  )
 	
 	;; Create the main function body...
@@ -2544,16 +2580,21 @@ specially.
 		   (ignore --magiciel-value
 			   --magiciel-test-result
 			   --magiciel-disp)
+		   
                    ,magic-fun-body
-		   --magiciel-msg)
+		   ;; (cl-values --magiciel-msg %pos% %end-pos%)
+		   --magiciel-msg
+		   )
 		 ))
-	)				; when...
+	)				; when group-fns
 
       (magiciel--eval-compile-fns magic-external-name-funs)
       
       (setf (symbol-function magic-fname) magic-fun)
 
-      (magiciel--add-spell name (byte-compile magic-fname))
+      (byte-compile magic-fname)
+      
+      (magiciel--add-spell name magic-fname)
       
       (cl-values magic-fname
 		 group-fns
