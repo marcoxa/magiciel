@@ -239,7 +239,7 @@ This is an internal function, factored out just for debugging."
   '(member :normal !:normal !:ext !:mime))
 
   
-(cl-defun magiciel-divine (filename &optional (context :normal))
+(cl-defun magiciel-divine (filename &optional (context :normal) (keep-going nil))
   "The main command of the Magiciel library.
 
 The type of FILENAME will be divined by the call.
@@ -268,14 +268,16 @@ operation in that case)."
 		  '((?d "description" "File content description.")
 		    (?m "mime type" "File guessed MIME type.")
 		    (?e "extension" "File usual extension."))))
-		 ?d))
+	      ?d))
+	 (k (when current-prefix-arg (y-or-n-p "Check all possibilities.")))
 	 )
      
      (list f
 	   (cl-ecase c
 	     (?d :normal)
 	     (?m '!:mime)
-	     (?e '!:ext)))
+	     (?e '!:ext))
+	   k)
      ))
 	      
 
@@ -303,6 +305,7 @@ operation in that case)."
       (magiciel--error "reading file '%s',\nbut results in a multibyte buffer."
 		       fn))
 
+    (magiciel--info "")
     (magiciel--info "Divination: trying %d different spells."
 		    (length spells))
     
@@ -312,7 +315,11 @@ operation in that case)."
 	       when (and divination
 			 (not (string-empty-p divination)))
 
-	       collect divination into guesses
+	         if keep-going
+		   collect divination into guesses
+		 else
+		   return (setq divinations (list divination))
+	         end
 	       end
 	       finally (setq divinations guesses)
 	       )
@@ -347,6 +354,14 @@ operation in that case)."
 
 
 (cl-defmethod magiciel-cast-spell ((spell function)
+				   bytes
+				   &optional
+				   (context :normal))
+  (cl-check-type context magiciel--spell-context)
+  (funcall spell bytes 0 context))
+
+
+(cl-defmethod magiciel-cast-spell ((spell symbol)
 				   bytes
 				   &optional
 				   (context :normal))
