@@ -4,24 +4,24 @@
 
 ;; PDF Simple.
 
-(message "\nMAGICIEL: PDF-simple loading.")
+(magiciel--msg 1 "PDF-simple loading.")
 
 (defvar magiciel--pdf-simple-magic
   (magiciel--load-magic-file
    (expand-file-name "tests/magic/pdf-simple" magiciel-path)))
 
 
-(message "\nMAGICIEL: PDF-simple compiling.")
+(magiciel--msg 1 "PDF-simple compiling.")
 
 (cl-multiple-value-setq (pdfsrecs pdfsgrps)
   (magiciel-compile-magic magiciel--pdf-simple-magic 2))
 
-(message "\nMAGICIEL: PDF-simple compiled.")
-(message "\nMAGICIEL: PDF-simple emitting.")
+(magiciel--msg 1 "PDF-simple compiled.")
+(magiciel--msg 1 "PDF-simple emitting.")
 
 (setq magiciel--pdf-simple-emitted
       (magiciel--magic-emit magiciel--pdf-simple-magic pdfsgrps))
 
-(message "\nMAGICIEL: PDF-simple compiling and emitting.")
+(magiciel--msg 1 "PDF-simple compiling and emitting.")
 
 ;;; pdf-simple.el ends here.

@@ -33,7 +33,7 @@
 
 (magiciel--msg 0 "PDF emitted.")
 
-(magiciel--msg 0 "saving code to file.")
+(magiciel--msg 0 "saving PDF code to file.")
 
 (magiciel--write-spell-file magiciel--pdf-magic
 			    pdffname

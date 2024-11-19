@@ -4,22 +4,47 @@
 
 ;; C.
  
-(magiciel--msg 1 "loading C-Lang magic file.")
+(magiciel--msg 0 "loading C-Lang magic file.")
 
 (defvar magiciel--c-lang-magic
   (magiciel--load-magic-file
    (expand-file-name "tests/magic/c-lang" magiciel-path)))
 
-(message "\nMAGICIEL: c-lang compiling and emitting.")
+(magiciel--msg 0 "C-lang compiling and emitting.")
 
 (cl-multiple-value-setq (clangrecs clanggrps)
   (magiciel-compile-magic magiciel--c-lang-magic 2))
 
-(setq magiciel-clang-emitted
-      (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
+(magiciel--msg 0 "C-lang compiled.")
 
-(with-temp-buffer
-  (print (cl-fourth magiciel-clang-emitted) (current-buffer))
-  (write-file "temp/temp-clang-fun.el"))
+(magiciel--msg 0 "C-lang emitting.")
+
+(magiciel--set-debug-level magiciel--*debug-mid-level*)
+
+(cl-multiple-value-setq (clang-fname
+			 clang-grpfns
+			 clang-grpnamed
+			 clang-magic-fun
+			 clang-external-funs)
+  (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
+
+(magiciel--msg 0 "C-lang emitting.")
+
+(magiciel--msg 0 "saving C-lang code to file.")
+
+(magiciel--write-spell-file magiciel--c-lang-magic
+			    clang-fname
+			    clang-magic-fun
+			    clang-external-funs
+			    (expand-file-name "temp/apothecary/"
+					      magiciel-path)
+			    )
+
+(magiciel--set-debug-level magiciel--*debug-low-level*)
+
+(magiciel--msg 0 "code to file \"tests/magic/clang-saved.el\".")
+
+(magiciel--msg 0 "C-lang processing completed.")
+
 
 ;;; clang.el ends here.
