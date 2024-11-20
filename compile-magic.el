@@ -49,6 +49,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'pcre2el)
 (require 'magiciel-parse-magic)
 
 
@@ -518,8 +519,8 @@ name of a lower level code block."))
 
 	 (let ((c0 (aref test-value-string 0)))
 	   (if (and (or (eql ?\\ c0) (eql ?= c0))
-		    (eql (aref test-value-string 1) ?^)) ; Should
-					; test for other operators as well?
+		    (eql (aref test-value-string 1) ?^)) ; Should test
+					; for other operators as well?
 	       ;; Since the magic test is `regex` I can do away
 	       ;; with the `=` as well.
 	       (substring test-value-string 1)
@@ -527,7 +528,8 @@ name of a lower level code block."))
 	   ))
        )				; cl-flet.
     (let ((off-op (magiciel--offset-code offset))
-	  (test-val (fix-test-value (magiciel--test-value test)))
+	  (test-val
+	   (rxt-pcre-to-elisp (fix-test-value (magiciel--test-value test))))
 	  )
       (cl-multiple-value-bind (range flags)
 	  (and type-mods (compile-type-mods type-mods))
@@ -660,7 +662,8 @@ name of a lower level code block."))
   
   (magiciel--make-instruction :kind type
 			      :offset offset
-			      :test `(default)
+			      ;; :test `(default)
+			      :test t
 			      :value (magiciel--test-value test-val)
 			      :result result-msg)
   )
@@ -872,7 +875,7 @@ name of a lower level code block."))
 
 (cl-defun magiciel--compile-test-value (test-value type-spec)
   (cond ((or (string-equal test-value "x")
-	      (string-equal test-value "X"))
+	     (string-equal test-value "X"))
 					; Yes I know about
 					; `string-equal-ignore-case'.
 	 ;; This is to be treated specially.
@@ -1265,6 +1268,19 @@ OFFSET     : a `magiciel--offset'."
   )
 
 
+;; magiciel--$test-block
+;; Useful for some of the special forms like `clear' and `default'.
+
+(cl-defmacro magiciel--$test-block (tb-name
+				    (&optional (test-result t) (msg ""))
+				    &body forms)
+  `(cl-block ,tb-name
+     (setq --magiciel-test-result ,test-result
+	   --magiciel-msg ,msg)
+     ,@forms))
+
+
+
 ;; magiciel--$check
 ;; Sets up and track the %pos% and %end-pos% variables (FTTB).
 ;;
@@ -1321,7 +1337,8 @@ OFFSET     : a `magiciel--offset'."
 (cl-defmacro magiciel--$check (tag
 			       access
 			       test
-			       test-false-throw-label
+			       ;; test-false-throw-label
+			       test-level
 			       &body continue-tests)
   "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
 
@@ -1338,9 +1355,9 @@ house-keeping code."
   `(let* ((%saved-end-pos% %end-pos%)
 	  (--magiciel-test-result nil)
 	  )
-     (magiciel--msg 1 "running check; %s (%s)" ,tag %pos%)
-     (magiciel--msg 1 "access: %s" ',access)
-     (magiciel--msg 1 "test: %S (%d)." ',test %end-pos%)
+     (magiciel--msg 1 "running check; %S (pos: %s)" ,tag %pos%)
+     (magiciel--msg 1 "access: %S" ',access)
+     (magiciel--msg 1 "test: %S (end pos: %d)." ',test %end-pos%)
      (unwind-protect
 	 ,(if access
 	      
@@ -1349,32 +1366,42 @@ house-keeping code."
 		 (magiciel--msg 1 "accessed value: %S." --magiciel-value)
 
 		 (magiciel--msg 1 (if --magiciel-test-result
-				      "check succeded.\n"
-				    "check failed.\n"))
+				      "check succeded."
+				    "check failed."))
+		 (magiciel--msg 1 "")
 		 (if --magiciel-test-result
 		     ,@continue-tests
 		   ;; (go ,test-false-throw-label)
-		   (throw '%%exit-level%%
-			  (cl-values
-			 --magiciel-msg
-			 --magiciel-disp
-			 --magiciel-test-result ; This will be `nil'.
-			 ))))
+		   (when (zerop ,test-level)
+		     (magiciel--msg 1 "throwing to level 0 exit from '%s'." ,tag)
+		     (magiciel--msg 1 "")
+		     (throw '%%exit-level%%
+		    	    (cl-values
+		    	     --magiciel-msg
+			     --magiciel-disp
+			     --magiciel-test-result ; This should be `nil'.
+		    	     )))
+		   ))
 	    
 	    `(progn
 	       (setq --magiciel-test-result ,test)
 	       (magiciel--msg 1 (if --magiciel-test-result
-				    "check succeded.\n"
-				  "check failed.\n"))
+				    "check succeded."
+				  "check failed."))
+	       (magiciel--msg 1 "")
 	       (if --magiciel-test-result
 		   ,@continue-tests
 		 ;; (go ,test-false-throw-label)
-		 (throw '%%exit-level%%
-			(cl-values
-			 --magiciel-msg
-			 --magiciel-disp
-			 --magiciel-test-result ; This will be `nil'.
-			 ))))
+		 (when (zerop ,test-level)
+		   (magiciel--msg 1 "throwing to level 0 exit from '%s'." ',tag)
+		   (magiciel--msg 1 "")
+		   (throw '%%exit-level%%
+		  	  (cl-values
+		  	   --magiciel-msg
+		  	   --magiciel-disp
+		  	   --magiciel-test-result ; This will be `nil'.
+		  	   )))
+		 ))
 	    )
        (unless --magiciel-test-result
 	 (setq %end-pos% %saved-end-pos%)))
@@ -1437,6 +1464,19 @@ VAL is the expression constructing the value accessed (defaulting to
 
 (cl-defmacro magiciel--$in-context-p (c)
   `(eq %context% ,c))
+
+
+(cl-defmacro magiciel--$level-0-exit (level test-result)
+  `(when (and (zerop ,level) (null ,test-result))
+     (magiciel--msg 1 "throwing to level 0 exit.")
+     (magiciel--msg 1 "")
+     (throw '%%exit-level%%
+	    (cl-values
+	     --magiciel-msg
+	     --magiciel-disp
+	     ,test-result		; This should be `nil'.
+	     ))
+     ))
 
 
 ;; Old version.
@@ -1516,6 +1556,62 @@ test and that is used for \"continuation\" offsets."
 ;; This is unused FTTB.  The \\='boolean is not used (yet), but this
 ;; is where I experiment.
 
+
+
+
+;; (cl-defmethod magiciel--emit ((kind (eql '=))
+;; 			      ;; (kind (eql 'boolean))
+;; 			      (inst magiciel--instruction)
+;; 			      &key
+;; 			      (f-name (gensym "magiciel--%%fn-top-"))
+;; 			      (m-name (gensym "magiciel--i-n-"))
+;; 			      (displacement 0)
+;; 			      &allow-other-keys)
+;;   "This method is the main \\='emit\\=' method for regular tests.
+
+;; The KIND argument indicates all boolean tests.  The DISPLACEMENT
+;; variable is an \\='expression\\=' that comes from the \"previous\"
+;; test and that is used for \"continuation\" offsets."
+
+;;   (ignore kind f-name m-name displacement)
+  
+;;   (let ((level  (magiciel--instruction-level inst))
+;; 	(offset (magiciel--instruction-offset inst))
+;; 	(access (magiciel--instruction-access inst))
+;; 	(test   (magiciel--instruction-test inst))
+;; 	(value  (magiciel--instruction-value inst))
+;; 	(result (magiciel--instruction-result inst))
+;; 	(disp   (magiciel--instruction-displacement inst))
+;; 	)
+
+;;     (ignore level disp)
+    
+;;     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+;; 	  (tag (intern (format "%s-%s" kind value)))
+;; 	  )
+
+;;       (magiciel--msg 1 "%s" inst)
+      
+;;       (if (or (eql value 'x)
+;; 	      (and (stringp value)
+;; 		   (or (string-equal value "x")
+;; 		       (string-equal value "X"))))
+;; 	  `(magiciel--$check ',tag
+;; 	       ,access
+;; 	       t
+;; 	       %%exit-label%%
+;; 	     (magiciel--$store-access-result ,result ,pos ,disp))
+;; 	`(magiciel--$check ',tag
+;; 	     ,access
+;; 	     (,test --magiciel-value ,value)
+;; 	     %%exit-label%%
+;; 	   (magiciel--$store-access-result ,result ,pos ',disp))
+;; 	)
+;;       )))
+
+
+;; New version
+
 (cl-defmethod magiciel--emit ((kind (eql '=))
 			      ;; (kind (eql 'boolean))
 			      (inst magiciel--instruction)
@@ -1541,29 +1637,25 @@ test and that is used for \"continuation\" offsets."
 	(disp   (magiciel--instruction-displacement inst))
 	)
 
-    (ignore level disp)
+    (ignore disp)
+
+    (magiciel--msg 1 "%s" inst)
     
     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
 	  (tag (intern (format "%s-%s" kind value)))
+	  (test (if (or (eql value 'x)
+			 (and (stringp value)
+			      (or (string-equal value "x")
+				  (string-equal value "X"))))
+		    t
+		  `(,test --magiciel-value ,value)
+		  ))
 	  )
-
-      (magiciel--msg 1 "%s" inst)
-      
-      (if (or (eql value 'x)
-	      (and (stringp value)
-		   (or (string-equal value "x")
-		       (string-equal value "X"))))
-	  `(magiciel--$check ',tag
-	       ,access
-	       t
-	       %%exit-label%%
-	     (magiciel--$store-access-result ,result ,pos ,disp))
-	`(magiciel--$check ',tag
-	     ,access
-	     (,test --magiciel-value ,value)
-	     %%exit-label%%
-	   (magiciel--$store-access-result ,result ,pos ',disp))
-	)
+      `(magiciel--$check ',tag
+	   ,access
+	   ,test
+	   ',level
+	 (magiciel--$store-access-result ,result ,pos ,disp))
       )))
 
 
@@ -1575,8 +1667,7 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let* (
-	 ;; (level  (magiciel--instruction-level inst))
+  (let* ((level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
 	 (test   (magiciel--instruction-test inst))
 	 (value  (magiciel--instruction-value inst))
@@ -1586,7 +1677,7 @@ test and that is used for \"continuation\" offsets."
     `(magiciel--$check ',tag
 	 nil
 	 ,test
-       %%exit-label%%
+	 ',level
        (magiciel--$store-access-result ,result
 				       %pos%
 				       (length (match-string 0 %bytes%))
@@ -1634,6 +1725,7 @@ test and that is used for \"continuation\" offsets."
 	)
     `(progn
        (warn "MAGICIEL: 'indirect' not implemented; failing.")
+       nil
        )
     )
   )
@@ -1693,8 +1785,7 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let* (
-	 ;; (level  (magiciel--instruction-level inst))
+  (let* ((level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
 	 (offset (magiciel--instruction-offset inst))
 	 (test   (magiciel--instruction-test inst))
@@ -1707,7 +1798,7 @@ test and that is used for \"continuation\" offsets."
     `(magiciel--$check ',tag
 	 nil
 	 ,test
-       %%exit-label%%
+	 ',level
        (magiciel--$store-access-result ,result ,pos ,disp)))
   )
 
@@ -1720,8 +1811,7 @@ test and that is used for \"continuation\" offsets."
 
   (ignore kind m-name)
   
-  (let (
-	;; (level  (magiciel--instruction-level inst))
+  (let ((level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(offset (magiciel--instruction-offset inst))
 	(test   (magiciel--instruction-test inst))
@@ -1734,7 +1824,8 @@ test and that is used for \"continuation\" offsets."
       `(magiciel--$check ',tag
 	   nil
 	   ,test
-	 %%exit-label%%
+	   ',level
+	 ;; %%exit-level%%
 	 (magiciel--$store-access-result ,result ,pos)))
     )
   )
@@ -1769,7 +1860,9 @@ test and that is used for \"continuation\" offsets."
 	(magiciel--warn "value for `clear' is not `x` (%s)."
 			value))
       
-      `(cl-block ',tag
+      `(cl-block ,tag
+	 (setq --magiciel-test-result t)
+	 (magiciel--msg 1 "clear; '%s' '%s'" --magiciel-msg ',result)
 	 (set-match-data ())		; Living dangerously!
 	 (magiciel--$store-access-result ,result ,pos))
       )))
@@ -1784,14 +1877,34 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
   
   (magiciel--msg 1 "EMIT: emit APPLE %s." kind)
-  `(when (magiciel--$in-context-p ',kind)
-     (warn "MAGICIEL: !:apple %s not properly handled yet."
-	   ,(magiciel--instruction-result inst))
-     ;; (cl-return-from %%test-block%% ,(magiciel--instruction-result inst))
-     (cl-return-from ,f-name ,(magiciel--instruction-result inst))
-     )
+  `(cl-block ,kind
+     (when (magiciel--$in-context-p ',kind)
+       (warn "MAGICIEL: !:apple %s not properly handled yet."
+	     ,(magiciel--instruction-result inst))
+       ;; (cl-return-from %%test-block%% ,(magiciel--instruction-result inst))
+       (cl-return-from ,f-name ,(magiciel--instruction-result inst))
+       ))
   )
 
+
+;; (cl-defmethod magiciel--emit ((kind (eql '!:mime))
+;; 			      (inst magiciel--instruction)
+;; 			      &key
+;; 			      (f-name (gensym "magiciel--%%fn-top-"))
+;; 			      (m-name (gensym "magiciel--i-n-"))
+;; 			      &allow-other-keys)
+;;   (ignore m-name)
+  
+;;   (magiciel--msg 1 "EMIT: emit MIME %s." kind)
+;;   `(magiciel--$check '!:mime-check
+;;        nil
+;;        (magiciel--$in-context-p ',kind)
+;;      %%exit-label%%
+;;      (setq --magiciel-msg ,(magiciel--instruction-result inst))
+;;      ;; (cl-return-from %%test-block%% --magiciel-msg)
+;;      (cl-return-from ,f-name --magiciel-msg)
+;;      )
+;;   )
 
 (cl-defmethod magiciel--emit ((kind (eql '!:mime))
 			      (inst magiciel--instruction)
@@ -1802,14 +1915,10 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
   
   (magiciel--msg 1 "EMIT: emit MIME %s." kind)
-  `(magiciel--$check '!:mime-check
-       nil
-       (magiciel--$in-context-p ',kind)
-     %%exit-label%%
+
+  `(when (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
-     ;; (cl-return-from %%test-block%% --magiciel-msg)
-     (cl-return-from ,f-name --magiciel-msg)
-     )
+     (cl-return-from ,f-name --magiciel-msg))
   )
 
 
@@ -1826,6 +1935,25 @@ test and that is used for \"continuation\" offsets."
   )
 
 
+;; (cl-defmethod magiciel--emit ((kind (eql '!:ext))
+;; 			      (inst magiciel--instruction)
+;; 			      &key
+;; 			      (f-name (gensym "magiciel--%%fn-top-"))
+;; 			      (m-name (gensym "magiciel--i-n-"))
+;; 			      &allow-other-keys)
+;;   (ignore m-name)
+
+;;   (magiciel--msg 1 "EMIT: emit EXT %s (%S)." kind inst)
+;;   `(magiciel--$check '!:ext-check
+;;        nil
+;;        (magiciel--$in-context-p ',kind)
+;;      %%exit-label%%
+;;      (setq --magiciel-msg ,(magiciel--instruction-result inst))
+;;      ;; (cl-return-from %%test-block%% --magiciel-msg)
+;;      (cl-return-from ,f-name --magiciel-msg)
+;;      )
+;;   )
+
 (cl-defmethod magiciel--emit ((kind (eql '!:ext))
 			      (inst magiciel--instruction)
 			      &key
@@ -1835,12 +1963,8 @@ test and that is used for \"continuation\" offsets."
   (ignore m-name)
 
   (magiciel--msg 1 "EMIT: emit EXT %s (%S)." kind inst)
-  `(magiciel--$check '!:ext-check
-       nil
-       (magiciel--$in-context-p ',kind)
-     %%exit-label%%
+  `(when (magiciel--$in-context-p ',kind)
      (setq --magiciel-msg ,(magiciel--instruction-result inst))
-     ;; (cl-return-from %%test-block%% --magiciel-msg)
      (cl-return-from ,f-name --magiciel-msg)
      )
   )
@@ -1866,7 +1990,7 @@ test and that is used for \"continuation\" offsets."
 				      &key
 				      (m-name (gensym "magiciel--i-n-"))
 				      &allow-other-keys)
-  (magiciel--msg 1 "emitting %s for %s." kind m-name)
+  (magiciel--msg 1 "EMIT: emitting %s for %s." kind m-name)
   )
 
 
@@ -1893,11 +2017,12 @@ test and that is used for \"continuation\" offsets."
 	  (id (magiciel--instr-node-id it))
 	  (sts (magiciel--instr-node-sub-instr-nodes it))
 	  )
-      (magiciel--msg 1 "MDIT: %s%s %s %s"
+      (magiciel--msg 1 "MDIT: %s%s %s %s '%s'"
 		     (make-string indent ? )
 		     (magiciel--instruction-level i)
 		     id
-		     (magiciel--instruction-kind i))
+		     (magiciel--instruction-kind i)
+		     (magiciel--instruction-test i))
       (dolist (st sts)
 	(magiciel--dump-instr-tree st (+ indent 4)))
       )))
@@ -1906,11 +2031,14 @@ test and that is used for \"continuation\" offsets."
 (cl-defun magiciel--dump-instr-level-alist (instr-nodes-at-level)
   (magiciel--msg 1 "MILA:")
   (cl-loop for (il . instr-node) in instr-nodes-at-level
-	   do (magiciel--msg 1 "MILA: %s => %s %s"
+	   do (magiciel--msg 1 "MILA: %s => %s %s '%s'"
 			     il
 			     (magiciel--instr-node-id instr-node)
 			     (magiciel--instruction-kind
-			      (magiciel--instr-node-instr instr-node)))
+			      (magiciel--instr-node-instr instr-node))
+			     (magiciel--instruction-test
+			      (magiciel--instr-node-instr instr-node))
+			     )
 	   finally (magiciel--msg 1 "MILA:\n")
 	   ))
 
@@ -2204,7 +2332,7 @@ test and that is used for \"continuation\" offsets."
 				&optional
 				(magic-env ())
 				)
-  "Builds the function body that runs the i-th check.
+  "Builds the function or block body that runs the i-th check.
 
 The function obtained correspond to the groups obtained from the
 compilation of a magic(5) file.  The name of the function is
@@ -2213,7 +2341,7 @@ compilation of a magic(5) file.  The name of the function is
 Arguments and Values:
 
 `magic' : is a `magiciel--magic' struct.
-`instr-group' : is a list of `magiciel--instruction'.
+`instr-group'  : is a list of `magiciel--instruction'.
 `group-number' : is the id of the instruction; must be unique.
 `magic-env' : is a simple \\='enviroment\\=' (an a-list) containg
               bindings for names used in the group/block; mostly label
@@ -2293,7 +2421,8 @@ specially.
 		   )
 
 		  (magic-subgroup-block-name
-		   (format "%s.%d" magic-group-block-name level))
+		   (intern (format "%s.%d" magic-group-block-name
+				   (1+ level))))
                   )
 
 
@@ -2319,12 +2448,12 @@ specially.
 		(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
 		(if sub-tests
                     `(,instr-root-code
-		  (;; cl-block ,magic-subgroup-block-name
-		   catch '%%exit-level%%
-		   ,@(cl-loop for sub-node in sub-tests
-			      append (emit-tree sub-node (1+ level))
-			      ))
-                  )
+		      (cl-block ,magic-subgroup-block-name
+		       ;; catch '%%exit-level%%
+		       ,@(cl-loop for sub-node in sub-tests
+				  append (emit-tree sub-node (1+ level))
+				  ))
+                      )
 		  `(,instr-root-code)
 		  ))
 	       )
@@ -2337,7 +2466,7 @@ specially.
 	   ;; function.
 	   
            `(cl-block ,magic-group-block-name
-
+	      (magiciel--msg 1 "entering test %s." ',magic-group-block-name)
 	      
 	      ;; (cl-tagbody
               ;;  ,@(cl-subst magic-group-exit-label
@@ -2351,10 +2480,13 @@ specially.
 	      
 	      (catch '%%exit-level%%
 		,@(emit-tree instr-node))
-	      (cl-return-from ,magic-group-block-name
-		;; (cl-values --magiciel-msg --magiciel-disp)
-		(cl-values --magiciel-msg %pos% %end-pos%)
-		)
+	      (when --magiciel-test-result
+		(cl-return-from
+		    ,magic-fname
+		  ;; ,magic-group-block-name
+		  ;; (cl-values --magiciel-msg --magiciel-disp)
+		  (cl-values --magiciel-msg %pos% %end-pos%)
+		  ))
 	      ))
 	 )				; labels
       
@@ -2427,6 +2559,12 @@ specially.
 (cl-defun magiciel--magic-emit (magic instr-groups)
   "Emit the functions that check for a specific \"magic(5)\" specification."
 
+  (magiciel--msg 1 "MME:")
+  (magiciel--msg 1 "MME: emitting code for '%s' with %d groups."
+		 (magiciel--magic-name magic)
+		 (length instr-groups))
+  (magiciel--msg 1 "MME:")
+		 
   (let* ((max-lisp-eval-depth 4800)
 	
 	 ;; The extension to `max-lisp-eval-depth' is necessary
@@ -2580,6 +2718,11 @@ specially.
 		   (ignore --magiciel-value
 			   --magiciel-test-result
 			   --magiciel-disp)
+
+		   (magiciel--msg magiciel--*debug-mid-level*
+				  "trying test '%s'..."
+				  ',name
+				  )
 		   
                    ,magic-fun-body
 		   ;; (cl-values --magiciel-msg %pos% %end-pos%)
