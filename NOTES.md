@@ -74,3 +74,10 @@ that `name` and `use` entries cross magic file boundaries, cfr.,
 `display-coff` names (just "grep" the folder).  This means that I cannot
 use the `cl-labels` scheme and must resort to more elaborate
 bookkeeping procedures.
+
+
+## 2024-11-19
+
+Much rewriting was done.  Flow of control is somewhat simpler and the
+tests, especially the `regexp` one where checked and tested
+(somewhat), especially on the pesky `c-lang` spec.
