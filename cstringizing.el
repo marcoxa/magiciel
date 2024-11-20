@@ -16,7 +16,7 @@
 ;; * In `magiciel' FTTB.
 ;;
 ;; * Using `write-char` to a (temp string) obviously does something
-;;   about multibyte stuff.  Shifting to collecting byts and then
+;;   about multibyte stuff.  Shifting to collecting bytes and then
 ;;   using `unibyte-string` seems to do TRT.
 
 
