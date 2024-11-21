@@ -129,6 +129,11 @@
 (load (expand-file-name "tests/elisp-tests/aout-test.el" magiciel-path))
 
 
+;; Mach
+
+(load (expand-file-name "tests/elisp-tests/mach-test.el" magiciel-path))
+
+
 ;; C
 
 (load (expand-file-name "tests/elisp-tests/clang-test.el" magiciel-path))
