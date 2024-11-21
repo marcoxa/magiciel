@@ -369,6 +369,21 @@ name of a lower level code block."))
 			      :result msg))
 
 
+(cl-defun magiciel--fix-test-value (test-value-string)
+  ;; See the NOTES.md file for the reason we need this
+  ;; here. (And maybe elsewhere).
+
+  (let ((c0 (aref test-value-string 0)))
+    (if (and (or (eql ?\\ c0) (eql ?= c0))
+	     (eql (aref test-value-string 1) ?^)) ; Should test
+					; for other operators as well?
+	;; Since the magic test is `regex` I can do away
+	;; with the `=` as well.
+	(substring test-value-string 1)
+      test-value-string)
+    ))
+
+
 (cl-defmethod magiciel--compile-instr ((off-op magiciel--offset)
 				       (type magiciel--record-type-spec)
 				       (test magiciel--test)
@@ -606,10 +621,13 @@ name of a lower level code block."))
 				       )
   (ignore type type-mods test-mods)
 
-  (let ((test-val (magiciel--test-value test)))
+  (let* ((test-val (magiciel--fix-test-value (magiciel--test-value test)))
+	 (switch-endian (= ?^ (aref test-val 0)))
+	 )
+			
     (magiciel--make-instruction :kind type
 				:offset offset
-				:test `(use ,test-val)
+				:test `(use ,test-val ,switch-endian)
 				:result result-msg))
   )
 
@@ -1274,6 +1292,7 @@ OFFSET     : a `magiciel--offset'."
 (cl-defmacro magiciel--$test-block (tb-name
 				    (&optional (test-result t) (msg ""))
 				    &body forms)
+  (declare (indent 2))
   `(cl-block ,tb-name
      (setq --magiciel-test-result ,test-result
 	   --magiciel-msg ,msg)
@@ -1490,16 +1509,17 @@ VAL is the expression constructing the value accessed (defaulting to
 ;; the "message" if produced.
 
 (cl-defmacro magiciel--$use (name-label &optional invert)
-  `(cl-multiple-value-bind (%message% %displ%)
+  `(cl-multiple-value-bind (%msg% %p% %ep%)
        (,name-label %bytes% %pos% %end-pos% %context% ,invert)
 
+     (ignore %p%)
      ;; I cannot use `magiciel--$store-access-result' because of the
      ;; macro-expansion time processing of the first argument.
-     ;; There fore I just deal with `%disp%' and `%message' directly.
+     ;; Therefore I just deal with `%disp%' and `%message' directly.
      ;;
      ;; (magiciel--$store-access-result %message% '%pos% %disp%)
-     (setf --magiciel-msg %message%
-	   %end-pos% (+ %pos% %displ%))
+     (setf --magiciel-msg %msg%
+	   %end-pos% %ep%)
      )
   )
 
@@ -1723,8 +1743,12 @@ test and that is used for \"continuation\" offsets."
 	;; (value  (magiciel--instruction-test inst))
 	;; (result (magiciel--instruction-result inst))
 	)
-    `(progn
-       (warn "MAGICIEL: 'indirect' not implemented; failing.")
+    ;; `(progn
+    ;;    (warn "MAGICIEL: 'indirect' not implemented; failing.")
+    ;;    nil
+    ;;    )
+    `(magiciel--$test-block indirect (nil --magiciel-msg)
+       (magiciel--warn 0 "'indirect' not implemented; failing.")
        nil
        )
     )
@@ -1751,7 +1775,9 @@ test and that is used for \"continuation\" offsets."
 	 ;; (value  (magiciel--instruction-value inst))
 	 (result (magiciel--instruction-result inst))
 
-	 (use-name-0 (cl-second test))
+	 ;; The next use fo the "fix" is just being paranoid.
+	 (use-name-0 (magiciel--fix-test-value (cl-second test)))
+	 
 	 (invert-endianness (char-equal ?^ (aref use-name-0 0)))
 	 (use-name (if invert-endianness
 		       (substring use-name-0 1)
@@ -1768,11 +1794,24 @@ test and that is used for \"continuation\" offsets."
 	      (label-name (cdr name-label))
 	      (use-block-name (intern (concat (cl-second test) "-use-block")))
 	      )
+	  ;; `(cl-block ,use-block-name
+	  ;;    (magiciel--$use ,label-name ,invert-endianness)
+	  ;;    ;; (magiciel--$acc-msg-disp ,result)
+	  ;;    (magiciel--$store-access-result (concat --magiciel-msg ,result)
+	  ;; 				     ,pos
+	  ;; 				     )
+	  ;;    )
+	  ;; `(magiciel--$test-block ,use-block-name ()
+	  ;;    (magiciel--$use ,label-name ,invert-endianness)
+	  ;;    ;; (magiciel--$acc-msg-disp ,result)
+	  ;;    (magiciel--$store-access-result ,result ,pos)
+	  ;;    )
 	  `(cl-block ,use-block-name
 	     (magiciel--$use ,label-name ,invert-endianness)
 	     ;; (magiciel--$acc-msg-disp ,result)
 	     (magiciel--$store-access-result ,result ,pos)
-	     ))
+	     )
+	  )
       `(progn nil))
     ))
 
