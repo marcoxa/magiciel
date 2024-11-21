@@ -19,7 +19,7 @@
 
 (magiciel--msg 0 "C-lang emitting.")
 
-(magiciel--set-debug-level magiciel--*debug-mid-level*)
+;; (magiciel--set-debug-level magiciel--*debug-mid-level*)
 
 (cl-multiple-value-setq (clang-fname
 			 clang-grpfns
@@ -28,7 +28,7 @@
 			 clang-external-funs)
   (magiciel--magic-emit magiciel--c-lang-magic clanggrps))
 
-(magiciel--msg 0 "C-lang emitting.")
+(magiciel--msg 0 "C-lang emitted.")
 
 (magiciel--msg 0 "saving C-lang code to file.")
 
