@@ -179,6 +179,43 @@ ENDIANNESS parameter (either `:le' or `:be').
       (error "MAGICIEL: no int unpacked."))))
 
 
+;; magiciel--*invert-endianness*
+
+(defvar magiciel--*invert-endianness* nil
+  "This is a flag to be used at run time.
+
+If T the \"endiannes\" of accesses and tests is inverted.  That is, if
+the endianness is `:le' and the value of
+`magiciel--*invert-endianness*' is T, then accesses and tests are done
+as if the endianness were big-endian (`:be').
+
+This is necessary because of the quirks of the `use' type of
+instructions in the \"magic(5)\" specification."
+  )
+
+
+;; magiciel--use-endianness
+
+(cl-defun magiciel--use-endianness (&optional
+				    (endianness
+				     (magiciel--machine-endiannes)))
+  "Return the endianness to use in accesses.
+
+It has an effect only within \"name\" instruction groups as a
+consequence of their \"use\".  Cf., the \"magic(5)\" specification for
+this.
+
+Notes:
+
+This function is needed to dynamically account for the \"use\"
+specification."
+  (cl-ecase endianness
+    ((:> :be) (if magiciel--*invert-endianness* :le :be))
+    ((:< :le) (if magiciel--*invert-endianness* :be :le))
+    ((:m :me) :me)
+    ))
+
+
 ;; magiciel--get-value-at*
 ;; Kitchen sink function.
 ;; Eventually low level access will be compiled.
@@ -218,10 +255,15 @@ MODS, if not NIL, must be of the form (<op> <arg>), where
      (let ((mod-op  (cl-first mods))
 	   (mod-arg (cl-second mods))
 	   (v (if unsigned
-		  (magiciel--get-uint bytes pos len endianness)
-		(magiciel--get-sint bytes pos len endianness)
+		  (magiciel--get-uint bytes
+				      pos
+				      len
+				      (magiciel--use-endianness endianness))
+		(magiciel--get-sint bytes
+				    pos
+				    len
+				    (magiciel--use-endianness endianness))
 		))
-
 	   )
        (if (and mod-op (string= "&" mod-op) mod-arg)
 	   (logand (magiciel--convert-c-integer mod-arg) v)
