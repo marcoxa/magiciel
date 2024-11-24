@@ -81,3 +81,29 @@ bookkeeping procedures.
 Much rewriting was done.  Flow of control is somewhat simpler and the
 tests, especially the `regexp` one where checked and tested
 (somewhat), especially on the pesky `c-lang` spec.
+
+
+## 2024-11-24
+
+The current scheme works, mostly.  Reverse-engineering the `magic(5)`
+spec is quite a chore, and scouring the Internet for answers is
+... not easy.  Plus, I do not want to look into the `file` code, which
+may be stupid; there, I admit it.
+
+In any case, the algorithm to run tests seems to be:
+1. Run the level 0 tests; hopefully only one works (which is not
+   given).
+2. Run the substests, all of them, piling up the result
+
+But, `!:mime`, `!:ext` etc., tests *exit* immediately.
+
+Then there is the issue of the note found in the IBM documentation,
+which seem to refere to a *different* `magic(5)` format, most likely
+from AIX
+days. https://www.ibm.com/docs/en/zos/2.4.0?topic=formats-magic-format-etcmagic-file.
+So, if a subtext fails, does also the main level-0 fail?
+
+Meanwhile, I found iteresting the Python `PolyFile` comments:
+https://blog.trailofbits.com/2022/07/01/libmagic-the-blathering/
+
+Let's see what can be done.
