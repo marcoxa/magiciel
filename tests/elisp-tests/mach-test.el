@@ -4,7 +4,7 @@
 
 ;; mach.
 
-(magiciel--msg 0 "loading a.out magic file.")
+(magiciel--msg 0 "loading mach magic file.")
 
 (defvar magiciel--mach-magic
   (magiciel--load-magic-file
@@ -12,12 +12,14 @@
 
 (magiciel--msg 0 "mach compiling and emitting.")
 
+
 (cl-multiple-value-setq (machrecs machgrps)
   (magiciel-compile-magic magiciel--mach-magic 2))
 
 (magiciel--msg 0 "mach compiled.")
 
-(magiciel--msg 0 "mach  emitting.")
+
+(magiciel--msg 0 "mach emitting.")
 
 (cl-multiple-value-setq (mach-fname
 			 mach-grpfns
@@ -27,6 +29,7 @@
   (magiciel--magic-emit magiciel--mach-magic machgrps))
 
 (magiciel--msg 0 "mach emitted.")
+
 
 ;; (magiciel--msg 0 "saving code to file.")
 
