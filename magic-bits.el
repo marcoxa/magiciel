@@ -203,18 +203,29 @@ string).
 The arguments UNSIGNED and ENDIANNESS control how the value is read
 in.  For string and date values, LEN bytes are read in.
 
-MODS is ignored for the time being.
+MODS, if not NIL, must be of the form (<op> <arg>), where
+<op> and <arg> are strings.
 "
   
-  (ignore mods)
+  ;; The handling of MODS is done here even if a bit inefficient.
+  ;; Only numeric types modifiers are considered.
+  
   (cl-assert (not (multibyte-string-p bytes)))
 
   ;; Note that the coding-system is assumend to be ... "the usual one".
   (cl-etypecase type-spec
     (magiciel--numeric-type-spec
-     (if unsigned
-	 (magiciel--get-uint bytes pos len endianness)
-       (magiciel--get-sint bytes pos len endianness)
+     (let ((mod-op  (cl-first mods))
+	   (mod-arg (cl-second mods))
+	   (v (if unsigned
+		  (magiciel--get-uint bytes pos len endianness)
+		(magiciel--get-sint bytes pos len endianness)
+		))
+
+	   )
+       (if (and mod-op (string= "&" mod-op) mod-arg)
+	   (logand (magiciel--convert-c-integer mod-arg) v)
+	 v)
        ))
     
     (magiciel--date-type-spec
