@@ -30,7 +30,6 @@
   "Controls whether to recompile the source folder or not.")
 
 
-
 ;; (load (expand-file-name "magiciel-pkg" magiciel-path)) 
 
 ;; (load (expand-file-name "magiciel-constants" magiciel-path)) ; This is pleonastic.
