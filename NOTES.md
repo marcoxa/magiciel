@@ -107,3 +107,14 @@ Meanwhile, I found iteresting the Python `PolyFile` comments:
 https://blog.trailofbits.com/2022/07/01/libmagic-the-blathering/
 
 Let's see what can be done.
+
+
+### More fun with `byte` type
+
+At least in the `mach` specification it appears that `byte` must be
+considered *unsigned*; that is it must be read in as an *unsigned*
+byte. I make some special changes in the `parse-magic.el` file to
+accommodate this, but I am pretty sure things will not be go smootly
+down the road.
+
+
