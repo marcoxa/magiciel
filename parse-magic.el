@@ -733,7 +733,7 @@ This is the \"abstract\" offset type."
 ;; magiciel--parse-offset
 
 (cl-defun magiciel--parse-offset (record)
-  "Parse the \=='offset\\=' part of RECORD.
+  "Parse the \\='offset\\=' part of RECORD.
 
 Return a `magiciel--offset' structure."
   
@@ -1098,10 +1098,18 @@ Returns a `magiciel--record-type-spec'.
 	   (spec (cl-first spec-list-spec))
 	   
 	   (unsigned
-	    (when (and (not (string-equal "use" spec))
-		       (char-equal ?u (aref spec 0)))
-	      (setf spec (substring spec 1))
-	      t))
+	    (cond ((and (not (string-equal "use" spec))
+			(char-equal ?u (aref spec 0)))
+		   (setf spec (substring spec 1))
+		   t)
+		  ((string-equal "byte" spec)
+		   ;; It appears that "byte" must be read in as
+		   ;; unsigned. At least this is what seems to be the
+		   ;; case in the 'mach' magic file.
+		   ;;
+		   ;; This may therefore be a kludge.
+
+		   t)))
 	   
 	   ;; (mods (cl-rest spec-list))
 	   (mods (cl-second spec-list-spec))
