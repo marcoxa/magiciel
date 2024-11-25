@@ -786,7 +786,7 @@ name of a lower level code block."))
   (cl-labels
       ((compile-ind-offset-type (ind-off)
 
-	 ;; New verision.
+	 ;; New version.
 	   
 	 (let ((ind-addr (magiciel--indirect-offset-addr ind-off))
 	       (ind-type (magiciel--indirect-offset-type ind-off))
@@ -865,11 +865,22 @@ name of a lower level code block."))
 					 ))
 	    ,(if (listp ind-num)
 		 (if (magiciel--indirect-offset-rel ind-off)
-		     `(magiciel--get-value-at
-		       (+ %pos% ,ind-addr ,ind-num)
-		       ',ind-subtype)
-		   `(magiciel--get-value-at
-		     (+ ,ind-addr ,ind-num)))
+		     `(magiciel--get-value-at* %bytes%
+					       (+ %pos% ,ind-addr ,ind-num)
+					       ',ind-subtype
+					       ',(eq ind-sign '+)
+					       ',type-endian
+					       ()
+					       ',type-len
+					       )
+		   `(magiciel--get-value-at* %bytes%
+					     (+ ,ind-addr ,ind-num)
+					     ',ind-subtype
+					     ',(eq ind-sign '+)
+					     ',type-endian
+					     ()
+					     ',type-len
+					     ))
 	       ind-num)))
 	)))
   )
@@ -1029,11 +1040,11 @@ OFFSET     : a `magiciel--offset'."
     `(magiciel--get-value-at* %bytes%	; 1
 			      ;; %pos%	; 2
 			      ,off-op
-			      ',type-spec ; 3
-			      ',unsigned  ; 4
-			      ',endianness ; 5
+			      ',type-spec	       ; 3
+			      ',unsigned	       ; 4
+			      ',endianness	       ; 5
 			      ',(list mod-op mod-args) ; 6; Unused FTTB.
-			      ',len	   ; 7
+			      ',len		       ; 7
 			      ,off-op
 			      )
     ))
@@ -1372,7 +1383,7 @@ house-keeping code."
   (declare (indent 4))
 
   `(let* ((%saved-end-pos% %end-pos%)
-	  (--magiciel-test-result nil)
+	  ;; (--magiciel-test-result nil)
 	  )
      (magiciel--msg 1 "running check; %S (pos: %s)" ,tag %pos%)
      (magiciel--msg 1 "access: %S" ',access)
@@ -1383,7 +1394,15 @@ house-keeping code."
 	      `(let ((--magiciel-value ,access))
 		 (setq --magiciel-test-result ,test)
 		 (magiciel--msg 1 "accessed value: %S." --magiciel-value)
+		 (when (numberp --magiciel-value)
+		   (magiciel--msg 1 "accessed num value: %s (%x %o)."
+				  --magiciel-value
+				  --magiciel-value
+				  --magiciel-value
+				  )
+		   )
 
+		 (magiciel--msg 1 "--magiciel-msg = '%s'" --magiciel-msg)
 		 (magiciel--msg 1 (if --magiciel-test-result
 				      "check succeded."
 				    "check failed."))
@@ -1404,6 +1423,7 @@ house-keeping code."
 	    
 	    `(progn
 	       (setq --magiciel-test-result ,test)
+	       (magiciel--msg 1 "--magiciel-msg = '%s'" --magiciel-msg)
 	       (magiciel--msg 1 (if --magiciel-test-result
 				    "check succeded."
 				  "check failed."))
@@ -1422,6 +1442,7 @@ house-keeping code."
 		  	   )))
 		 ))
 	    )
+       (magiciel--msg 1 "test result  %s." --magiciel-test-result)
        (unless --magiciel-test-result
 	 (setq %end-pos% %saved-end-pos%)))
      )
@@ -1466,11 +1487,15 @@ VAL is the expression constructing the value accessed (defaulting to
 		   `(format ,msg1 ,val)
 		 msg1))
 	 )
-    `(setf --magiciel-msg
-	   (concat --magiciel-msg ,msg)
+    `(progn
+       (setf --magiciel-msg
+	     (concat --magiciel-msg ,msg)
 
-	   %end-pos%
-	   (+ ,start-pos ,displ))
+	     %end-pos%
+	     (+ ,start-pos ,displ))
+       (magiciel--msg 1 "stored --magiciel-test-result = %s" --magiciel-test-result)
+       (magiciel--msg 1 "stored --magiciel-msg = '%s'" --magiciel-msg)
+       )
     )
   )
 
@@ -1508,9 +1533,9 @@ VAL is the expression constructing the value accessed (defaulting to
 ;; "used" function (the `name-label') returns the "displacement" and
 ;; the "message" if produced.
 
-(cl-defmacro magiciel--$use (name-label &optional invert)
+(cl-defmacro magiciel--$use (name-label pos context &optional invert)
   `(cl-multiple-value-bind (%msg% %p% %ep%)
-       (,name-label %bytes% %pos% %end-pos% %context% ,invert)
+       (,name-label %bytes% ,pos %end-pos% ,context ,invert)
 
      (ignore %p%)
      ;; I cannot use `magiciel--$store-access-result' because of the
@@ -1790,7 +1815,10 @@ test and that is used for \"continuation\" offsets."
 			 use-name))
 
     (if name-label
-	(let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
+	(let ((pos
+	       ;; (if (magiciel--offset-cont offset) '%end-pos% '%pos%)
+	       (magiciel--compile-offset offset)
+	       )
 	      (label-name (cdr name-label))
 	      (use-block-name (intern (concat (cl-second test) "-use-block")))
 	      )
@@ -1807,7 +1835,10 @@ test and that is used for \"continuation\" offsets."
 	  ;;    (magiciel--$store-access-result ,result ,pos)
 	  ;;    )
 	  `(cl-block ,use-block-name
-	     (magiciel--$use ,label-name ,invert-endianness)
+	     (magiciel--$use ,label-name
+			     (+ %pos% ,pos)
+			     '%context%
+			     ,invert-endianness)
 	     ;; (magiciel--$acc-msg-disp ,result)
 	     (magiciel--$store-access-result ,result ,pos)
 	     )
@@ -2462,6 +2493,17 @@ specially.
 		  (magic-subgroup-block-name
 		   (intern (format "%s.%d" magic-group-block-name
 				   (1+ level))))
+
+		  (sub-tests-code
+		   (when sub-tests
+		     ;; Double list is necessary as this will be used
+		     ;; in a ',@' backquote.
+		     `((cl-block ,magic-subgroup-block-name
+			 ;; catch '%%exit-level%%
+			 ,@(cl-loop for sub-node in sub-tests
+				    append (emit-tree sub-node (1+ level))
+				    )))
+		     ))
                   )
 
 
@@ -2485,30 +2527,34 @@ specially.
 		)
 	       (t
 		(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
-		(if sub-tests
-                    `(,instr-root-code
-		      (cl-block ,magic-subgroup-block-name
-		       ;; catch '%%exit-level%%
-		       ,@(cl-loop for sub-node in sub-tests
-				  append (emit-tree sub-node (1+ level))
-				  ))
-                      )
-		  `(,instr-root-code)
+		(if (zerop level)
+		    `(,instr-root-code
+		      (unless --magiciel-test-result
+			;; Don't do subtests if this is false.
+			(throw '%%exit-level%%
+			       ;; The values of the `throw' may be
+			       ;; wrong. Or useless.
+			       (cl-values --magiciel-msg
+					  %pos%
+					  %end-pos%)))
+		      ,@sub-tests-code)
+		  `(,instr-root-code ,@sub-tests-code)		  
 		  ))
-	       )
-             ))
+	       )			; case
+             )
+	   )				; emit-tree
 
-         (emit-group-tree (instr-node)
+	 (emit-group-tree (instr-node)
 	   
-           ;; The `instr-node' is at level 0.
+	   ;; The `instr-node' is at level 0.
 	   ;; If we get a non-nil return code, we exit the top-level
 	   ;; function.
 	   
-           `(cl-block ,magic-group-block-name
+	   `(cl-block ,magic-group-block-name
 	      (magiciel--msg 1 "entering test %s." ',magic-group-block-name)
 	      
 	      ;; (cl-tagbody
-              ;;  ,@(cl-subst magic-group-exit-label
+	      ;;  ,@(cl-subst magic-group-exit-label
 	      ;; 		   '%%exit-label%%
 	      ;; 		   (emit-tree instr-node))
 	      ;;  ,magic-group-exit-label
@@ -2518,7 +2564,7 @@ specially.
 
 	      
 	      (catch '%%exit-level%%
-		,@(emit-tree instr-node))
+		,@(emit-tree instr-node 0))
 	      (when --magiciel-test-result
 		(cl-return-from
 		    ,magic-fname
@@ -2683,13 +2729,13 @@ specially.
 		       %end-pos%      ; Where the previous test ended.
 		       %context%      ; What we are looking for
 		       &optional
-		       (%invert-endiannes% nil) ; Do we invert endianness?
+		       (%invert-endianness% magiciel--*invert-endianness*)
+		       ;; Do we invert endianness?
 		       )
 		    (ignore %bytes%
 			    %pos%
 			    %end-pos%
 			    %context%
-			    %invert-endiannes%
 			    )
 
 		    ;; Ensure that the following variables are *dynamic*
@@ -2707,7 +2753,9 @@ specially.
 					     %end-pos%
 					     )
 		      ;; Probably pleonastic, but...
-		      ,(magiciel--group-func-code-body code)
+		      (let ((magiciel--*invert-endianness*
+			     %invert-endianness%))
+			,(magiciel--group-func-code-body code))
 		      )
 		    (cl-values --magiciel-msg
 			       %pos%	; This may not work.
