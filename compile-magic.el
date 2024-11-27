@@ -1310,6 +1310,21 @@ OFFSET     : a `magiciel--offset'."
      ,@forms))
 
 
+;; magiciel--$dump-state
+;; Debugging macro.
+
+(cl-defmacro magiciel--$dump-state (tag &optional (level magiciel--*debug-level*))
+  `(progn
+     (magiciel--msg ,level "tag         %S" ,tag)
+     (magiciel--msg ,level "pos         %s" %pos%)
+     (magiciel--msg ,level "end pos     %s" %end-pos%)
+     (magiciel--msg ,level "context     %s" %context%)
+     (magiciel--msg ,level "test-result %s" --magiciel-test-result)
+     (magiciel--msg ,level "value       %S" --magiciel-value)
+     (magiciel--msg ,level "disp        %S" --magiciel-disp)
+     (magiciel--msg ,level "msg         %S\n" --magiciel-msg)
+     ))
+
 
 ;; magiciel--$check
 ;; Sets up and track the %pos% and %end-pos% variables (FTTB).
@@ -1364,6 +1379,94 @@ OFFSET     : a `magiciel--offset'."
 
 ;; New Version
 
+;; (cl-defmacro magiciel--$check (tag
+;; 			       access
+;; 			       test
+;; 			       ;; test-false-throw-label
+;; 			       test-level
+;; 			       &body continue-tests)
+;;   "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
+
+;; The variable ACCESS contains an expression that represents how
+;; the code will get the value to be tested by TEST (if any).
+;; CONTINUE-TESTS contains the code for the \"next\" tests (and
+;; other code as well; usually the first expression of
+;; CONTINUE-TESTS will be a setting of the variable `%end-pos%` (the
+;; \"end\" of the value previously matched), followed by other
+;; house-keeping code."
+
+;;   (declare (indent 4))
+
+;;   `(let* ((%saved-end-pos% %end-pos%)
+;; 	  ;; (--magiciel-test-result nil)
+;; 	  )
+;;      (magiciel--msg 1 "running check; %S (pos: %s)" ,tag %pos%)
+;;      (magiciel--msg 1 "access: %S" ',access)
+;;      (magiciel--msg 1 "test: %S (end pos: %d)." ',test %end-pos%)
+;;      (unwind-protect
+;; 	 ,(if access
+	      
+;; 	      `(let ((--magiciel-value ,access))
+;; 		 (setq --magiciel-test-result ,test)
+;; 		 (magiciel--msg 1 "accessed value: %S." --magiciel-value)
+;; 		 (if (numberp --magiciel-value)
+;; 		     (magiciel--msg 1 "accessed num value: %s (%x %o)."
+;; 				    --magiciel-value
+;; 				    --magiciel-value
+;; 				    --magiciel-value
+;; 				    )
+;; 		   (magiciel--msg 1 "accessed value: %S." --magiciel-value)
+;; 		   )
+
+;; 		 (magiciel--msg 1 "--magiciel-msg = '%s'" --magiciel-msg)
+;; 		 (magiciel--msg 1 (if --magiciel-test-result
+;; 				      "check succeded."
+;; 				    "check failed."))
+;; 		 (magiciel--msg 1 "")
+;; 		 (if --magiciel-test-result
+;; 		     (progn ,@continue-tests)
+;; 		   ;; (go ,test-false-throw-label)
+;; 		   (when (zerop ,test-level)
+;; 		     (magiciel--msg 1 "throwing to level 0 exit from '%s'." ,tag)
+;; 		     (magiciel--msg 1 "")
+;; 		     (throw '%%exit-level%%
+;; 		    	    (cl-values
+;; 		    	     --magiciel-msg
+;; 			     --magiciel-disp
+;; 			     --magiciel-test-result ; This should be `nil'.
+;; 		    	     )))
+;; 		   ))
+	    
+;; 	    `(progn
+;; 	       (setq --magiciel-test-result ,test)
+;; 	       (magiciel--msg 1 "--magiciel-msg = '%s'" --magiciel-msg)
+;; 	       (magiciel--msg 1 (if --magiciel-test-result
+;; 				    "check succeded."
+;; 				  "check failed."))
+;; 	       (magiciel--msg 1 "")
+;; 	       (if --magiciel-test-result
+;; 		   (progn ,@continue-tests)
+;; 		 ;; (go ,test-false-throw-label)
+;; 		 (when (zerop ,test-level)
+;; 		   (magiciel--msg 1 "throwing to level 0 exit from '%s'." ',tag)
+;; 		   (magiciel--msg 1 "")
+;; 		   (throw '%%exit-level%%
+;; 		  	  (cl-values
+;; 		  	   --magiciel-msg
+;; 		  	   --magiciel-disp
+;; 		  	   --magiciel-test-result ; This will be `nil'.
+;; 		  	   )))
+;; 		 ))
+;; 	    )
+;;        (magiciel--msg 1 "test result %S." --magiciel-test-result)
+;;        (unless --magiciel-test-result
+;; 	 (setq %end-pos% %saved-end-pos%)))
+;;      )
+;;   )
+
+;; New, new version, much simplified.
+;; The "exit" at level zero is handled only at level zero.
+
 (cl-defmacro magiciel--$check (tag
 			       access
 			       test
@@ -1382,24 +1485,28 @@ house-keeping code."
 
   (declare (indent 4))
 
-  `(let* ((%saved-end-pos% %end-pos%)
+  `(let* ((%saved-end-pos% %end-pos%)  ; Need to save more state.
 	  ;; (--magiciel-test-result nil)
 	  )
      (magiciel--msg 1 "running check; %S (pos: %s)" ,tag %pos%)
      (magiciel--msg 1 "access: %S" ',access)
      (magiciel--msg 1 "test: %S (end pos: %d)." ',test %end-pos%)
      (unwind-protect
+	 ;; I produce slightly different code depending on the
+	 ;; `access' expression.
+	 
 	 ,(if access
 	      
 	      `(let ((--magiciel-value ,access))
 		 (setq --magiciel-test-result ,test)
 		 (magiciel--msg 1 "accessed value: %S." --magiciel-value)
-		 (when (numberp --magiciel-value)
-		   (magiciel--msg 1 "accessed num value: %s (%x %o)."
-				  --magiciel-value
-				  --magiciel-value
-				  --magiciel-value
-				  )
+		 (if (numberp --magiciel-value)
+		     (magiciel--msg 1 "accessed num value: %s (%x %o)."
+				    --magiciel-value
+				    --magiciel-value
+				    --magiciel-value
+				    )
+		   (magiciel--msg 1 "accessed value: %S." --magiciel-value)
 		   )
 
 		 (magiciel--msg 1 "--magiciel-msg = '%s'" --magiciel-msg)
@@ -1407,19 +1514,13 @@ house-keeping code."
 				      "check succeded."
 				    "check failed."))
 		 (magiciel--msg 1 "")
-		 (if --magiciel-test-result
-		     ,@continue-tests
-		   ;; (go ,test-false-throw-label)
-		   (when (zerop ,test-level)
-		     (magiciel--msg 1 "throwing to level 0 exit from '%s'." ,tag)
-		     (magiciel--msg 1 "")
-		     (throw '%%exit-level%%
-		    	    (cl-values
-		    	     --magiciel-msg
-			     --magiciel-disp
-			     --magiciel-test-result ; This should be `nil'.
-		    	     )))
-		   ))
+		 (when --magiciel-test-result
+		     ;; `continue-tests' contains all the "next" code
+		     ;; and the next tests at level N+1.  Cf., the
+		     ;; overall tree code construction below.
+		   ,@continue-tests
+		   )
+		 )
 	    
 	    `(progn
 	       (setq --magiciel-test-result ,test)
@@ -1428,21 +1529,12 @@ house-keeping code."
 				    "check succeded."
 				  "check failed."))
 	       (magiciel--msg 1 "")
-	       (if --magiciel-test-result
-		   ,@continue-tests
-		 ;; (go ,test-false-throw-label)
-		 (when (zerop ,test-level)
-		   (magiciel--msg 1 "throwing to level 0 exit from '%s'." ',tag)
-		   (magiciel--msg 1 "")
-		   (throw '%%exit-level%%
-		  	  (cl-values
-		  	   --magiciel-msg
-		  	   --magiciel-disp
-		  	   --magiciel-test-result ; This will be `nil'.
-		  	   )))
+	       (when --magiciel-test-result
+		 ;; See comment above for `continue-tests'.
+		 ,@continue-tests
 		 ))
 	    )
-       (magiciel--msg 1 "test result  %s." --magiciel-test-result)
+       (magiciel--msg 1 "test result %S." --magiciel-test-result)
        (unless --magiciel-test-result
 	 (setq %end-pos% %saved-end-pos%)))
      )
@@ -1687,7 +1779,8 @@ test and that is used for \"continuation\" offsets."
     (magiciel--msg 1 "%s" inst)
     
     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
-	  (tag (intern (format "%s-%s" kind value)))
+	  ;; (tag (intern (format "%s-%s" kind value)))
+	  (tag (intern (format "%s-%s-%s" kind test value)))
 	  (test (if (or (eql value 'x)
 			 (and (stringp value)
 			      (or (string-equal value "x")
@@ -1748,7 +1841,7 @@ test and that is used for \"continuation\" offsets."
 
     (ignore level)
     
-    `(magiciel--$noop ',(cl-second test) ',(cl-third test) ',result)
+    `(cl-block nil (magiciel--$noop ',(cl-second test) ',(cl-third test) ',result))
     )
   )
 
@@ -1837,7 +1930,7 @@ test and that is used for \"continuation\" offsets."
 	  `(cl-block ,use-block-name
 	     (magiciel--$use ,label-name
 			     (+ %pos% ,pos)
-			     '%context%
+			     %context%
 			     ,invert-endianness)
 	     ;; (magiciel--$acc-msg-disp ,result)
 	     (magiciel--$store-access-result ,result ,pos)
@@ -2494,18 +2587,22 @@ specially.
 		   (intern (format "%s.%d" magic-group-block-name
 				   (1+ level))))
 
+		  ;; (sub-tests-code
+		  ;;  (when sub-tests
+		  ;;    ;; Double list is necessary as this will be used
+		  ;;    ;; in a ',@' backquote.
+		  ;;    `((cl-block ,magic-subgroup-block-name
+		  ;; 	 ;; catch '%%exit-level%%
+		  ;; 	 ,@(cl-loop for sub-node in sub-tests
+		  ;; 		    append (emit-tree sub-node (1+ level))
+		  ;; 		    )))
+		  ;;    ))
 		  (sub-tests-code
 		   (when sub-tests
-		     ;; Double list is necessary as this will be used
-		     ;; in a ',@' backquote.
-		     `((cl-block ,magic-subgroup-block-name
-			 ;; catch '%%exit-level%%
-			 ,@(cl-loop for sub-node in sub-tests
-				    append (emit-tree sub-node (1+ level))
-				    )))
-		     ))
-                  )
-
+		     (cl-loop for sub-node in sub-tests
+			      append (emit-tree sub-node (1+ level))
+			      )))
+		  )
 
 	     (cl-case (cl-first instr-root-code)
 
@@ -2525,20 +2622,37 @@ specially.
 				 collect (emit-tree sub-node (1+ level)))
 			)
 		)
+	       ;; (t
+	       ;; 	(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
+	       ;; 	(if (zerop level)
+	       ;; 	    `(,instr-root-code
+	       ;; 	      (unless --magiciel-test-result
+	       ;; 		;; Don't do subtests if this is false.
+	       ;; 		(throw '%%exit-level%%
+	       ;; 		       ;; The values of the `throw' may be
+	       ;; 		       ;; wrong. Or useless.
+	       ;; 		       (cl-values --magiciel-msg
+	       ;; 				  %pos%
+	       ;; 				  %end-pos%)))
+	       ;; 	      ,@sub-tests-code)
+	       ;; 	  `(,instr-root-code ,@sub-tests-code)		  
+	       ;; 	  ))
 	       (t
 		(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
 		(if (zerop level)
-		    `(,instr-root-code
-		      (unless --magiciel-test-result
-			;; Don't do subtests if this is false.
-			(throw '%%exit-level%%
-			       ;; The values of the `throw' may be
-			       ;; wrong. Or useless.
-			       (cl-values --magiciel-msg
-					  %pos%
-					  %end-pos%)))
-		      ,@sub-tests-code)
-		  `(,instr-root-code ,@sub-tests-code)		  
+		    (list
+		     (append instr-root-code
+			    `((unless --magiciel-test-result
+			       ;; Don't do subtests if this is false.
+			       (throw '%%exit-level%%
+				      ;; The values of the `throw' may be
+				      ;; wrong. Or useless.
+				      (cl-values --magiciel-msg
+						 %pos%
+						 %end-pos%
+						 )))
+			      ,@sub-tests-code)))
+		  (list (append instr-root-code sub-tests-code))
 		  ))
 	       )			; case
              )
@@ -2567,8 +2681,8 @@ specially.
 		,@(emit-tree instr-node 0))
 	      (when --magiciel-test-result
 		(cl-return-from
-		    ,magic-fname
-		  ;; ,magic-group-block-name
+		    ;;,magic-fname
+		    ,magic-group-block-name
 		  ;; (cl-values --magiciel-msg --magiciel-disp)
 		  (cl-values --magiciel-msg %pos% %end-pos%)
 		  ))
@@ -2661,12 +2775,10 @@ specially.
 	 ;; YMMV, etc. etc.
 
 	 (name (magiciel--magic-name magic))
-	 
 	 (magic-fname (magiciel--magic-fname magic))
 
 	 (group-fns ())
 	 (groups-named ())
-
 	 (groups-names-env ())
 	 )
 
@@ -2747,6 +2859,8 @@ specially.
 		    (defvar --magiciel-msg)
 		    (defvar --magiciel-disp)
 		    (defvar %end-pos%)
+
+		    (magiciel--$dump-state ',named-name)
 		    
 		    (cl-multiple-value-setq (--magiciel-msg
 					     %pos% ; This may not work.
@@ -2757,6 +2871,7 @@ specially.
 			     %invert-endianness%))
 			,(magiciel--group-func-code-body code))
 		      )
+		    (magiciel--$dump-state ',named-name)
 		    (cl-values --magiciel-msg
 			       %pos%	; This may not work.
 			       %end-pos%
@@ -2810,9 +2925,13 @@ specially.
 				  "trying test '%s'..."
 				  ',name
 				  )
+
+		   (magiciel--$dump-state ',magic-fname)
 		   
                    ,magic-fun-body
 		   ;; (cl-values --magiciel-msg %pos% %end-pos%)
+
+		   (magiciel--$dump-state ',magic-fname)
 		   --magiciel-msg
 		   )
 		 ))
