@@ -209,16 +209,23 @@ Notes:
 
 This function is needed to dynamically account for the \"use\"
 specification."
-  (cl-ecase endianness
-    ((:> :be) (if magiciel--*invert-endianness* :le :be))
-    ((:< :le) (if magiciel--*invert-endianness* :be :le))
-    ((:m :me) :me)
-    ))
+  (defvar magiciel--*invert-endianness*)
+
+  (let ((e
+	 (cl-ecase endianness
+	   ((:> :be) (if magiciel--*invert-endianness* :le :be))
+	   ((:< :le) (if magiciel--*invert-endianness* :be :le))
+	   ((:m :me) :me)
+	   ))
+	)
+    (magiciel--msg 1 "using endianness %s (was %s)" e endianness) 
+    e))
 
 
 ;; magiciel--get-value-at*
 ;; Kitchen sink function.
 ;; Eventually low level access will be compiled.
+
 
 (cl-defun magiciel--get-value-at* (bytes ; 1
 				   pos	 ; 2
