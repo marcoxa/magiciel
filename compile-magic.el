@@ -1005,7 +1005,8 @@ OFFSET     : a `magiciel--offset'."
       (magiciel--integer-type-spec
        `(magiciel--get-value-at* %bytes% ; 1
 				 ;; ,pos-expr	; 2
-				 ,off-op
+				 ;; ,off-op
+				 (+ %pos% ,off-op)
 				 ',type-spec	; 3
 				 ',unsigned	; 4
 				 ',endianness	; 5
@@ -1039,7 +1040,8 @@ OFFSET     : a `magiciel--offset'."
     
     `(magiciel--get-value-at* %bytes%	; 1
 			      ;; %pos%	; 2
-			      ,off-op
+			      ;; ,off-op
+			      (+ %pos% ,off-op)
 			      ',type-spec	       ; 3
 			      ',unsigned	       ; 4
 			      ',endianness	       ; 5
@@ -1067,7 +1069,8 @@ OFFSET     : a `magiciel--offset'."
     
     `(magiciel--get-value-at* %bytes%	; 1
 			      ;; %pos%	; 2
-			      ,off-op
+			      ;; ,off-op
+			      (+ %pos% ,off-op)
 			      ',type-spec ; 3
 			      ',unsigned  ; 4
 			      ',endianness ; 5
@@ -1638,7 +1641,12 @@ VAL is the expression constructing the value accessed (defaulting to
      (magiciel--msg 1 "$use %S with pos %s, context %s, invert end %s."
 		    ',name-label ,pos ,context ,invert)
      (cl-multiple-value-bind (%msg% %p% %ep%)
-	 (,name-label %bytes% ,pos %end-pos% ,context ,invert)
+	 (,name-label %bytes%
+		      ,pos
+		      %end-pos%
+		      ,context
+		      ;; ,invert
+		      )
 
        (ignore %p%)
        ;; I cannot use `magiciel--$store-access-result' because of the
@@ -1938,17 +1946,27 @@ test and that is used for \"continuation\" offsets."
 	  ;;    ;; (magiciel--$acc-msg-disp ,result)
 	  ;;    (magiciel--$store-access-result ,result ,pos)
 	  ;;    )
-	  `(cl-block ,use-block-name
-	     (magiciel--$use ,label-name
-			     (+ %pos% ,pos)
-			     %context%
-			     ,(or invert-endianness magiciel--*invert-endianness*)
-			     )
-	     
-	     ;; (magiciel--$acc-msg-disp ,result)
-	     (magiciel--$store-access-result ,result ,pos)
-	     )
-	  )
+	  (if invert-endianness
+	      ;; Wrap the call to the $use instuction in a proper `let'.
+	      `(cl-block ,use-block-name
+		 (let ((magiciel--*invert-endianness* t))
+		   (magiciel--$use ,label-name
+				   (+ %pos% ,pos)
+				   %context%
+				   ;; ,(or invert-endianness magiciel--*invert-endianness*)
+				   ))
+		 (magiciel--$store-access-result ,result ,pos)
+		 )
+	    ;; ... else, do nothing.
+	    `(cl-block ,use-block-name
+	       (magiciel--$use ,label-name
+			       (+ %pos% ,pos)
+			       %context%
+			       ;; ,(or invert-endianness magiciel--*invert-endianness*)
+			       )
+	       (magiciel--$store-access-result ,result ,pos)
+	       )
+	    ))
       `(progn nil))
     ))
 
@@ -2884,9 +2902,16 @@ specially.
 					     %end-pos%
 					     )
 		      ;; Probably pleonastic, but...
-		      (let ((magiciel--*invert-endianness*
-			     %invert-endianness%))
-			(defvar magiciel--*invert-endianness*)
+		      ;; (let ((magiciel--*invert-endianness*
+		      ;; 	     %invert-endianness%))
+		      ;; 	(defvar magiciel--*invert-endianness*)
+		      ;; 	(magiciel--msg 1 "in %s invert arg %s; invert param %s."
+		      ;; 		       ',named-name
+		      ;; 		       %invert-endianness%
+		      ;; 		       magiciel--*invert-endianness*)
+		      ;; 	,(magiciel--group-func-code-body code))
+
+		      (progn
 			(magiciel--msg 1 "in %s invert arg %s; invert param %s."
 				       ',named-name
 				       %invert-endianness%
