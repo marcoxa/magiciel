@@ -118,3 +118,14 @@ accommodate this, but I am pretty sure things will not be go smootly
 down the road.
 
 
+## 2024-11-28
+
+Fixed endianness inversion in `use` specifications and fixed
+(hopefully) the control flow for top-level (0-level) specifications.
+
+As second, missing step, all accesses are now relativized to `%pos%`
+in order to make sure that the accesses in `use` clauses are correct.
+
+Still missing: a review of all the offset calculations to correctly
+remember `%end-pos%` in `magiciel--$store-access-result`.
+
