@@ -44,6 +44,10 @@
 ;; Luckily there is a BNF spec in the main "file" repository.
 ;;
 ;; Oh, well!
+;;
+;; 2024-11-29:
+;; Notes were moved in the NOTES.md file some time ago; please check
+;; that file for updated comments about the `magiciel'  development.
 
 
 ;;; Code:
@@ -904,9 +908,9 @@ name of a lower level code block."))
 
 (cl-defun magiciel--compile-test-value (test-value type-spec)
   (cond ((or (string-equal test-value "x")
-	     (string-equal test-value "X"))
-					; Yes I know about
-					; `string-equal-ignore-case'.
+	     (string-equal test-value "X")
+	     ;; Yes I know about `string-equal-ignore-case'.
+	     )
 	 ;; This is to be treated specially.
 	 ;; Hopefully the logic is ok.
 	 test-value
