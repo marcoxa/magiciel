@@ -1322,6 +1322,7 @@ OFFSET     : a `magiciel--offset'."
      (magiciel--msg ,level "test-result %s" --magiciel-test-result)
      (magiciel--msg ,level "value       %S" --magiciel-value)
      (magiciel--msg ,level "disp        %S" --magiciel-disp)
+     (magiciel--msg ,level "inv endian  %s" magiciel--*invert-endianness*)
      (magiciel--msg ,level "msg         %S\n" --magiciel-msg)
      ))
 
@@ -1598,6 +1599,13 @@ VAL is the expression constructing the value accessed (defaulting to
      t))
 
 
+(cl-defmacro magiciel--$name (&rest args)
+  `(progn
+     (ignore ',args)
+     (setf --magiciel-test-result t))	; This setting is implied by the spec.
+  )
+
+
 (cl-defmacro magiciel--$in-context-p (c)
   `(eq %context% ,c))
 
@@ -1626,18 +1634,21 @@ VAL is the expression constructing the value accessed (defaulting to
 ;; the "message" if produced.
 
 (cl-defmacro magiciel--$use (name-label pos context &optional invert)
-  `(cl-multiple-value-bind (%msg% %p% %ep%)
-       (,name-label %bytes% ,pos %end-pos% ,context ,invert)
+  `(progn
+     (magiciel--msg 1 "$use %S with pos %s, context %s, invert end %s."
+		    ',name-label ,pos ,context ,invert)
+     (cl-multiple-value-bind (%msg% %p% %ep%)
+	 (,name-label %bytes% ,pos %end-pos% ,context ,invert)
 
-     (ignore %p%)
-     ;; I cannot use `magiciel--$store-access-result' because of the
-     ;; macro-expansion time processing of the first argument.
-     ;; Therefore I just deal with `%disp%' and `%message' directly.
-     ;;
-     ;; (magiciel--$store-access-result %message% '%pos% %disp%)
-     (setf --magiciel-msg %msg%
-	   %end-pos% %ep%)
-     )
+       (ignore %p%)
+       ;; I cannot use `magiciel--$store-access-result' because of the
+       ;; macro-expansion time processing of the first argument.
+       ;; Therefore I just deal with `%disp%' and `%message' directly.
+       ;;
+       ;; (magiciel--$store-access-result %message% '%pos% %disp%)
+       (setf --magiciel-msg %msg%
+	     %end-pos% %ep%)
+       ))
   )
 
 
@@ -1841,7 +1852,7 @@ test and that is used for \"continuation\" offsets."
 
     (ignore level)
     
-    `(cl-block nil (magiciel--$noop ',(cl-second test) ',(cl-third test) ',result))
+    `(cl-block nil (magiciel--$name ',(cl-second test) ',(cl-third test) ',result))
     )
   )
 
@@ -1931,7 +1942,9 @@ test and that is used for \"continuation\" offsets."
 	     (magiciel--$use ,label-name
 			     (+ %pos% ,pos)
 			     %context%
-			     ,invert-endianness)
+			     ,(or invert-endianness magiciel--*invert-endianness*)
+			     )
+	     
 	     ;; (magiciel--$acc-msg-disp ,result)
 	     (magiciel--$store-access-result ,result ,pos)
 	     )
@@ -2642,15 +2655,16 @@ specially.
 		(if (zerop level)
 		    (list
 		     (append instr-root-code
-			    `((unless --magiciel-test-result
-			       ;; Don't do subtests if this is false.
-			       (throw '%%exit-level%%
-				      ;; The values of the `throw' may be
-				      ;; wrong. Or useless.
-				      (cl-values --magiciel-msg
-						 %pos%
-						 %end-pos%
-						 )))
+			    `((if (not --magiciel-test-result)
+				  ;; Don't do subtests if this is false.
+				  (throw '%%exit-level%%
+					 ;; The values of the `throw' may be
+					 ;; wrong. Or useless.
+					 (cl-values --magiciel-msg
+						    %pos%
+						    %end-pos%
+						    ))
+				(setq magiciel--level-0-result t))
 			      ,@sub-tests-code)))
 		  (list (append instr-root-code sub-tests-code))
 		  ))
@@ -2664,29 +2678,31 @@ specially.
 	   ;; If we get a non-nil return code, we exit the top-level
 	   ;; function.
 	   
-	   `(cl-block ,magic-group-block-name
-	      (magiciel--msg 1 "entering test %s." ',magic-group-block-name)
+	   `(let ((magiciel--level-0-result nil))
+	      (cl-block ,magic-group-block-name
+		(magiciel--msg 1 "entering test %s." ',magic-group-block-name)
 	      
-	      ;; (cl-tagbody
-	      ;;  ,@(cl-subst magic-group-exit-label
-	      ;; 		   '%%exit-label%%
-	      ;; 		   (emit-tree instr-node))
-	      ;;  ,magic-group-exit-label
-	      ;;  ,exit-code
-	      ;;  ,magic-group-continue-label
-	      ;;  )
+		;; (cl-tagbody
+		;;  ,@(cl-subst magic-group-exit-label
+		;; 		   '%%exit-label%%
+		;; 		   (emit-tree instr-node))
+		;;  ,magic-group-exit-label
+		;;  ,exit-code
+		;;  ,magic-group-continue-label
+		;;  )
 
 	      
-	      (catch '%%exit-level%%
-		,@(emit-tree instr-node 0))
-	      (when --magiciel-test-result
-		(cl-return-from
-		    ;;,magic-fname
-		    ,magic-group-block-name
-		  ;; (cl-values --magiciel-msg --magiciel-disp)
-		  (cl-values --magiciel-msg %pos% %end-pos%)
-		  ))
-	      ))
+		(catch '%%exit-level%%
+		  ,@(emit-tree instr-node 0))
+		(when ;; --magiciel-test-result
+		    magiciel--level-0-result
+		  (cl-return-from
+		      ,magic-fname
+		    ;; ,magic-group-block-name
+		    ;; (cl-values --magiciel-msg --magiciel-disp)
+		    (cl-values --magiciel-msg %pos% %end-pos%)
+		    ))
+		)))
 	 )				; labels
       
       (magiciel--make-group-func-code magic-group-fname
@@ -2853,7 +2869,8 @@ specially.
 		    ;; Ensure that the following variables are *dynamic*
 		    ;; (I should also change the naming convention to the
 		    ;; usual earmuff one)
-		    
+
+		    (defvar magiciel--*invert-endianness*)
 		    (defvar --magiciel-value)
 		    (defvar --magiciel-test-result)
 		    (defvar --magiciel-msg)
@@ -2869,6 +2886,11 @@ specially.
 		      ;; Probably pleonastic, but...
 		      (let ((magiciel--*invert-endianness*
 			     %invert-endianness%))
+			(defvar magiciel--*invert-endianness*)
+			(magiciel--msg 1 "in %s invert arg %s; invert param %s."
+				       ',named-name
+				       %invert-endianness%
+				       magiciel--*invert-endianness*)
 			,(magiciel--group-func-code-body code))
 		      )
 		    (magiciel--$dump-state ',named-name)
@@ -2898,6 +2920,7 @@ specially.
 		 ;; (I should also change the naming convention to the
 		 ;; usual earmuff one)
 
+		 (defvar magiciel--*invert-endianness*)
 		 (defvar --magiciel-value)
 		 (defvar --magiciel-test-result)
 		 (defvar --magiciel-msg)
