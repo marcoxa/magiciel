@@ -7,11 +7,15 @@
 ;;
 ;; Author: Marco Antoniotti <marcoxa [at] gmail.com>
 ;;
+;; Maintainer: Marco Antoniotti <marcoxa [at] gmail.com>
+;;
+;; Summary: Determine the content of a file (as per the `file' command).
+;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2024-05-16
+;; Version: 2024-11-29
 ;;
-;; Keywords: languages, operating systems.
+;; Keywords: languages, operating systems, file systems.
 
 ;;; Commentary:
 ;;
@@ -20,13 +24,15 @@
 
 ;;; Code:
 
-(define-package "MAGICIEL" "2024-05-16"
+(define-package "MAGICIEL" "2024-11-29"
   "The Magiciel package.
 
 The Magiciel package is an Emacs Lisp (no C! Or -- argh --
-Python! Not even Rust!  Sorry, Julia) collection of functions and
+Python! Not even Rust! Sorry, Julia) collection of functions and
 tools to handle file content and type guessing in the spirit of
 the UN*X facilities 'file' and 'magic'."
+
+  (bitpack "20230417.2032")
   )
 
 

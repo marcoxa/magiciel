@@ -2,7 +2,20 @@
 ;;; magiciel --- Guessing the content of a file in as simple as possible way.
 
 ;;; magiciel.el
-
+;;
+;; See the file COPYING license and copyright information.
+;;
+;; Author: Marco Antoniotti <marcoxa [at] gmail.com>
+;;
+;; Maintainer: Marco Antoniotti <marcoxa [at] gmail.com>
+;;
+;; Summary: Determine the content of a file (as per the `file' command).
+;;
+;; Created: 2024-02-14
+;;
+;; Version: 2024-11-29
+;;
+;; Keywords: languages, operating systems, file systems.
 
 ;;; Commentary:
 ;;
