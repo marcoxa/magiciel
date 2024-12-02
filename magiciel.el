@@ -1,7 +1,6 @@
 ;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
-;;; magiciel --- Guessing the content of a file in as simple as possible way.
-
-;;; magiciel.el
+;;;
+;;; magiciel.el --- Guessing the content of a file in the guise of `file' `magic'.
 ;;
 ;; See the file COPYING license and copyright information.
 ;;
@@ -13,7 +12,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2024-11-29
+;; Version: 2024-11-30
 ;;
 ;; Keywords: languages, operating systems, file systems.
 
@@ -43,7 +42,9 @@
   "Controls whether to recompile the source folder or not.")
 
 
-;; (load (expand-file-name "magiciel-pkg" magiciel-path)) 
+;; This seems "obsoleted" in Emacs 29.1.
+;;
+;; (load (expand-file-name "magiciel-pkg" magiciel-path))
 
 ;; (load (expand-file-name "magiciel-constants" magiciel-path)) ; This is pleonastic.
 
