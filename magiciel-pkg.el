@@ -32,7 +32,7 @@ Python! Not even Rust! Sorry, Julia) collection of functions and
 tools to handle file content and type guessing in the spirit of
 the UN*X facilities 'file' and 'magic'."
 
-  (bitpack "20230417.2032")
+  ((bitpack "20230417.2032"))
   )
 
 
