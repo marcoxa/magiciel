@@ -21,6 +21,14 @@
 
 
 (cl-defstruct (magiciel-file-info)
+  "The File Info Structure
+
+This structure contains information about a file being checked.
+
+Notes:
+
+Not completely used."
+  
   (filename "" :type string)
   (extension nil)
   (content-type "application/octet-stream")
@@ -34,17 +42,16 @@
 
 
 (defun magiciel--guess-with-file-cmd (filename)
-  "Given a `filename' calls the \"file (1)\" UN*X command.
+  "Given a FILENAME, call the \"file (1)\" UN*X command.
 
-The function takes a `filename' (string) with extension (if any),
+The function takes a FILENAME (string) with extension (if any),
 expands it with `expand-file-name' and calls \"file (1)\" by means of
 `call-process-shell-command' with switches -I, -E, and -b.  If the
 command is succesful then a string containing a MIME type and a
 charset is returned, otherwise, a list (`status` `error string`) is
 returned.
 
-The function fails with a condition if called on a non UN*X system.
-"
+The function fails with a condition if called on a non UN*X system."
 
   (cl-assert (not (member system-type '(windows-nt ms-dos haiku))))
   
@@ -77,16 +84,26 @@ The function fails with a condition if called on a non UN*X system.
 (cl-defun magiciel--print-ext-mime-type-map (&optional
 					     (stream standard-output)
 					     (m magiciel--*ext-mime-type-map*))
+  "Print on STREAM the association between an extension and it MIME type.
+
+The associations are taken from M which defaults to
+`magiciel--*ext-mime-type-map*'.  STREAM defaults to
+`stadanrd-output'."
+  
   (cl-loop for e being the hash-key of m
 	   using (hash-value mt)
 	   do (princ (format "%S\t%S\n" e mt))))
 
 
 (defun magiciel--add-ext-mime-type (ext mime-type)
+  "Associate MIME-TYPE to EXT."
+  
   (setf (gethash ext magiciel--*ext-mime-type-map*) mime-type))
 
 
 (defun magiciel--get-mime-type-by-ext (ext)
+  "Get the MIME type associated to EXT."
+  
   (gethash ext magiciel--*ext-mime-type-map* "application/octet-stream"))
 
 
@@ -128,6 +145,8 @@ The function fails with a condition if called on a non UN*X system.
 
 
 (cl-defun magiciel--guess-by-file-ext (filename &optional (ext nil elp))
+  "Guess the MIME type of FILENAME by EXT (if supplied)."
+  
   (let ((extension (if elp ext (file-name-extension filename))))
     ;; On Windows we can try the registry.
 
@@ -144,6 +163,8 @@ The function fails with a condition if called on a non UN*X system.
 ;; magiciel-file-info
 	 
 (cl-defun magiciel-file-info (filename)
+  "Construct a `magiciel-file-info' instance, given FILENAME."
+  
   (let ((ext (file-name-extension filename)))
     (cl-flet
 	((call-file-cmd (filename ext)
@@ -209,6 +230,12 @@ The function fails with a condition if called on a non UN*X system.
 
 
 (cl-defun magiciel-data-info (byte-vector &optional (up-to 1))
+  "Guess the data information of BYTE-VECTOR, considering UP-TO bytes.
+
+Notes:
+
+This function is unnused and essentially a no-op, always returning
+\"application/octet-stream\"."
   
   (cl-assert (not (multibyte-string-p byte-vector)))
   (cl-assert (<= 1 up-to (length byte-vector)))
@@ -219,7 +246,21 @@ The function fails with a condition if called on a non UN*X system.
   )
 
 
-(cl-defgeneric magiciel-cast-spell (spell bytes &optional context))
+
+(cl-deftype magiciel--spell-context ()
+  '(member :normal !:normal !:ext !:mime))
+
+
+(cl-defgeneric magiciel-cast-spell (spell bytes &optional context)
+  "Invoke the type guessing machinery.
+
+Arguments and Values:
+
+SPELL : a designator for a guessing method, e.g., a symbol.
+BYTES : what to inspect.
+CONTEXT : a `magiciel--spell-context', i.e., what to look for (:normal
+          for regular checks, !:ext for extension, !:mime for MIME
+          type etc.")
 
 
 (cl-defun magiciel--get-bytes (filename)
@@ -235,8 +276,6 @@ This is an internal function, factored out just for debugging."
   )
 
 
-(cl-deftype magiciel--spell-context ()
-  '(member :normal !:normal !:ext !:mime))
 
   
 (cl-defun magiciel-divine (filename &optional (context :normal) (keep-going nil))
@@ -250,8 +289,10 @@ simple use of the UN*X `file' command; or CONTEXT can be `!:mime' in
 which case it will return the MIME type of the file (or
 \"application/octet-stream\" or \"data\" as last resort.  Finally,
 CONTEXT can be `!:ext', in which case the function will return the
-most likely extension for FILENAME, by querying the magic spells
-(i.e., not by looking at the filename extension).
+most likely extension for FILENAME, by querying the magic
+spells (i.e., not by looking at the filename extension).
+
+KEEP-GOING can be set to non NIL to produce all possible guesses.
 
 If called interactively, the command will default to `:normal'
 CONTEXT, unless invoked with a prefix (use the ?d choice for `:normal'
@@ -269,7 +310,7 @@ operation in that case)."
 		    (?m "mime type" "File guessed MIME type.")
 		    (?e "extension" "File usual extension."))))
 	      ?d))
-	 (k (when current-prefix-arg (y-or-n-p "Check all possibilities.")))
+	 (k (when current-prefix-arg (y-or-n-p "Check all possibilities?")))
 	 )
      
      (list f
@@ -285,13 +326,13 @@ operation in that case)."
 
   (unless (called-interactively-p 'interactive)
     (unless (file-exists-p filename)
-      (magiciel--error "file '%s' does not exists." filename))
+      (magiciel--error "File '%s' does not exists" filename))
 
     (when (file-directory-p filename)
-      (magiciel--error "name '%s' denotes a directory." filename))
+      (magiciel--error "Name '%s' denotes a directory" filename))
 
     (unless (file-readable-p filename)
-      (magiciel--error "file '%s' cannot be read." filename))
+      (magiciel--error "File '%s' cannot be read" filename))
 
     (cl-check-type context magiciel--spell-context)
     )
@@ -302,7 +343,7 @@ operation in that case)."
 	 (fs (magiciel--get-bytes fn))
 	 )
     (when (multibyte-string-p fs)
-      (magiciel--error "reading file '%s',\nbut results in a multibyte buffer."
+      (magiciel--error "Reading file '%s',\nbut results in a multibyte buffer"
 		       fn))
 
     (magiciel--msg 1 "")
@@ -359,6 +400,8 @@ operation in that case)."
 				   bytes
 				   &optional
 				   (context :normal))
+  "Invoke function SPELL on BYTES with CONTEXT to guess the content type."
+  
   (cl-check-type context magiciel--spell-context)
   (funcall spell bytes 0 context))
 
@@ -367,6 +410,7 @@ operation in that case)."
 				   bytes
 				   &optional
 				   (context :normal))
+  "Invoke function named SPELL on BYTES with CONTEXT to guess the content type."
   (cl-check-type context magiciel--spell-context)
   (funcall spell bytes 0 context))
 

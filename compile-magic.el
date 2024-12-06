@@ -60,26 +60,44 @@
 ;; Compilation functions.
 
 (cl-defgeneric magiciel--compile-record (r &key &allow-other-keys)
+  (:documentation "Compile a magiciel record R.")
   )
 
 (cl-defgeneric magiciel--compile-offset (offset)
+  (:documentation "Compile a magiciel offset OFFSET.")
   )
 
 (cl-defgeneric magiciel--compile-type (type)
+  (:documentation "Compile a magiciel type TYPE.")
   )
 
 (cl-defgeneric magiciel--compile-test (test)
+  (:documentation "Compile a magiciel test TEST.")
   )
 
 (cl-defgeneric magiciel--compile-message (message)
+  (:documentation "Compile a magiciel message MESSAGE.")
   )
 
 (cl-defgeneric magiciel--compile-instr
     (off-op type test result-msg &key &allow-other-keys)
+  (:documentation "Compile a magiciel instruction.
+
+OFF-OP is the offset specification, TEST, TYPE and RESULT-MESSAGE are
+the parts of a 'magic(5)' specification line.")
   )
 
 (cl-defgeneric magiciel--compile-access
     (type-spec offset unsigned endiennes mods len)
+  (:documentation
+   "Compile the expression that will access the value to be tested..
+
+TYPE-SPEC speficies the kind of access to be prepared.  OFFSET
+specifies wher to look for the value in the byte stream.  UNSIGNED
+tells the code whether the access should be made as unsigned or not.
+ENDIANNESS specifies what kind of endianness to expcet in the data
+stream.  MODS is list of 'modifiers'.  LEN tells the function how many
+bytes to read.")
   )
 
 
@@ -147,6 +165,7 @@ name of a lower level code block."))
 
 
 (cl-defmethod cl-print-object ((mi magiciel--instruction) stream)
+  "SPecialized `print-object` method for a `magiciel--instruction` MI on STREAM."
   (princ (format "#<MAGICIEL Instruction: [GL %d/%d] %s %S %s %s %s>"
 		 (magiciel--instruction-group mi)
 		 (magiciel--instruction-level mi)
@@ -166,7 +185,13 @@ name of a lower level code block."))
 				  &aux
 				  (mname
 				   (magiciel--magic-name magic)))
-  "Compiles a `magiciel-magic' structure."
+  "Compile the MAGIC `magiciel-magic' structure.
+
+STEPS for the time being controls where to stop in the compilation
+process.
+
+MNAME is a string containing the name of the 'magic(5)' structure to
+be compiled."
   
   (magiciel--msg 1 "compiling magic %S...\n" mname)
   
@@ -219,8 +244,8 @@ name of a lower level code block."))
 		   ((magiciel--magic-record-is-special r)
 		    (process-special-rec r (cl-rest recs) current-group))
 
-		   (t 
-		    (magiciel--error "unexpected record %S." r))
+		   (t
+		    (magiciel--error "Unexpected record %S" r))
 		   )
 	     )				; process-magic-records
 	     
@@ -284,11 +309,12 @@ name of a lower level code block."))
 
 ;; magiciel--select-op
 
-(cl-defgeneric magiciel--select-op (op type))
+(cl-defgeneric magiciel--select-op (op type)
+  (:documentation "Select the most appropriate operator given OP and TYPE."))
 
 
 (cl-defmethod magiciel--select-op ((op symbol) (type symbol))
-  ;; Kitchen sink (with a very large hole).
+  "Kitchen sink method for symbol OP and TYPE  (with a very large hole)."
 
   (ignore type)
   
@@ -300,6 +326,7 @@ name of a lower level code block."))
 ;; The next one is trickier as I am kludging this.
 
 (cl-defmethod magiciel--select-op ((op (eql '!)) (type symbol))
+  "Select the proper operator given OP equal to `!' and TYPE being a type spec."
   (ignore op)			; ELisp is a bit stupid here.
 
   (cond ((cl-typep type 'magiciel--numeric-type-spec)
@@ -315,7 +342,7 @@ name of a lower level code block."))
 	    (not (string-equal s1 s2))))
 	
 	(t
-	 (magiciel--error "cannot select a negation operator for type %s."
+	 (magiciel--error "Cannot select a negation operator for type %s"
 			  type)))
   )
 
@@ -326,18 +353,22 @@ name of a lower level code block."))
 ;;  '/=)
 
 (cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'string)))
+  "Select the proper operator given OP equal to `=' and TYPE being `string'."
   (ignore op type)			; ELisp is a bit stupid here.
   'string-equal)
 
 (cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'string)))
+  "Select the proper operator given OP equal to `>' and TYPE being `string'."
   (ignore op type)			; ELisp is a bit stupid here.
   'string-greaterp)
 
 (cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'string)))
+  "Select the proper operator given OP equal to `<' and TYPE being `string'."
   (ignore op type)			; ELisp is a bit stupid here.
   'string-lessp)
 
 (cl-defmethod magiciel--select-op ((op (eql '!)) (type (eql 'string)))
+  "Select the proper operator given OP equal to `!' and TYPE being `string'."
   (ignore op type)			; ELisp is a bit stupid here.
   ;; This works as this results is put in a macro expansion.
   '(lambda (s1 s2) (not (string-equal s1 s2)))
@@ -347,18 +378,22 @@ name of a lower level code block."))
 ;; Date operators assume "dates" are numeric.
 
 (cl-defmethod magiciel--select-op ((op (eql '=)) (type (eql 'date)))
+  "Select the proper operator given OP equal to `=' and TYPE being `date'."
   (ignore op type)			; ELisp is a bit stupid here.
   '=)
 
 (cl-defmethod magiciel--select-op ((op (eql '>)) (type (eql 'date)))
+  "Select the proper operator given OP equal to `>' and TYPE being `date'."
   (ignore op type)			; ELisp is a bit stupid here.
   '>)
 
 (cl-defmethod magiciel--select-op ((op (eql '<)) (type (eql 'date)))
+  "Select the proper operator given OP equal to `<' and TYPE being `date'."
   (ignore op type)			; ELisp is a bit stupid here.
   '<)
 
 (cl-defmethod magiciel--select-op ((op (eql '!)) (type (eql 'date)))
+  "Select the proper operator given OP equal to `!' and TYPE being `date'."
   (ignore op type)			; ELisp is a bit stupid here.
   '/=)
 
@@ -367,6 +402,8 @@ name of a lower level code block."))
 ;; Methods.
 
 (cl-defun magiciel--pass-instr (offset msg)
+  "Create a `magiciel--instruction' given OFFSET and MSG."
+  ;; Unused.
   (magiciel--make-instruction :offset offset
 			      :access (magiciel--offset-code offset)
 			      :test 'and
@@ -374,6 +411,7 @@ name of a lower level code block."))
 
 
 (cl-defun magiciel--fix-test-value (test-value-string)
+  "FIxt the test value in TEST-VALUE-STRING to accommodate some of the 'magic(5)' quirks."
   ;; See the NOTES.md file for the reason we need this
   ;; here. (And maybe elsewhere).
 
@@ -394,6 +432,11 @@ name of a lower level code block."))
 				       result-msg
 				       &key
 				       &allow-other-keys)
+  "Compile and create a `magiciel--instruction'.
+
+The compilation process dependds on record type TYPE, test
+specification TEST, offset OFF-OP and message RESUTL-MGS."
+  
   (let ((type-mods (magiciel--record-type-spec-modifiers type))
 	(test-mods (magiciel--test-modifiers test))
 	)
@@ -414,7 +457,7 @@ name of a lower level code block."))
 				 )
     
       (let* ((compiled-type (magiciel--compile-type type))
-	     (compiled-test (magiciel--compile-test test)) 
+	     (compiled-test (magiciel--compile-test test))
 	     (compiled-msg  (magiciel--compile-message result-msg)) ; A string.
 
 	     ;; Unpack the type and the test.
@@ -474,7 +517,11 @@ name of a lower level code block."))
 	   result-msg
 	   &key
 	   &allow-other-keys)
+  "Compile instructon :before method.
 
+OFF-OP is a `magiciel--offset', TYPE is a
+`magiciel--record-type-spec', TEST is a `magiciel--test', and
+RESULT-MSG is a string."
   (ignore result-msg)
   
   (let ((type-mods (magiciel--record-type-spec-modifiers type))
@@ -498,7 +545,17 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
-  (ignore type-mods test-mods)
+  "Compile a \\='regex\\=' instruction (the TYPE argument).
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='regexp\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  (ignore test-mods)
 
   (cl-assert (or (null type-mods)
 		 (magiciel--modifier-p type-mods)))
@@ -581,6 +638,17 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
+  "Compile a \\='name\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='name\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL; currently ignored)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  
   (ignore type-mods test-mods)
 
   (let ((off-op (magiciel--offset-code offset))
@@ -604,6 +672,17 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
+  "Compile a \\='indirect\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='indirect\\=' symbol
+TEST   -- a `magiciel--test' (currently ignored)
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL; currently ignored)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+    
   (ignore test type-mods test-mods)
 
   (let ((off-op (magiciel--offset-code offset)))
@@ -623,6 +702,17 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
+  "Compile a \\='use\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='use\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL; currently ignored)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  
   (ignore type type-mods test-mods)
 
   (let* ((test-val (magiciel--fix-test-value (magiciel--test-value test)))
@@ -645,6 +735,17 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
+  "Compile a \\='search\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='search\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  
   (ignore test-mods)
 
   (let* ((off-op (magiciel--offset-code offset))
@@ -678,6 +779,17 @@ name of a lower level code block."))
 				       test-mods
 				       &allow-other-keys
 				       )
+  "Compile a \\='default\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='search\\=' symbol
+TEST-VAL   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL; currently ignored)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  
   (ignore type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
@@ -693,13 +805,24 @@ name of a lower level code block."))
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'clear))
-				       test-val
+				       test
 				       result-msg
 				       &key
 				       type-mods
 				       test-mods
 				       &allow-other-keys
 				       )
+  "Compile a \\='clear\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='clear\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL; currently ignored)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  
   (ignore type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
@@ -707,21 +830,32 @@ name of a lower level code block."))
   (magiciel--make-instruction :kind type
 			      :offset offset
 			      :test `(clear)
-			      :value (magiciel--test-value test-val)
+			      :value (magiciel--test-value test)
 			      :result result-msg)
   )
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type (eql 'offset))
-				       test-val
+				       test
 				       result-msg
 				       &key
 				       type-mods
 				       test-mods
 				       &allow-other-keys
 				       )
-  (ignore test-val type-mods test-mods)
+  "Compile a \\='offset\\=' instruction.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='offset\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string
+TYPE-MODS  -- a list (or NIL; currently ignored)
+TEST-MODS  -- a list (or NIL; currently ignored)."
+  
+  (ignore test type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   (let ((off-op (magiciel--offset-code offset)))
@@ -734,14 +868,25 @@ name of a lower level code block."))
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
 				       (type symbol)
-				       test-val
+				       test
 				       result-msg
 				       &key
 				       &allow-other-keys)
-  (magiciel--msg 1 "MCI: provisional compilation of; %s." type)
-  (magiciel--msg 1 "MCI: offset %s."       offset)
-  (magiciel--msg 1 "MCI: test-val %s."     test-val)
-  (magiciel--msg 1 "MCI: result-msg %s.\n" result-msg)
+  "Compile an instruction.
+
+This is the kitchen sink method.
+
+Arguments and Values:
+
+OFFSET -- a `magiciel--offset'
+TYPE   -- the \\='offset\\=' symbol
+TEST   -- a `magiciel--test'
+RESULT-MSG -- a string"
+
+  (magiciel--msg 0 "MCI: provisional compilation of; %s." type)
+  (magiciel--msg 0 "MCI: offset %s."       offset)
+  (magiciel--msg 0 "MCI: test-val %s."     test)
+  (magiciel--msg 0 "MCI: result-msg %s.\n" result-msg)
   (magiciel--make-instruction :kind type
 			      :offset offset
 			      :test `(in-special-context ,type)
@@ -757,6 +902,17 @@ name of a lower level code block."))
 	   &key
 	   &allow-other-keys)
 
+  "Compile an instruction :before method.
+
+Ensures that the OFFSET is itself compiled by calling
+`magiciel--compile-offset'.
+
+Arguments and Values:
+OFFSET -- a `magiciel--offset'
+TYPE   -- usually a  symbol
+TEST   -- usually a `magiciel--test'
+RESULT-MSG -- a string"
+
   (ignore type test result-msg)
   
   ;; Ensure that the offset has already been compiled.
@@ -769,14 +925,18 @@ name of a lower level code block."))
 ;; magiciel--compile-offset
 ;; Methods.
 
-(cl-defmethod magiciel--compile-offset ((offset magiciel--direct-offset))
+(cl-defmethod magiciel--compile-offset ((offset
+					 magiciel--direct-offset))
+  "Compiles the code that will be used to compute the OFFSET."
   (if (magiciel--offset-cont offset)
       `(+ %end-pos% ,(magiciel--direct-offset-value offset))
     (magiciel--direct-offset-value offset)) ; Actually (+ %pos% ...)
   )
 
 
-(cl-defmethod magiciel--compile-offset ((offset magiciel--indirect-offset))
+(cl-defmethod magiciel--compile-offset ((offset
+					 magiciel--indirect-offset))
+    "Compiles the code that will be used to compute the OFFSET."
   (if (magiciel--offset-cont offset)
       `(+ %end-pos% ,(magiciel--compile-indirect-offset offset))
     (magiciel--compile-indirect-offset offset)) ; Actually (+ %pos% ...)
@@ -786,6 +946,8 @@ name of a lower level code block."))
 ;; magiciel--compile-indirect-offset
 
 (cl-defun magiciel--compile-indirect-offset (ind-off)
+  "Compiles the code that will be used to compute an indirect offset IND-OFF."
+  
   ;; FTTB
   (cl-labels
       ((compile-ind-offset-type (ind-off)
@@ -894,6 +1056,7 @@ name of a lower level code block."))
 ;; Methods
 
 (cl-defmethod magiciel--compile-type ((ct magiciel--common-type-spec))
+  "Compile a `magiciel--common-type-spec' CT."
   ct)
 
 
@@ -901,12 +1064,17 @@ name of a lower level code block."))
 ;; Methods
 
 (cl-defmethod magiciel--compile-test ((mt magiciel--test))
+  "Compile a `magiciel--test' MT."
   mt)
 
 
 ;; magiciel--compile-test-value
 
 (cl-defun magiciel--compile-test-value (test-value type-spec)
+  "Compile a TEST-VALUE, given a TYPE-SPEC.
+
+Also, this is where the special TEST value \\='x\\=' is handled.:"
+  
   (cond ((or (string-equal test-value "x")
 	     (string-equal test-value "X")
 	     ;; Yes I know about `string-equal-ignore-case'.
@@ -929,10 +1097,14 @@ name of a lower level code block."))
 ;; Methods.
 
 (cl-defmethod magiciel--compile-message ((m string))
+  "Compile a string message M.
+
+This is just an identity operation."
   m)
 
 
 (cl-defmethod magiciel--compile-message ((m magiciel--message))
+  "Compile a `magiciel--message' message M."
   (magiciel--message-msg-string m))
 
 
@@ -945,6 +1117,16 @@ name of a lower level code block."))
 					mods
 					len
 					)
+  "Compile the code that will access a value in the bytes sequence.
+
+Arguments and Values:
+
+TYPE-SPEC  -- a symbol
+OFFSET     -- a `magiciel-offset'
+UNSIGNED   -- non NIL if access is unsigned
+ENDIANNESS -- an indicator for the endianness (most of the times `:le' or `:be')
+MODS       -- a list of modifiers (strings)
+LEN        -- the length of the accessed value (in bytes)"
 
   (cl-assert (or (null mods) (magiciel--modifier-p mods)))
   
@@ -991,10 +1173,13 @@ name of a lower level code block."))
 					offset)
   "Compile a number-based access.
 
+Arguments and Values:
+
 TYPE-SPEC  : a `magiciel--numeric-type-spec'
 UNSIGNED   : a `boolean'
 ENDIANNESS : a `magiciel-endiannes'
-MODS       : a list of modifiers (cfr., the \"magic(5)\" specs).
+MOD-OP     : an operator used to modify the access
+MOD-ARGS   : a list of modifiers (cfr., the \"magic(5)\" specs).
 LEN        : the length, in \"bytes\" to be read off the byte stream.
 OFFSET     : a `magiciel--offset'."
 
@@ -1034,6 +1219,18 @@ OFFSET     : a `magiciel--offset'."
 					 mod-args
 					 len
 					 offset)
+  "Compile a date-based access.
+
+Arguments and Values:
+
+TYPE-SPEC  : a `magiciel--date-type-spec'
+UNSIGNED   : a `boolean'
+ENDIANNESS : a `magiciel-endiannes'
+MOD-OP     : an operator used to modify the access
+MOD-ARGS   : a list of modifiers (cfr., the \"magic(5)\" specs).
+LEN        : the length, in \"bytes\" to be read off the byte stream.
+OFFSET     : a `magiciel--offset'."
+  
   (let ((off-op (if (magiciel--offset-p offset)
 		    (magiciel--offset-code offset)
 		  offset		; Assume it is ok...
@@ -1063,6 +1260,18 @@ OFFSET     : a `magiciel--offset'."
 					   mod-args
 					   len
 					   offset)
+  "Compile a string-based access.
+
+Arguments and Values:
+
+TYPE-SPEC  : a `magiciel--string-type-spec'
+UNSIGNED   : a `boolean'
+ENDIANNESS : a `magiciel-endiannes'
+MOD-OP     : an operator used to modify the access
+MOD-ARGS   : a list of modifiers (cfr., the \"magic(5)\" specs).
+LEN        : the length, in \"bytes\" to be read off the byte stream.
+OFFSET     : a `magiciel--offset'."
+  
   (let ((off-op (if (magiciel--offset-p offset)
 		    (magiciel--offset-code offset)
 		  offset		; Assume it is ok...
@@ -1136,27 +1345,54 @@ OFFSET     : a `magiciel--offset'."
 
 (cl-defmethod magiciel--compile-record ((r t)
 					&key &allow-other-keys)
-  (error "MAGICIEL: not a magic record: %s." r)
+  "Compile a record.
+
+Arguments and Values:
+
+R  : anything"
+  
+  (error "MAGICIEL: not a magic record: %s" r)
   nil)
 
 
 (cl-defmethod magiciel--compile-record ((r magiciel--magic-record)
 					&key &allow-other-keys)
+  "Compile a record.
+
+Arguments and Values:
+
+R  : an unspecified `magiciel--magic-record'."
   (warn "MAGICIEL: not a usable magic record: %s." r)
   nil)
 
 
 (cl-defmethod magiciel--compile-record
   :before ((r magiciel--magic-record) &key &allow-other-keys)
+  "Compile a record :before method.
+
+Just used as a debugging tool.
+
+Arguments and Values:
+
+R  : a `magiciel--magic-record'"
+  
   (magiciel--msg 1 "compiling record %S." r))
 
   
 (cl-defmethod magiciel--compile-record
   :around ((r magiciel--magic-record) &key &allow-other-keys)
+  "Compile a record :around method.
+
+Used to catch errors while compiling.
+
+Arguments and Values:
+
+R  : a `magiciel--magic-record'"
+  
   (condition-case cnm-error
       (cl-call-next-method)
     (error
-     (magiciel--error "error %S\n\twhile compiling record\n\t%S."
+     (magiciel--error "error %S\n\twhile compiling record\n\t%S"
 		      (error-message-string cnm-error)
 		      r))))
 
@@ -1166,6 +1402,13 @@ OFFSET     : a `magiciel--offset'."
 					(group-id 0)
 					&allow-other-keys
 					)
+  "Compile a normal record.
+
+Arguments and Values:
+
+R        : a `magiciel--normal-record'.
+GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
+    
   (magiciel--compile-instr (magiciel--normal-record-offset r)
 			   (magiciel--normal-record-type r)
 			   (magiciel--normal-record-test r)
@@ -1180,6 +1423,13 @@ OFFSET     : a `magiciel--offset'."
 					(group-id 0)
 					&allow-other-keys
 					)
+  "Compile a normal record.
+
+Arguments and Values:
+
+R        : a `magiciel--special-record'.
+GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
+  
   (magiciel--compile-instr (magiciel--make-direct-offset :level 1)
 			   ;; Fake offset. Level 1 necessary.
 			   (magiciel--special-record-type r)
@@ -1195,9 +1445,10 @@ OFFSET     : a `magiciel--offset'."
 ;; Hence it will disapper soon.
 
 (defun magiciel--addr-select-subtype (subtype-char)
+  "Select the `bindat' specification based on SUBTYPE-CHAR.
 
-  ;; The "subtype-char" comes from the indirect address specification.
-  ;; Value is a list/tuple (<type> <size> <endiannes>).
+SUBTYPE-CHAR comes from the indirect address specification.
+Value is a list/tuple (<type> <size> <endiannes>)."
 
   (cl-ecase subtype-char
     ((?b ?c ?B ?C) '(byte 1 :le))
@@ -1219,12 +1470,18 @@ OFFSET     : a `magiciel--offset'."
 
 
 ;; Compiling tests and test groups into functions.
+;; -----------------------------------------------
 
 ;; magiciel--compile-rec-group
 
 (cl-defun magiciel--compile-rec-group (recs-group
 				       &optional
 				       (magic-name "magiciel--n-"))
+  "Return a \\='group\\=' with a (gensymmed) name.
+
+The \\'group\\' is simply a cons of a gensymmed MAGIC-NAME and the
+records in RECS-GROUP."
+  
   (let ((group-name (gensym magic-name)))
     (cons group-name recs-group))
   )
@@ -1235,6 +1492,11 @@ OFFSET     : a `magiciel--offset'."
 (cl-defun magiciel--compile-rec-groups (recs-groups
 					&optional
 					(magic-name "magiciel--n-"))
+  "Return a list of the \\'groups\\=' in RECS-GROUPS
+
+The returned value is a list of conses produced by
+`magiciel--compile-rec-group' called with MAGIC-NAME."
+  
   (cl-loop for rg in recs-groups
 	   collect (magiciel--compile-rec-group rg magic-name)))
 
@@ -1310,6 +1572,11 @@ OFFSET     : a `magiciel--offset'."
 (cl-defmacro magiciel--$test-block (tb-name
 				    (&optional (test-result t) (msg ""))
 				    &body forms)
+  "Expanding into a `cl-block' named TB-NAME ending with FORMS.
+
+Defaulting `--magiciel-test-result' and `--magiciel-msg' to
+TEST-RESULT and MSG."
+  
   (declare (indent 2))
   `(cl-block ,tb-name
      (setq --magiciel-test-result ,test-result
@@ -1320,7 +1587,15 @@ OFFSET     : a `magiciel--offset'."
 ;; magiciel--$dump-state
 ;; Debugging macro.
 
-(cl-defmacro magiciel--$dump-state (tag &optional (level magiciel--*debug-level*))
+(cl-defmacro magiciel--$dump-state (tag
+				    &optional
+				    (level magiciel--*debug-level*))
+  "Debugging macro.
+
+Prints out most of the parsing state tagged with TAG.  The printing
+happens only at an appropriate debugging LEVEL (defualting to
+`magiciel--**debug-level*')."
+  
   `(progn
      (magiciel--msg ,level "tag         %S" ,tag)
      (magiciel--msg ,level "pos         %s" %pos%)
@@ -1481,15 +1756,15 @@ OFFSET     : a `magiciel--offset'."
 			       ;; test-false-throw-label
 			       test-level
 			       &body continue-tests)
-  "The macro ensures that `%end-pos%` is preserved after a TEST and subtests.
+  "The macro ensures that `%end-pos%' is preserved after a TEST and subtests.
 
 The variable ACCESS contains an expression that represents how
 the code will get the value to be tested by TEST (if any).
 CONTINUE-TESTS contains the code for the \"next\" tests (and
 other code as well; usually the first expression of
-CONTINUE-TESTS will be a setting of the variable `%end-pos%` (the
+CONTINUE-TESTS will be a setting of the variable `%end-pos%' (the
 \"end\" of the value previously matched), followed by other
-house-keeping code."
+house-keeping code.  TAG is used for debugging purposes."
 
   (declare (indent 4))
 
@@ -1552,6 +1827,14 @@ house-keeping code."
 ;; magiciel--$acc-msg-disp
 
 (cl-defmacro magiciel--$acc-msg-disp (s &optional (d 0))
+  "Macro used to accumulate the message S into `--magiciel-msg'.
+
+The macro also sets `--magiciel-disp' to D.
+
+Notes:
+
+Unused."
+  
   `(setf --magiciel-msg
          (concat --magiciel-msg ,s)
 	 
@@ -1574,6 +1857,7 @@ returned by the compiled function.  It also records the `$end-pos$'
 based on START-POS (defaulting to `%pos%' and the displacement DISPL.
 VAL is the expression constructing the value accessed (defaulting to
 `--magiciel-value')."
+  
   (let* ((msg1 (let ((bpos (string-search "\\b" result)))
 		 (cond ((and bpos (zerop bpos))
 			(substring result 2))
@@ -1601,12 +1885,16 @@ VAL is the expression constructing the value accessed (defaulting to
 
 
 (cl-defmacro magiciel--$noop (&rest args)
+  "Macro used in generated code that results in a no-op, ignoring ARGS."
+  
   `(progn
      (ignore ',args)
      t))
 
 
 (cl-defmacro magiciel--$name (&rest args)
+  "Macro used in generated code for \\='name\\=' clauses; ignoring ARGS."
+
   `(progn
      (ignore ',args)
      (setf --magiciel-test-result t))	; This setting is implied by the spec.
@@ -1614,10 +1902,18 @@ VAL is the expression constructing the value accessed (defaulting to
 
 
 (cl-defmacro magiciel--$in-context-p (c)
+  "Macro used to test that the parsing context is C."
+  
   `(eq %context% ,c))
 
 
 (cl-defmacro magiciel--$level-0-exit (level test-result)
+  "Macro used to jump out of LEVEL 0 when TEST-RESULT is false.
+
+Notes:
+
+Unused."
+  
   `(when (and (zerop ,level) (null ,test-result))
      (magiciel--msg 1 "throwing to level 0 exit.")
      (magiciel--msg 1 "")
@@ -1641,6 +1937,20 @@ VAL is the expression constructing the value accessed (defaulting to
 ;; the "message" if produced.
 
 (cl-defmacro magiciel--$use (name-label pos context &optional invert)
+  "Macro used in generated code to handle \\='use\\=' clauses.
+
+The function NAME-LABEL is called with `%bytes%', POS (evaluated),
+`%end-pos%' and CONTEXT (evaluated)
+
+`--maiciel-msg' and `%end-pos%' are updated as a result of the call to
+NAME-LABEL.
+
+Notes:
+
+The INVERT argument is essentially ignored, as the endianness
+\"inversion\" is dealt differently, with a special (dynamic)
+variable."
+  
   `(progn
      (magiciel--msg 1 "$use %S with pos %s, context %s, invert end %s."
 		    ',name-label ,pos ,context ,invert)
@@ -1666,51 +1976,51 @@ VAL is the expression constructing the value accessed (defaulting to
 
 ;; magiciel-emit methods.
 
-(cl-defmethod magiciel--emit ((kind (eql '==)) ; Never match!
-			      (inst magiciel--instruction)
-			      &key
-			      (f-name (gensym "magiciel--%%fn-top-"))
-			      (m-name (gensym "magiciel--i-n-"))
-			      (displacement 0)
-			      &allow-other-keys)
-  "This method is the main \\='emit\\=' method for regular tests.
+;; (cl-defmethod magiciel--emit ((kind (eql '==)) ; Never match!
+;; 			      (inst magiciel--instruction)
+;; 			      &key
+;; 			      (f-name (gensym "magiciel--%%fn-top-"))
+;; 			      (m-name (gensym "magiciel--i-n-"))
+;; 			      (displacement 0)
+;; 			      &allow-other-keys)
+;;   "This method is the main \\='emit\\=' method for regular tests.
 
-The KIND argument indicates all boolean tests.  The DISPLACEMENT
-variable is an \\='expression\\=' that comes from the \"previous\"
-test and that is used for \"continuation\" offsets."
+;; The KIND argument indicates all boolean tests.  The DISPLACEMENT
+;; variable is an \\='expression\\=' that comes from the \"previous\"
+;; test and that is used for \"continuation\" offsets."
 
-  ;; Note:
-  ;; Maybe change KIND specializer to `boolean'.
+;;   ;; Note:
+;;   ;; Maybe change KIND specializer to `boolean'.
 
-  (ignore kind f-name m-name displacement)
+;;   (ignore kind f-name m-name displacement)
   
-  (let ((level  (magiciel--instruction-level inst))
-	(offset (magiciel--instruction-offset inst))
-	(access (magiciel--instruction-access inst))
-	(test   (magiciel--instruction-test inst))
-	(value  (magiciel--instruction-value inst))
-	(result (magiciel--instruction-result inst))
-	(disp   (magiciel--instruction-displacement inst))
-	)
+;;   (let ((level  (magiciel--instruction-level inst))
+;; 	(offset (magiciel--instruction-offset inst))
+;; 	(access (magiciel--instruction-access inst))
+;; 	(test   (magiciel--instruction-test inst))
+;; 	(value  (magiciel--instruction-value inst))
+;; 	(result (magiciel--instruction-result inst))
+;; 	(disp   (magiciel--instruction-displacement inst))
+;; 	)
 
-    (ignore level disp offset)
+;;     (ignore level disp offset)
 
-    ;; Let's handle test value \\='x\\=' (cfr., "magic(5)" man page.)
+;;     ;; Let's handle test value \\='x\\=' (cfr., "magic(5)" man page.)
 
-    (if (or (eq value 'x)
-	    (string-equal value "x")
-	    (string-equal value "X"))
-	`(let ((--magiciel-value ,access))
-	   (when t (magiciel--$acc-msg-disp (format ,result --magiciel-value)))
-	   ;; The "when" here is needed because I am an idiot (FTTB).
-	   )
+;;     (if (or (eq value 'x)
+;; 	    (string-equal value "x")
+;; 	    (string-equal value "X"))
+;; 	`(let ((--magiciel-value ,access))
+;; 	   (when t (magiciel--$acc-msg-disp (format ,result --magiciel-value)))
+;; 	   ;; The "when" here is needed because I am an idiot (FTTB).
+;; 	   )
     
-      `(let ((--magiciel-value ,access))
-	 (when (,test --magiciel--value ,value)
-           (magiciel--$acc-msg-disp (format ,result --magiciel-value))
-           ))
-      )
-    ))
+;;       `(let ((--magiciel-value ,access))
+;; 	 (when (,test --magiciel--value ,value)
+;;            (magiciel--$acc-msg-disp (format ,result --magiciel-value))
+;;            ))
+;;       )
+;;     ))
 
 
 ;; This is unused FTTB.  The \\='boolean is not used (yet), but this
@@ -1780,11 +2090,17 @@ test and that is used for \"continuation\" offsets."
 			      (m-name (gensym "magiciel--i-n-"))
 			      (displacement 0)
 			      &allow-other-keys)
-  "This method is the main \\='emit\\=' method for regular tests.
+  "Emit code for regular \\='magic(5)\\=' clauses.
+
+This method is the main \\='emit\\=' method for normal tests.
 
 The KIND argument indicates all boolean tests.  The DISPLACEMENT
 variable is an \\='expression\\=' that comes from the \"previous\"
-test and that is used for \"continuation\" offsets."
+test and that is used for \"continuation\" offsets.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.  F-NAME is the
+name of the enclosing function and M-NAME are used as a debugging aid."
 
   (ignore kind f-name m-name displacement)
   
@@ -1823,10 +2139,12 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql 'regex))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
 
-  (ignore kind m-name)
+  "Emit code for \\='magic(5)\\=' \\='regex\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST."
   
   (let* ((level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
@@ -1850,11 +2168,12 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql 'name))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
+  "Emit code for \\='magic(5)\\=' \\='name\\=' KIND clauses.
 
-  (ignore kind m-name)
-  
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST."
+
   (let ((level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
 	(test   (magiciel--instruction-test inst))
@@ -1872,10 +2191,18 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql 'indirect))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
 
-  (ignore kind inst m-name)
+  "Emit code for \\='magic(5)\\=' \\='indirect\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+Notes:
+
+This test is not currently handled."
+    
+  (ignore kind inst)
   
   (let (
 	;; (level  (magiciel--instruction-level inst))
@@ -1899,14 +2226,20 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql 'use))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      (env ())
 			      &allow-other-keys)
 
-  ;; For this instruction I need to refer to the proper "name", hence
-  ;; I rely on the `env' variable.
+  "Emit code for \\='magic(5)\\=' \\='name\\=' KIND clauses.
 
-  (ignore kind m-name)
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+Notes:
+
+For this instruction the code needs to refer to the proper \"name\",
+hence the reliance on the ENV variable."
+
+  (ignore kind)
   
   (let* (
 	 ;; (level  (magiciel--instruction-level inst))
@@ -1978,10 +2311,13 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql 'search))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
+  "Emit code for \\='magic(5)\\=' \\='search\\=' KIND clauses.
 
-  (ignore kind m-name)
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST."
+
+  (ignore kind)
   
   (let* ((level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
@@ -2004,10 +2340,13 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql 'default))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
+    "Emit code for \\='magic(5)\\=' \\='default\\=' KIND clauses.
 
-  (ignore kind m-name)
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST."
+
+  (ignore kind)
   
   (let ((level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
@@ -2034,17 +2373,21 @@ test and that is used for \"continuation\" offsets."
 			      &key
 			      ;; (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
-  (let ((level  (magiciel--instruction-level inst))
+
+  "Emit code for \\='magic(5)\\=' \\='clear\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST."
+  
+  (let (;; (level  (magiciel--instruction-level inst))
 	(offset (magiciel--instruction-offset inst))
 	;; (access (magiciel--instruction-access inst))
 	;; (test   (magiciel--instruction-test inst))
 	(value  (magiciel--instruction-value inst))
 	(result (magiciel--instruction-result inst))
-	(disp   (magiciel--instruction-displacement inst))
+	;; (disp   (magiciel--instruction-displacement inst))
 	)
-    
-    (ignore level disp)
-    
+        
     (let ((pos (if (magiciel--offset-cont offset) '%end-pos% '%pos%))
 	  (tag (intern (format "%s-%s" kind value)))
 	  )
@@ -2070,10 +2413,16 @@ test and that is used for \"continuation\" offsets."
 			      (inst magiciel--instruction)
 			      &key
 			      (f-name (gensym "magiciel--%%fn-top-"))
-			      (m-name (gensym "magiciel--i-n-"))
+			      ;; (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
-  (ignore m-name)
-  
+  "Emit code for \\='magic(5)\\=' \\='!:apple\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+F-NAME is the name of the enclosing function and `cl-block' to be
+returned from."
+
   (magiciel--msg 1 "EMIT: emit APPLE %s." kind)
   `(cl-block ,kind
      (when (magiciel--$in-context-p ',kind)
@@ -2108,10 +2457,16 @@ test and that is used for \"continuation\" offsets."
 			      (inst magiciel--instruction)
 			      &key
 			      (f-name (gensym "magiciel--%%fn-top-"))
-			      (m-name (gensym "magiciel--i-n-"))
+			      ;; (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
-  (ignore m-name)
-  
+  "Emit code for \\='magic(5)\\=' \\='!:mime\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+F-NAME is the name of the enclosing function and `cl-block' to be
+returned from."
+   
   (magiciel--msg 1 "EMIT: emit MIME %s." kind)
 
   `(when (magiciel--$in-context-p ',kind)
@@ -2123,9 +2478,16 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind (eql '!:strength))
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
-  (ignore m-name)
+
+  "Emit code for \\='magic(5)\\=' \\='!:strength\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+Notes:
+
+Unimplemented."
 
   (magiciel--msg 1 "EMIT: emit STRENGTH %s." kind)
   `(when (magiciel--$in-context-p ',kind)
@@ -2156,9 +2518,16 @@ test and that is used for \"continuation\" offsets."
 			      (inst magiciel--instruction)
 			      &key
 			      (f-name (gensym "magiciel--%%fn-top-"))
-			      (m-name (gensym "magiciel--i-n-"))
+			      ;; (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
-  (ignore m-name)
+
+  "Emit code for \\='magic(5)\\=' \\='!:ext\\=' KIND clauses.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+F-NAME is the name of the enclosing function and `cl-block' to be
+returned from."
 
   (magiciel--msg 1 "EMIT: emit EXT %s (%S)." kind inst)
   `(when (magiciel--$in-context-p ',kind)
@@ -2171,9 +2540,20 @@ test and that is used for \"continuation\" offsets."
 (cl-defmethod magiciel--emit ((kind symbol)
 			      (inst magiciel--instruction)
 			      &key
-			      (m-name (gensym "magiciel--i-n-"))
+			      ;; (m-name (gensym "magiciel--i-n-"))
 			      &allow-other-keys)
-  (ignore m-name)
+  "Emit code for clauses of unhandled symbol KIND.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+This method is a \"kitchen sink\" that will essentially just emit code
+to return the result in INST.
+
+Notes:
+
+This method should never get called in a meaningful way; it is here
+just to avoid blocking the compilation process."
 
   (magiciel--msg 1 "EMIT: unhandled kind %s." kind)
   `(; cl-return-from %%test-block%%
@@ -2188,6 +2568,13 @@ test and that is used for \"continuation\" offsets."
 				      &key
 				      (m-name (gensym "magiciel--i-n-"))
 				      &allow-other-keys)
+  "Yields debugging message before emitting code.
+
+All the necessary information to properly \\'emit\\' the code for the
+test is packed into the `magiciel--instruction' INST.
+
+M-name is symbol used for debugging purposes."
+  
   (magiciel--msg 1 "EMIT: emitting %s for %s." kind m-name)
   )
 
@@ -2210,6 +2597,10 @@ test and that is used for \"continuation\" offsets."
 ;; Useful debugging functions.
 
 (cl-defun magiciel--dump-instr-tree (it &optional (indent 0))
+  "Dumps a textual representation of an instruction tree IT.
+
+Each leve is indented a multiple of INDENT."
+  
   (unless (null it)
     (let ((i (magiciel--instr-node-instr it))
 	  (id (magiciel--instr-node-id it))
@@ -2227,6 +2618,8 @@ test and that is used for \"continuation\" offsets."
 
 
 (cl-defun magiciel--dump-instr-level-alist (instr-nodes-at-level)
+  "Dumps an a-list representation of the instructions INSTR-NODES-AT-LEVEL."
+  
   (magiciel--msg 1 "MILA:")
   (cl-loop for (il . instr-node) in instr-nodes-at-level
 	   do (magiciel--msg 1 "MILA: %s => %s %s '%s'"
@@ -2244,6 +2637,8 @@ test and that is used for \"continuation\" offsets."
 ;; Construction instruction trees for groups.
 
 (cl-defun magiciel--group-trees (instr-group)
+  "Organize a group of instructions INSTR-GROUP into a tree."
+  
   (magiciel--msg 1 "MGT:")
   (let ((instrs-nodes
 	 (mapcar #'magiciel--make-instr-node instr-group))
@@ -2258,21 +2653,25 @@ test and that is used for \"continuation\" offsets."
 					more-instrs
 					instr-nodes-at-level
 					)
-  ;; A "group has one 0 level entry point; the first instruction.
+  "Builds a tree of instructions mirroring the \\='magic(5)\\=' clauses.
 
-  ;; `instr-node'  : first instruction node in (remaining) instruction
-  ;;                 node list.
-  ;; `more-instrs' : instructions after `instr'; can be an empty list.
-  ;; `instr-nodes-at-level' : an a-list (organized in a stack-like
-  ;;                          manner) of nodes at a given level, where
-  ;;                          to add subtrees; keys are the "level" of
-  ;;                          the node last seen at a given level.
-  ;;
-  ;; The function returns a subtree rooted at the first (0 level)
-  ;; instruction. Each (sub) tree is simply a cons (root . children)
-  ;;
-  ;; The function is not particularly efficient, but magic(5) files
-  ;; are never too big. 
+A group has one 0 level entry point; the first instruction.
+The function returns a subtree rooted at the first (0 level)
+instruction.  Each (sub) tree is simply a cons (root . children)
+
+Arguments and Values:
+
+INSTR-NODE  : first instruction node in (remaining) instruction node list.
+MORE-INSTRS : instructions after `instr'; can be an empty list.
+INSTR-NODES-AT-LEVEL' : an a-list (organized in a stack-like manner)
+                        of nodes at a given level, where to add
+                        subtrees; keys are the \"level\" of the node
+                        last seen at a given level.
+
+Notes:
+
+The function is not particularly efficient, but magic(5) files
+are never too big."
 
   (let* ((instr (magiciel--instr-node-instr instr-node))
 	 (il (magiciel--instruction-level instr))
@@ -2518,7 +2917,7 @@ test and that is used for \"continuation\" offsets."
 ;; 	 )
       
 ;;       (magiciel--make-group-func-code magic-group-fname
-;;                                       (emit-group-tree instrs-tree))      
+;;                                       (emit-group-tree instrs-tree))
 ;;       )))
 
 
@@ -2530,7 +2929,7 @@ test and that is used for \"continuation\" offsets."
 				&optional
 				(magic-env ())
 				)
-  "Builds the function or block body that runs the i-th check.
+  "Build the function or block body to run the i-th check.
 
 The function obtained correspond to the groups obtained from the
 compilation of a magic(5) file.  The name of the function is
@@ -2538,19 +2937,19 @@ compilation of a magic(5) file.  The name of the function is
 
 Arguments and Values:
 
-`magic' : is a `magiciel--magic' struct.
-`instr-group'  : is a list of `magiciel--instruction'.
-`group-number' : is the id of the instruction; must be unique.
-`magic-env' : is a simple \\='enviroment\\=' (an a-list) containg
-              bindings for names used in the group/block; mostly label
-              names associated to \"name\" records, to be used by
-              \"use\" records.
+MAGIC : is a `magiciel--magic' struct.
+INSTR-GROUP  : is a list of `magiciel--instruction'.
+GROUP-NUMBER : is the id of the instruction; must be unique.
+MAGIC-ENV    : is a simple \\='enviroment\\=' (an a-list) containg
+               bindings for names used in the group/block; mostly label
+               names associated to \"name\" records, to be used by
+               \"use\" records.
 
 Notes:
 
 Groups with \\='=name\\='= and \\='=use\\='= operation are treated
-specially.
-"
+specially."
+  
   (let* ((name (magiciel--magic-name magic))
 
 	 (magic-fname (magiciel--magic-fname magic))
@@ -2580,7 +2979,7 @@ specially.
 		  --magiciel-msg
 		  %pos%
 		  ;; --magiciel-disp	; Or maybe (- %end-pos% %pos%)
-		  %end-pos%	
+		  %end-pos%
 		  ))
 	    
 	    `(cl-return-from ,magic-fname
@@ -2588,7 +2987,7 @@ specially.
 		--magiciel-msg
 		%pos%
 		;; --magiciel-disp	; Or maybe (- %end-pos% %pos%)
-		%end-pos%	
+		%end-pos%
 		)))
 	  )
 	 )
@@ -2615,7 +3014,7 @@ specially.
                    (magiciel--emit (magiciel--instruction-kind instr)
 				   instr
 				   :f-name magic-fname
-				   :env magic-env)		   
+				   :env magic-env)
 		   )
 
 		  (magic-subgroup-block-name
@@ -2670,7 +3069,7 @@ specially.
 	       ;; 				  %pos%
 	       ;; 				  %end-pos%)))
 	       ;; 	      ,@sub-tests-code)
-	       ;; 	  `(,instr-root-code ,@sub-tests-code)		  
+	       ;; 	  `(,instr-root-code ,@sub-tests-code)
 	       ;; 	  ))
 	       (t
 		(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
@@ -2728,7 +3127,7 @@ specially.
 	 )				; labels
       
       (magiciel--make-group-func-code magic-group-fname
-                                      (emit-group-tree instrs-tree))      
+                                      (emit-group-tree instrs-tree))
       )))
 
 
@@ -2794,7 +3193,12 @@ specially.
 ;; Refactored to expose the "name" entries.
 
 (cl-defun magiciel--magic-emit (magic instr-groups)
-  "Emit the functions that check for a specific \"magic(5)\" specification."
+  "Emit the functions that check for a specific \"magic(5)\" specification.
+
+Arguments and Values:
+
+MAGIC : a `magiciel--magic' structure.
+INSTR-GROUPS : a set of level 0 groups."
 
   (magiciel--msg 1 "MME:")
   (magiciel--msg 1 "MME: emitting code for '%s' with %d groups."
@@ -3010,7 +3414,12 @@ specially.
 ;; Evals and possibly compiles a list of `defun's.
 ;; Used internally to compile "use" functions.
 
-(cl-defun magiciel--eval-compile-fns (funs &optional (do-byte-compile t))
+(cl-defun magiciel--eval-compile-fns (funs &optional (do-byte-compile
+						      t))
+  "Eval and (byte) compile FUNS online.
+
+Byte compilation is done if DO-BYTE-COMPILE is true."
+  
   (cl-loop for f in funs
 	   for (nil name) = f
 

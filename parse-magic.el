@@ -17,7 +17,7 @@
 ;;
 ;; This file contains code to "parse" the entries and turn them into
 ;; something... else.  Of course, the man page for "magic(5)" has a -
-;; quote - grammar - unquote - which leaves much to the imagination. 
+;; quote - grammar - unquote - which leaves much to the imagination.
 ;;
 ;; Bear with me.
 
@@ -62,6 +62,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defmethod cl-print-object ((m magiciel--modifier) stream)
+  "Special `print-object' method for M on STREAM."
   (princ (format "#<MAGICIEL modifier %S %S>"
 		 (magiciel--modifier-op m)
 		 (magiciel--modifier-args m))
@@ -95,7 +96,14 @@ The \"types\" can be either in the \\='type\\=' field or in the
 					   (endian :le)
 					   unsigned
 					   )
-  "Constructor for `magiciel--record-type-spec'."
+  "Constructor for `magiciel--record-type-spec'.
+
+TYPE-SPEC-STRING is a string coding for the type of the offset.
+SPEC is the full specification.  MODIFIERS is a list of strings
+to be interpreted as \\='modifiers\\='.  BYTE-LEN is the length
+in bytes of the offset type.  ENDIAN is the endianness of the
+byte stream.  UNSIGNED is a flag indicating whether the value is
+unsigned or not."
   
   (magiciel--%make-record-type-spec type-spec-string
 				    (intern spec)
@@ -106,6 +114,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defmethod cl-print-object ((rts magiciel--record-type-spec) stream)
+  "Specialized `print-object' method for `magiciel--record-type-spec' RTS on STREAM."
   (princ (format "#<MAGICIEL record type: %s %S %S %S %S>"
 		 (if (magiciel--record-type-spec-unsigned rts)
 		     'unsigned
@@ -139,7 +148,12 @@ The \"types\" can be either in the \\='type\\=' field or in the
 					   (endian :le)
 					   unsigned
 					   )
-  "Constructor for `magiciel--offset-type-spec'."
+  "Constructor for `magiciel--offset-type-spec'.
+
+TYPE-SPEC-STRING is a string coding for the type of the offset.  SPEC
+is the full specification.  BYTE-LEN is the length in bytes of the
+offset type.  ENDIAN is the endianness of the byte stream.  UNSIGNED
+is a flag indicating whether the value is unsigned or not."
   
   (magiciel--%make-offset-type-spec type-spec-string
 				    (cl-etypecase spec
@@ -151,6 +165,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defmethod cl-print-object ((rts magiciel--offset-type-spec) stream)
+  "Specialized `print-object' method for `magiciel--offset-type-spec' RTS on STREAM."
   (princ (format "#<MAGICIEL offset type: %s %S %S %S>"
 		 (if (magiciel--offset-type-spec-unsigned rts)
 		     'unsigned
@@ -165,6 +180,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 ;; Type spec checkers.
 
 (cl-defun magiciel--numeric-type-spec-p (spec)
+  "Check that SPEC is a numeric type."
   (when (magiciel--record-type-spec-p spec)
     (setf spec (magiciel--record-type-spec-spec spec)))
 
@@ -172,6 +188,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defun magiciel--date-type-spec-p (spec)
+  "Check that SPEC is a \\='date\\=' type."
   (when (magiciel--record-type-spec-p spec)
     (setf spec (magiciel--record-type-spec-spec spec)))
 
@@ -179,6 +196,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defun magiciel--string-type-spec-p (spec)
+  "Check that SPEC is a string type."
   (when (magiciel--record-type-spec-p spec)
     (setf spec (magiciel--record-type-spec-spec spec)))
 
@@ -186,6 +204,7 @@ The \"types\" can be either in the \\='type\\=' field or in the
 
 
 (cl-defun magiciel--exec-type-spec-p (spec)
+  "Check that SPEC is a \\='exec\\=' type."
   (when (magiciel--record-type-spec-p spec)
     (setf spec (magiciel--record-type-spec-spec spec)))
 
@@ -245,21 +264,24 @@ ones are read in but untreated."
 
 ;; Magiciel records `cl-print-object' methods.
 
-(cl-defmethod cl-print-object ((ml magiciel--empty-record) stream)
-  (ignore ml)
+(cl-defmethod cl-print-object ((me magiciel--empty-record) stream)
+  "Specialized `print-object' method for `magiciel--empty-record' ME on STREAM."
+  (ignore me)
   (princ "#<MAGICIEL-RECORD empty>" stream))
 
 
-(cl-defmethod cl-print-object ((ml magiciel--normal-record) stream)
-  (let ((line (magiciel--magic-record-line ml)))
+(cl-defmethod cl-print-object ((mn magiciel--normal-record) stream)
+  "Specialized `print-object' method for `magiciel--normal-record' MN on STREAM."
+  (let ((line (magiciel--magic-record-line mn)))
     (princ (format "#<MAGICIEL-RECORD Normal %d %S>"
 		   (length line)
 		   line)
 	   stream)))
 
 
-(cl-defmethod cl-print-object ((ml magiciel--special-record) stream)
-  (let ((line (magiciel--magic-record-line ml)))
+(cl-defmethod cl-print-object ((ms magiciel--special-record) stream)
+  "Specialized `print-object' method for `magiciel--special-record' MS on STREAM."
+  (let ((line (magiciel--magic-record-line ms)))
     (princ (format "#<MAGICIEL-RECORD Special %d %S>"
 		   (length line)
 		   line)
@@ -267,6 +289,7 @@ ones are read in but untreated."
 
 
 (cl-defmethod cl-print-object ((ml magiciel--comment-record) stream)
+  "Specialized `print-object' method for `magiciel--comment-record' ML on STREAM."
   (let ((line (magiciel--magic-record-line ml)))
     (if (and line (not (string-equal line "")))
 	(princ (format "#<MAGICIEL-RECORD Comment: %s>" line)
@@ -277,18 +300,22 @@ ones are read in but untreated."
 ;; Magiciel records predicates.
 
 (defun magiciel--magic-record-is-comment (r)
+  "Check whether record R is \\='comment\\='."
   (magiciel--comment-record-p r))
 
 
 (defun magiciel--magic-record-is-empty (r)
+  "Check whether record R is \\='empty\\='."
   (magiciel--empty-record-p r))
 
 
 (defun magiciel--magic-record-is-special (r)
+  "Check whether record R is \\='special\\='."
   (magiciel--special-record-p r))
 
 
 (defun magiciel--magic-record-is-normal (r)
+  "Check whether record R is \\='normal\\='."
   (magiciel--normal-record-p r))
 
 
@@ -320,6 +347,7 @@ reorder the \"records\" field."
 
 
 (cl-defmethod cl-print-object ((mm magiciel--magic) stream)
+  "Specialized `print-object' method for a `magiciel-magic' MM on STREAM."
   (princ (format "#<MAGICIEL-MAGIC spec file %S with %d records: %S>"
 		 (magiciel--magic-name mm)
 		 (cl-count-if #'(lambda (r)
@@ -333,21 +361,25 @@ reorder the \"records\" field."
 ;; Useful functions manipulating the `magiciel--magic' structure.
 
 (cl-defun magiciel--magic-normal-records (mm)
+  "Return a list of \\='normal\\=' records from a `magiciel--magic' structure MM."
   (cl-remove-if-not #'magiciel--magic-record-is-normal
 		    (magiciel--magic-records mm)))
 
 
 (cl-defun magiciel--magic-special-records (mm)
+  "Return a list of \\='special\\=' records from a `magiciel--magic' structure MM."
   (cl-remove-if-not #'magiciel--magic-record-is-special
 		    (magiciel--magic-records mm)))
 
 
 (cl-defun magiciel--magic-empty-records (mm)
+  "Return a list of \\='empty\\=' records from a `magiciel--magic' structure MM."
   (cl-remove-if-not #'magiciel--magic-record-is-empty
 		    (magiciel--magic-records mm)))
 
 
 (cl-defun magiciel--magic-comment-records (mm)
+  "Return a list of \\='comment\\=' records from a `magiciel--magic' structure MM."
   (cl-remove-if-not #'magiciel--magic-record-is-comment
 		    (magiciel--magic-records mm)))
 
@@ -374,6 +406,7 @@ reorder the \"records\" field."
 	  "[[:space:]]+\\(\\(?:\\\\ \\|[^[:space:]]\\)+\\)" ; Test
 	  "\\(?:[[:space:]]+\\(.*\\)\\)?$"		    ; Message
 	  )
+  "Regexp used to parse and unpack \\='normal\\=' records."
   )
 
 
@@ -402,10 +435,12 @@ reorder the \"records\" field."
       ;; Within the `test' element, I must also match '\ '
       (group (+ (or (not space) "\\\\ ")))  ; Test.
       (opt (+ (in space)) (group (* nonl))) ; Message.
-      eol))
+      eol)
+  "Regexp used to parse and unpack \\='normal\\=' records.")
 
 
 (defun magiciel--parse-magic-record (line)
+  "Parse a LINE into a `magiciel--magic-record'."
   (cl-flet
       ((parse-normal-record (rec)
 
@@ -433,7 +468,7 @@ reorder the \"records\" field."
 
        (parse-special-record (rec)
 	 (let ((srp (magiciel--parse-special-record rec)))
-	   (magiciel--make-special-record 
+	   (magiciel--make-special-record
 	    :line  rec
 	    :type  (intern (cl-first srp))
 	    :value (cl-rest srp)
@@ -462,7 +497,7 @@ reorder the \"records\" field."
 ;; magiciel--load-magic-file
 
 (defun magiciel--load-magic-file (filename)
-  "Load FILENAME and parses it as a \\='magic(5)\\=' file.
+  "Load FILENAME and parse it as a \\='magic(5)\\=' file.
 
 The function parses each line of FILENAME calling
 `magiciel--parse-magic-record' and finally returns a `magiciel--magic'
@@ -498,7 +533,7 @@ structure.  It also caches it in the `magiciel--bookshelf'."
 ;; Used mostly for debugging.
 
 (defun magiciel--load-magic-file-raw-bytes (filename)
-  ;; `filename' is a magic(5) file.
+  "Load the raw bytes of a 'magic(5)' file named FILENAME."
 
   (with-temp-buffer
     ;; I should ensure the buffer is unibyte.
@@ -514,10 +549,12 @@ structure.  It also caches it in the `magiciel--bookshelf'."
 ;; This function essentially convers from C to Lisp syntax.
 
 (cl-defun magiciel--lispify-number-string (ns &optional (start 0) end)
-  "Assuming the string `ns' contains an integer, lispify it.
+  "Lispify a string NS, assuming it contains an integer.
 
 Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
-\"#o7\" and \"0b01\" into \"#b01\"; no \"radix\" handling."
+\"#o7\" and \"0b01\" into \"#b01\"; no \"radix\" handling.
+
+START and END have the usual, Common Lisp meaning."
 
   (let ((xp (or (cl-position ?x ns :start start :end end)
 		(cl-position ?X ns :start start :end end)))
@@ -526,7 +563,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
     (cond ((and xp (cl-plusp xp))
 	   (setf (aref ns (1- xp)) ?#))
 	  ((and xp (zerop xp))
-	   (magiciel--error "not a numberish string %S." ns))
+	   (magiciel--error "not a numberish string %S.?" ns))
 	  (t
 	   (let ((op (or (cl-position ?o ns :start start :end end)
 			 (cl-position ?O ns :start start :end end)))
@@ -535,7 +572,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 	     (cond ((and op (cl-plusp op))
 		    (setf (aref ns (1- op)) ?#))
 		   ((and op (zerop op))
-		    (magiciel--error "not a numberish string %S." ns))
+		    (magiciel--error "not a numberish string %S.?" ns))
 		   (t
 		    (let ((bp (or (cl-position ?b ns :start start :end end)
 				  (cl-position ?B ns :start start :end end)))
@@ -544,7 +581,7 @@ Lispification means turning \"OxFF\" into \"#xFF\", \"0o7\" into
 		      (cond ((and bp (cl-plusp bp))
 			     (setf (aref ns (1- bp)) ?#))
 			    ((and bp (zerop bp))
-			     (magiciel--error "not a numberish string %S." ns))
+			     (magiciel--error "not a numberish string %S.?" ns))
 			    (t
 			     ;; (and (null xp) (null op) (null bp))
 			     ns)	; Pointless return here.
@@ -725,6 +762,7 @@ This is the \"abstract\" offset type."
 ;; Offsets `cl-print-object' methods.
 
 (cl-defmethod cl-print-object ((mo magiciel--offset) stream)
+  "Specialized `print-object' method for `magiciel--offset' MO on STREAM."
   (princ (format "#<MAGICIEL record offset %S>"
 		 (magiciel--offset-string-rep mo))
 	 stream))
@@ -876,7 +914,7 @@ Return a `magiciel--offset' structure."
 		    (cond ((char-equal ?, (aref ind-type 0)) nil)
 			  ((char-equal ?. (aref ind-type 0)) t)
 			  (t
-			   (magiciel--error "incorrect sign '%c' in %S."
+			   (magiciel--error "Incorrect sign '%c' in %S"
 					    (aref ind-type 0)
 					    ind-type))
 			  ))
@@ -1023,15 +1061,13 @@ This is one of the following:
 - type<op>modifier
 - type<op>modifier1/modifier2
 
-At least this is what is inferred from various sources.
-")
+At least this is what is inferred from various sources.")
 
 
 (cl-defun magiciel--parse-type-spec (record-or-ts)
   "Parse the \\='type\\=' part of a \\='magic(5)\\=' record RECORD-OR-TS.
 
-Returns a `magiciel--record-type-spec'.
-"
+Returns a `magiciel--record-type-spec'."
   
   (unless (or (stringp record-or-ts)
 	      (magiciel--magic-record-is-normal record-or-ts))
@@ -1041,13 +1077,13 @@ Returns a `magiciel--record-type-spec'.
 	      ;; This is unused, as I decided to use the kludge below.
 
 	      ;; (message "\nss >>>>>> record %S." type-spec-string)
-	      ;; (message "ss >>>>>> type-spec-string: %S."		       
+	      ;; (message "ss >>>>>> type-spec-string: %S."
 	      ;;          type-spec-string)
 	      
 	      (unless (string-match magiciel--*type-spec-rx*
 				    type-spec-string)
 		;; It should never get here...
-		(magiciel--error "cannot parse type spec %S."
+		(magiciel--error "Cannot parse type spec %S"
 				 type-spec-string))
 
 	      (let ((spec-type (match-string 1 type-spec-string))
@@ -1597,7 +1633,7 @@ constructor."
 				      8
 				      ))
     (_
-     (magiciel--error "unknown spec %s." spec))
+     (magiciel--error "Unknown spec %s" spec))
     )
   )
 
@@ -1619,6 +1655,7 @@ record."
 
 
 (cl-defmethod cl-print-object ((mt magiciel--test) stream)
+  "Specialized `print-object' method for `magiciel--test' MT on STREAM."
   (princ (format "#<MAGICIEL record test: %S>"
 		 (magiciel--test-test-string mt))
 	 stream))
@@ -1627,7 +1664,7 @@ record."
 ;; magiciel--parse-test
 
 (cl-defun magiciel--parse-test (record)
-  "Parse the \\='test\\=' part of a \\='magic(5)\\=' record."
+  "Parse the \\='test\\=' part of a \\='magic(5)\\=' RECORD."
   
   (unless (or (stringp record)
 	      (magiciel--magic-record-is-normal record))
@@ -1657,7 +1694,7 @@ record."
 	    ;; Can break other cases; cfr., c-lang.
 	    ;; Resorting to homegrown `cstringizing`
 
-	    ;; (read-from-string 
+	    ;; (read-from-string
 	    ;;  (concat "\""
 	    ;; 	     (if op
 	    ;; 		 (cl-subseq test-spec-string 1)
@@ -1687,6 +1724,7 @@ record."
 
 
 (cl-defmethod cl-print-object ((mm magiciel--message) stream)
+  "Specialized `print-object' method for `magiciel--message' MM on STREAM."
   (princ (format "#<MAGICIEL record message: %S>"
 		 (magiciel--message-msg-string mm))
 	 stream))
@@ -1695,6 +1733,7 @@ record."
 ;; magiciel--parse-message
 
 (cl-defun magiciel--parse-message (record)
+  "Parse the \\='message\\=' part of a RECORD."
   (unless (or (stringp record)
 	      (magiciel--magic-record-is-normal record))
     (cl-return-from magiciel--parse-message nil))
@@ -1714,6 +1753,8 @@ record."
 ;; magiciel--parse-special-record
 
 (cl-defun magiciel--parse-special-record (record)
+  "Parse a \\='special\\=' RECORD."
+  
   (unless (or (stringp record)
 	      (magiciel--magic-record-is-special record))
     (cl-return-from magiciel--parse-special-record nil))
@@ -1744,11 +1785,14 @@ record."
 ;; Utilities.
 
 (cl-defun magiciel--machine-endiannes ()
+  "Return the endianness of the machine."
   ;; This MUST be checked!
   :le)
 
   
 (cl-defun magiciel--code-list (&optional (code "ff01fe100000"))
+  "Return a list of 8-bit long bytes making up CODE."
+  
   (let ((bytes ()))
     (dotimes (i (/ (length code) 2))
       (let ((next-byte (substring code (* 2 i) (* 2 (1+ i)))))
@@ -1767,14 +1811,16 @@ record."
 ;; They will have to be replaced with proper parsing functions.
 
 (cl-defun magiciel--convert-c-integer (i &aux (sign 1) (il (length i)))
-  "Takes a string `i' and reads an integer in C syntax from it.
+  "Take a string I and read an integer in C syntax from it.
 
 The integer is supposed to be in position 0.
 
 No checks are made for correctness.  An integer is returned if all
 goes well.
 
-Cfr., the C standard(s) for integer syntax."
+Cfr., the C standard(s) for integer syntax.
+
+SIGN and IL are just local variables."
 
   (cl-assert (cl-plusp il))
 
@@ -1802,12 +1848,14 @@ Cfr., the C standard(s) for integer syntax."
 
 
 (cl-defun magiciel--convert-c-number (i &aux (sign 1) (il (length i)))
-  "Takes a string `i' and reads a number in C syntax from it.
+  "Take a string I and read a number in C syntax from it.
 
 No checks are made for correctness.  A number is returned if all
 goes well.
 
-Cfr., the C standard(s) for number constants."
+Cfr., the C standard(s) for number constants.
+
+SIGN and IL are just local variables."
 
   (cl-assert (cl-plusp il))
 
@@ -1836,4 +1884,4 @@ Cfr., the C standard(s) for number constants."
 
 (provide 'magiciel-parse-magic)
 
-;;; parse-magic.el end here.
+;;; parse-magic.el ends here.

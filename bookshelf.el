@@ -31,12 +31,14 @@
 
 
 (cl-defun magiciel--get-scrolls (&optional (bookshelf magiciel--*bookshelf*))
+  "Get the \\'=scrolls\\=' from a BOOKSHELF."
   (cl-loop for scroll being the hash-value
 	   of (magiciel--bookshelf-scroll-index bookshelf)
 	   collect scroll))
 
 
 (cl-defun magiciel--scroll-names (&optional (bookshelf magiciel--*bookshelf*))
+  "Get the \\'=scroll names\\=' from a BOOKSHELF."
   (cl-loop for scroll being the hash-key
 	   of (magiciel--bookshelf-scroll-index bookshelf)
 	   collect scroll))
@@ -45,6 +47,7 @@
 (cl-defun magiciel--get-scroll (scroll-name
 				&optional
 				(bookshelf magiciel--*bookshelf*))
+  "Get a scroll named SCROLL-NAME from BOOKSHELF."
   (gethash scroll-name
 	   (magiciel--bookshelf-scroll-index bookshelf))) ; Add a default maybe?
 
@@ -53,6 +56,7 @@
 				scroll-rep
 				&optional
 				(bookshelf magiciel--*bookshelf*))
+  "Add a scroll SCROLL-REP named SCROLL-NAME to BOOKSHELF."
   (setf (gethash scroll-name
 		 (magiciel--bookshelf-scroll-index bookshelf))
 	scroll-rep))
@@ -60,6 +64,7 @@
 
 (cl-defun magiciel--clear-bookshelf (&optional
 				     (bookshelf magiciel--*bookshelf*))
+  "Clear the BOOKSHELF."
   (clrhash (magiciel--bookshelf-scroll-index bookshelf)))
 
 

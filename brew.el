@@ -28,7 +28,7 @@
     (expand-file-name "/usr/share/file/magic"))
   "The system folder where magic(5) files are kept.
 
-This is `nil' on Windows systems.")
+This is NIL on Windows systems.")
 
 
 (defvar magiciel--*apothecary-folder*
@@ -36,7 +36,8 @@ This is `nil' on Windows systems.")
   "The \"magiciel\" folder where compiled recipes are kept.")
 
 
-(defvar magiciel--*magic-files-structs* ())
+(defvar magiciel--*magic-files-structs* ()
+  "A cache of `magiciel-file-info' structures."))
 
 
 (cl-defun magiciel-load-magic-recipes (&optional
@@ -55,7 +56,7 @@ MAGIC-FOLDER, which defaults to `magiciel--*magic-folder*', that is
 
 If STEP is non-nil, a confirmation is asked to load each file.
 
-The parameter apothecary-folder is a directory where the generated
+The parameter APOTHECARY-FOLDER is a directory where the generated
 code will be stored (unused for the time being)."
 
   (interactive
@@ -77,9 +78,9 @@ code will be stored (unused for the time being)."
     (if (and (eq system-type 'windows-nt)
 	     (null magic-folder))
 	(magiciel--error
-	 "there is no magic(5) folder on a a Windows system.")
+	 "There is no magic(5) folder on a a Windows system")
       (magiciel--error
-       "magic(5) %S either does not exists or is not a directory."
+       "'magic(5)' %S either does not exists or is not a directory"
        magic-folder)))
   
   (unless (and apothecary-folder (file-directory-p apothecary-folder))
@@ -130,8 +131,16 @@ code will be stored (unused for the time being)."
 				      magic-fun
 				      magic-name-funs
 				      &optional
-				      (apothecary
-				       magiciel--*apothecary-folder*))
+				      (apothecary magiciel--*apothecary-folder*))
+  "Write the compiled code in a file in direcotry APOTHECARY.
+
+Arguments and Values:
+
+MFS : a `magiciel-file-info'
+MFNAME : the name of the main compiled function for MFS.
+MAGIC-FUN : the code of the main function.
+MAGIC-NAME-FUNS : a list of the functions created for `name' clauses.
+APOTHECARY : the directory where the file fill be saved."
   (let* ((spell-name (format "%s.el" (magiciel--magic-name mfs)))
 	 (spell-filename (concat apothecary spell-name))
 	 (spell-buffer (get-buffer-create spell-name))
@@ -187,7 +196,12 @@ code will be stored (unused for the time being)."
 				 (apothecary
 				  magiciel--*apothecary-folder*)
 				 )
-  ;; `recipe' is a file name.
+  "Load a \\='magic(5)\\=' specification from RECIPE and \"compiles\" it.
+
+The file RECIPE is loaded from MAGIC-FOLDER (defaulting to
+`magiciel--*magic-folder*') and its compiled form (a file name
+with \".el\" appended to RECIPE) is saved in the APOTHECARY
+folder (defaulting to `magiciel--*apothecary-folder*')."
   
   (let ((magic-s (magiciel--load-magic-file
 		  (expand-file-name recipe magic-folder)))
@@ -217,9 +231,13 @@ code will be stored (unused for the time being)."
 
 
 (cl-defun magiciel--fill-apothecary (&optional
-				     (step nil)
 				     (apothecary
 				      magiciel--*apothecary-folder*))
+  "Fill the APOTHECARY folder with compiled code.
+
+If called interactively the APOTHECARY destination is asked the
+user (defaulting to `magiciel--*apothecary-folder*')."
+
   (interactive
    (let ((ad (read-directory-name
 	      "MAGICIEL apothecary folder: "
@@ -229,9 +247,7 @@ code will be stored (unused for the time being)."
 	      ))
 	 (step (y-or-n-p "Step through loading and compiling?"))
 	 )
-     (list step ad)))
-
-  (ignore step)
+     (list ad)))
   
   (let ((mfile-structs (magiciel-load-magic-recipes)))
 

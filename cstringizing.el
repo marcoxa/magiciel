@@ -36,13 +36,13 @@ The functions scans C-STRING producing results as follows.
 
 Examples:
 
-(magiciel-cstringize \"\\\\x62\") ==> \"b\")
+    (magiciel-cstringize \"\\\\x62\") ==> \"b\")
 
 Note that in the example the length of the original string is 4, while
 the result has length 1.
 
 The optional VERBOSE-LEVEL can be 0 (non verbose), 1 (medium verbose)
-or 2 (verbose)."
+or 2 (verbose).  CSLEN contains the length of C-STRING."
 
   (if (string-empty-p c-string)
       ""
@@ -224,4 +224,4 @@ or 2 (verbose)."
 	  ))
       )))
 
-;;; cstringzing.el ends here
+;;; cstringizing.el ends here.

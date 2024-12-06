@@ -32,6 +32,7 @@
 (require 'cl-lib)
 (require 'bindat)
 (require 'bitpack)			; Getting ready for it.
+(require 'pcre2el)
 
 
 (defvar magiciel-path (file-name-directory (or load-file-name "."))

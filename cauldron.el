@@ -31,12 +31,18 @@
 
 
 (cl-defun magiciel--get-spells (&optional (cauldron magiciel--*cauldron*))
+  "Return a list of all the spells in CAULDRON.
+
+CAULDRON is of type `magiciel--cauldron'."
   (cl-loop for spell being the hash-value
 	   of (magiciel--cauldron-fun-table cauldron)
 	   collect spell))
 
 
 (cl-defun magiciel--spell-names (&optional (cauldron magiciel--*cauldron*))
+  "Return a list of the known spell names in CAULDRON.
+
+CAULDRON is of type `magiciel--cauldron'."
   (cl-loop for spell being the hash-key
 	   of (magiciel--cauldron-fun-table cauldron)
 	   collect spell))
@@ -45,6 +51,9 @@
 (cl-defun magiciel--get-spell (spell-name
 			       &optional
 			       (cauldron magiciel--*cauldron*))
+  "Get spell with name SPELL-NAME from CAULDRON.
+
+CAULDRON is of type `magiciel--cauldron'."
   (gethash spell-name (magiciel--cauldron-fun-table cauldron)))	; Add a default maybe?
 
 
@@ -52,6 +61,9 @@
 			       spell-code
 			       &optional
 			       (cauldron magiciel--*cauldron*))
+  "Add spell with code SPELL-CODE and name SPELL-NAME into CAULDRON.
+
+CAULDRON is of type `magiciel--cauldron'."
   (setf (gethash spell-name (magiciel--cauldron-fun-table cauldron))
 	spell-code))
 

@@ -115,11 +115,10 @@
 			     (n-bytes 1)
 			     (endianness :le)
 			     )
-    "Reads an unsigned integer from BINARY-DATA starting at position LOC. 
+    "Read an unsigned integer from BINARY-DATA starting at position LOC.
 
 An unsigned integer of length N-BYTES is read in, also according to
-the ENDIANNESS parameter (either `:le' or `:be').
-"
+the ENDIANNESS parameter (either `:le' or `:be')."
   (let* ((unpacker
 	  (cl-ecase endianness
 	    ((:le :<) (cl-ecase n-bytes
@@ -141,7 +140,7 @@ the ENDIANNESS parameter (either `:le' or `:be').
 	 )
     (if i
 	(cdar i)
-      (error "MAGICIEL: no unsigend int unpacked."))))
+      (error "MAGICIEL: no unsigend int unpacked"))))
 
 
 (cl-defun magiciel--get-sint (binary-data
@@ -150,11 +149,10 @@ the ENDIANNESS parameter (either `:le' or `:be').
 			     (n-bytes 1)
 			     (endianness :le)
 			     )
-  "Reads a signed integer from BINARY-DATA starting at position LOC.
+  "Read a signed integer from BINARY-DATA starting at position LOC.
 
 A signed integer of length N-BYTES is read in, also according to the
-ENDIANNESS parameter (either `:le' or `:be').
-"
+ENDIANNESS parameter (either `:le' or `:be')."
   (let* ((unpacker
 	  (cl-ecase endianness
 	    ((:le :<) (cl-ecase n-bytes
@@ -176,7 +174,7 @@ ENDIANNESS parameter (either `:le' or `:be').
 	 )
     (if i
 	(cdar i)
-      (error "MAGICIEL: no int unpacked."))))
+      (error "MAGICIEL: no int unpacked"))))
 
 
 ;; magiciel--*invert-endianness*
@@ -199,7 +197,7 @@ instructions in the \"magic(5)\" specification."
 (cl-defun magiciel--use-endianness (&optional
 				    (endianness
 				     (magiciel--machine-endiannes)))
-  "Return the endianness to use in accesses.
+  "Return the ENDIANNESS to use in accesses.
 
 It has an effect only within \"name\" instruction groups as a
 consequence of their \"use\".  Cf., the \"magic(5)\" specification for
@@ -218,7 +216,7 @@ specification."
 	   ((:m :me) :me)
 	   ))
 	)
-    (magiciel--msg 1 "using endianness %s (was %s)" e endianness) 
+    (magiciel--msg 1 "using endianness %s (was %s)" e endianness)
     e))
 
 
@@ -248,8 +246,7 @@ The arguments UNSIGNED and ENDIANNESS control how the value is read
 in.  For string and date values, LEN bytes are read in.
 
 MODS, if not NIL, must be of the form (<op> <arg>), where
-<op> and <arg> are strings.
-"
+<op> and <arg> are strings."
   
   ;; The handling of MODS is done here even if a bit inefficient.
   ;; Only numeric types modifiers are considered.
@@ -291,5 +288,5 @@ MODS, if not NIL, must be of the form (<op> <arg>), where
 
 (provide 'magiciel-magic-bits)
 
-;; magic-bits.el ends here
+;;; magic-bits.el ends here
 
