@@ -1,6 +1,4 @@
-;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
-;;;
-;;; magiciel.el --- Guessing the content of a file in the guise of `file' `magic'.
+;;; magiciel.el --- Guessing the content of a file in the guise of `file' `magic'. -*- lexical-binding: t -*-
 ;;
 ;; See the file COPYING license and copyright information.
 ;;
@@ -12,7 +10,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2024-11-30
+;; Version: 2025-10-16
 ;;
 ;; Keywords: languages, operating systems, file systems.
 
@@ -31,8 +29,9 @@
 
 (require 'cl-lib)
 (require 'bindat)
-(require 'bitpack)			; Getting ready for it.
+;; (require 'bitpack)			; Getting ready for it.
 (require 'pcre2el)
+(require 'platel)			; Here we go.
 
 
 (defvar magiciel-path (file-name-directory (or load-file-name "."))
@@ -75,5 +74,9 @@
 
 
 (provide 'magiciel)
+
+;; Local Variables:
+;; mode: Emacs-lisp
+;; End:
 
 ;;; magiciel.el ends here
