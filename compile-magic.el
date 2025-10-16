@@ -95,7 +95,7 @@ the parts of a 'magic(5)' specification line.")
 TYPE-SPEC speficies the kind of access to be prepared.  OFFSET
 specifies wher to look for the value in the byte stream.  UNSIGNED
 tells the code whether the access should be made as unsigned or not.
-ENDIANNESS specifies what kind of endianness to expcet in the data
+ENDIANNESS specifies what kind of endianness to expect in the data
 stream.  MODS is list of 'modifiers'.  LEN tells the function how many
 bytes to read.")
   )
@@ -411,7 +411,7 @@ be compiled."
 
 
 (cl-defun magiciel--fix-test-value (test-value-string)
-  "FIxt the test value in TEST-VALUE-STRING to accommodate some of the 'magic(5)' quirks."
+  "Fix the test value in TEST-VALUE-STRING to accommodate some of the 'magic(5)' quirks."
   ;; See the NOTES.md file for the reason we need this
   ;; here. (And maybe elsewhere).
 
@@ -1492,7 +1492,7 @@ records in RECS-GROUP."
 (cl-defun magiciel--compile-rec-groups (recs-groups
 					&optional
 					(magic-name "magiciel--n-"))
-  "Return a list of the \\'groups\\=' in RECS-GROUPS
+  "Return a list of the \\'groups\\=' in RECS-GROUPS.
 
 The returned value is a list of conses produced by
 `magiciel--compile-rec-group' called with MAGIC-NAME."
