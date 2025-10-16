@@ -129,3 +129,8 @@ in order to make sure that the accesses in `use` clauses are correct.
 Still missing: a review of all the offset calculations to correctly
 remember `%end-pos%` in `magiciel--$store-access-result`.
 
+
+## 2025-10-15
+
+Got back to work on **Magiciel** after two long detours into **Emacs**
+and **C**/**C\+\+** compilations
