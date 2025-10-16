@@ -272,11 +272,11 @@ This is an internal function, factored out just for debugging."
     (set-buffer-multibyte nil)
     (insert-file-contents-literally filename)
     (buffer-substring-no-properties (point-min) (point-max))
-    )
-  )
+    ))
 
 
-
+;; magiciel-divine
+;; The main `magiciel' interactive command.
   
 (cl-defun magiciel-divine (filename &optional (context :normal) (keep-going nil))
   "The main command of the Magiciel library.
