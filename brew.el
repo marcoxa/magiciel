@@ -37,7 +37,7 @@ This is NIL on Windows systems.")
 
 
 (defvar magiciel--*magic-files-structs* ()
-  "A cache of `magiciel-file-info' structures."))
+  "A cache of `magiciel-file-info' structures.")
 
 
 (cl-defun magiciel-load-magic-recipes (&optional
@@ -132,7 +132,7 @@ code will be stored (unused for the time being)."
 				      magic-name-funs
 				      &optional
 				      (apothecary magiciel--*apothecary-folder*))
-  "Write the compiled code in a file in direcotry APOTHECARY.
+  "Write the compiled code in a file in directory APOTHECARY.
 
 Arguments and Values:
 
@@ -172,7 +172,7 @@ APOTHECARY : the directory where the file fill be saved."
 	      (insert "\n")
 	      ))
 
-	  ;; Nice, but awfully slow and ureliable.
+	  ;; Nice, but awfully slow and unreliable.
 	  ;; (let ((pp-max-width
 	  ;; 	 ;; 80
 	  ;; 	 nil))
