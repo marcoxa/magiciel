@@ -3,6 +3,9 @@
 ;;; parse-magic.el
 ;;
 ;; A nice rabbit hole I went in.  And rabbit holes are magic.
+;;
+;; See the file COPYING license and copyright information.
+
 
 ;;; Commentary:
 ;;

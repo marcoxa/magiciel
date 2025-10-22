@@ -2,7 +2,8 @@
 ;;; magiciel --- Guessing the content of a file in simple as possible way.
 
 ;;; brew.el
-
+;;
+;; See the file COPYING license and copyright information.
 
 ;;; Commentary:
 ;;

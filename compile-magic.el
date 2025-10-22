@@ -1,7 +1,8 @@
 ;;; magiciel --- Guessing the content of a file in simple as possible way. -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; compile-magic.el
-
+;;
+;; See the file COPYING license and copyright information.
 
 ;;; Commentary:
 ;;

@@ -1,5 +1,4 @@
-;;; magiciel --- Emacs does magic and divines file contents. 
-;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
+;;; magiciel --- Emacs does magic and divines file contents. -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; magiciel-pkg.el
 ;;

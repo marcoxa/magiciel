@@ -1,8 +1,8 @@
-;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
-;;; magiciel --- Guessing the content of a file in simple as possible way.
+;;; magiciel --- Guessing the content of a file in simple as possible way. -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; utilities.el
-
+;;
+;; See the file COPYING license and copyright information.
 
 ;;; Commentary:
 ;;
@@ -18,7 +18,6 @@
 
 ;; Utilities.
 ;; ----------
-
 
 (defun magiciel--info (fmt &rest args)
   "Apply `message' to FMT and ARGS.
