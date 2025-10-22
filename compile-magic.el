@@ -1,5 +1,4 @@
-;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
-;;; magiciel --- Guessing the content of a file in simple as possible way.
+;;; magiciel --- Guessing the content of a file in simple as possible way. -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; compile-magic.el
 
@@ -84,7 +83,7 @@
   (:documentation "Compile a magiciel instruction.
 
 OFF-OP is the offset specification, TEST, TYPE and RESULT-MESSAGE are
-the parts of a 'magic(5)' specification line.")
+the parts of a \\='magic(5)\\=' specification line.")
   )
 
 (cl-defgeneric magiciel--compile-access
@@ -92,12 +91,12 @@ the parts of a 'magic(5)' specification line.")
   (:documentation
    "Compile the expression that will access the value to be tested..
 
-TYPE-SPEC speficies the kind of access to be prepared.  OFFSET
-specifies wher to look for the value in the byte stream.  UNSIGNED
-tells the code whether the access should be made as unsigned or not.
-ENDIANNESS specifies what kind of endianness to expect in the data
-stream.  MODS is list of 'modifiers'.  LEN tells the function how many
-bytes to read.")
+TYPE-SPEC speficies the kind of access to be prepared.  OFFSET specifies
+wher to look for the value in the byte stream.  UNSIGNED tells the code
+whether the access should be made as unsigned or not.  ENDIANNESS
+specifies what kind of endianness to expect in the data stream.  MODS is
+list of \\='modifiers\\='.  LEN tells the function how many bytes to
+read.")
   )
 
 
@@ -177,6 +176,40 @@ name of a lower level code block."))
 	 stream))
 
 
+;; Compiling the Magic.
+;; --------------------
+
+;; The main function of the two steps code generation is
+;; `magiciel-compile-magic' below.
+;; Other ancillary functions are in this section.
+;;
+;; The 'file(1)' and 'magic(5)' specifications order the "rules"
+;; according to "strength" (in a misterious way - meaning only by
+;; looking at the C code to fathom what it is done).  Each "rule" is a
+;; "group", that is a set of rules/records/instructions starting with
+;; a 0-level one, plus "special" records.
+;; The function `magiciel--order-groups-by-strength' operates on a
+;; list of such groups (themselves lists of `magiciel--magic-record's)
+;;
+;; The function `magiciel--assess-group-strength' yields the
+;; "strength" of a group, buy taking into consideration various
+;; factors (see the 'file(5)' code) and the '!:strength' records.
+
+
+;; macigiel--assess-group-strength
+
+(cl-defun magiciel--assess-group-strength (group)
+  "Assess yields the \"strength\" of a GROUP."
+  )
+
+
+;; magiciel--order-groups-by-strength
+
+(cl-defun magiciel--order-groups-by-strength (rec-groups)
+  "Order REC-GROUPS according to their \\=':!strength\\=' specifications."
+  )
+
+
 ;; magiciel-compile-magic
 
 (cl-defun magiciel-compile-magic (magic
@@ -190,8 +223,8 @@ name of a lower level code block."))
 STEPS for the time being controls where to stop in the compilation
 process.
 
-MNAME is a string containing the name of the 'magic(5)' structure to
-be compiled."
+MNAME is a string containing the name of the \\='magic(5)\\=' structure
+to be compiled."
   
   (magiciel--msg 1 "compiling magic %S...\n" mname)
   
@@ -222,7 +255,7 @@ be compiled."
 	  (comp-rec-groups ())
 	  )
       (cl-labels
-	  ((start (recs)
+	  ((group-records-start (recs)
 	     (process-magic-records recs ()))
 
 	   (finish ()
@@ -278,7 +311,7 @@ be compiled."
 
 	(magiciel--msg 1 "grouping %s records..." mname)
 
-	(when code-recs (start code-recs))
+	(when code-recs (group-records-start code-recs))
 	
 	(when (<= steps 1)
 	  (cl-return-from magiciel-compile-magic
@@ -411,7 +444,7 @@ be compiled."
 
 
 (cl-defun magiciel--fix-test-value (test-value-string)
-  "Fix the test value in TEST-VALUE-STRING to accommodate some of the 'magic(5)' quirks."
+  "Fix TEST-VALUE-STRING to accommodate some of the \\='magic(5)\\=' quirks."
   ;; See the NOTES.md file for the reason we need this
   ;; here. (And maybe elsewhere).
 
@@ -431,6 +464,7 @@ be compiled."
 				       (test magiciel--test)
 				       result-msg
 				       &key
+				       (group-id 0)
 				       &allow-other-keys)
   "Compile and create a `magiciel--instruction'.
 
@@ -454,6 +488,7 @@ specification TEST, offset OFF-OP and message RESUTL-MGS."
 				 (magiciel--compile-message result-msg)
 				 :type-mods type-mods
 				 :test-mods test-mods
+				 :group-id group-id
 				 )
     
       (let* ((compiled-type (magiciel--compile-type type))
@@ -491,6 +526,7 @@ specification TEST, offset OFF-OP and message RESUTL-MGS."
 	     )
 
 	(magiciel--make-instruction
+	 :group group-id
 	 :offset off-op
 	 :access (magiciel--compile-access type-spec
 					   off-op
@@ -543,6 +579,7 @@ RESULT-MSG is a string."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='regex\\=' instruction (the TYPE argument).
@@ -554,7 +591,8 @@ TYPE   -- the \\='regexp\\=' symbol
 TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   (ignore test-mods)
 
   (cl-assert (or (null type-mods)
@@ -618,6 +656,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 	(let ((case-fold-search (cl-find ?c flags))
 	      )
 	  (magiciel--make-instruction
+	   :group group-id
 	   :kind type
 	   :offset offset
 	   :test `(let ((case-fold-search ',case-fold-search))
@@ -636,6 +675,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='name\\=' instruction.
@@ -647,7 +687,8 @@ TYPE   -- the \\='name\\=' symbol
 TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL; currently ignored)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   
   (ignore type-mods test-mods)
 
@@ -655,7 +696,8 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 	(test-val (magiciel--test-value test))
 	)
     
-    (magiciel--make-instruction :kind type
+    (magiciel--make-instruction :group group-id
+				:kind type
 				:offset offset
 				:test `(name ,test-val ,off-op)
 				:result result-msg
@@ -670,6 +712,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='indirect\\=' instruction.
@@ -681,12 +724,14 @@ TYPE   -- the \\='indirect\\=' symbol
 TEST   -- a `magiciel--test' (currently ignored)
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL; currently ignored)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
     
   (ignore test type-mods test-mods)
 
   (let ((off-op (magiciel--offset-code offset)))
-    (magiciel--make-instruction :kind type
+    (magiciel--make-instruction :group group-id
+				:kind type
 				:offset offset
 				:test `(indirect ,off-op)
 				:result result-msg))
@@ -700,6 +745,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='use\\=' instruction.
@@ -711,7 +757,8 @@ TYPE   -- the \\='use\\=' symbol
 TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL; currently ignored)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   
   (ignore type type-mods test-mods)
 
@@ -719,7 +766,8 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 	 (switch-endian (= ?^ (aref test-val 0)))
 	 )
 			
-    (magiciel--make-instruction :kind type
+    (magiciel--make-instruction :group group-id
+				:kind type
 				:offset offset
 				:test `(use ,test-val ,switch-endian)
 				:result result-msg))
@@ -733,6 +781,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='search\\=' instruction.
@@ -744,7 +793,8 @@ TYPE   -- the \\='search\\=' symbol
 TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   
   (ignore test-mods)
 
@@ -761,6 +811,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 		  ))
 	 )
     (magiciel--make-instruction
+     :group group-id
      :kind type
      :offset offset
      :test `(string-search ,test-val ,@limit ,off-op)
@@ -777,6 +828,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='default\\=' instruction.
@@ -788,13 +840,15 @@ TYPE   -- the \\='search\\=' symbol
 TEST-VAL   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL; currently ignored)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   
   (ignore type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   
-  (magiciel--make-instruction :kind type
+  (magiciel--make-instruction :group group-id
+			      :kind type
 			      :offset offset
 			      ;; :test `(default)
 			      :test t
@@ -810,6 +864,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='clear\\=' instruction.
@@ -821,13 +876,15 @@ TYPE   -- the \\='clear\\=' symbol
 TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL; currently ignored)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   
   (ignore type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   
-  (magiciel--make-instruction :kind type
+  (magiciel--make-instruction :group group-id
+			      :kind type
 			      :offset offset
 			      :test `(clear)
 			      :value (magiciel--test-value test)
@@ -842,6 +899,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       &key
 				       type-mods
 				       test-mods
+				       (group-id 0)
 				       &allow-other-keys
 				       )
   "Compile a \\='offset\\=' instruction.
@@ -853,13 +911,15 @@ TYPE   -- the \\='offset\\=' symbol
 TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 TYPE-MODS  -- a list (or NIL; currently ignored)
-TEST-MODS  -- a list (or NIL; currently ignored)."
+TEST-MODS  -- a list (or NIL; currently ignored)
+GROUP-ID   -- an `integer' denoting the group of this instruction."
   
   (ignore test type-mods test-mods)
   
   ;; Should check that `test-val' is \"x\".
   (let ((off-op (magiciel--offset-code offset)))
-    (magiciel--make-instruction :kind type
+    (magiciel--make-instruction :group group-id
+				:kind type
 				:offset offset
 				:test `(offset ,off-op)
 				:result result-msg))
@@ -871,6 +931,7 @@ TEST-MODS  -- a list (or NIL; currently ignored)."
 				       test
 				       result-msg
 				       &key
+				       (group-id 0)
 				       &allow-other-keys)
   "Compile an instruction.
 
@@ -881,13 +942,15 @@ Arguments and Values:
 OFFSET -- a `magiciel--offset'
 TYPE   -- the \\='offset\\=' symbol
 TEST   -- a `magiciel--test'
-RESULT-MSG -- a string"
+RESULT-MSG -- a string
+GROUP-ID   -- an `integer' denoting the group of this instruction."
 
   (magiciel--msg 0 "MCI: provisional compilation of; %s." type)
   (magiciel--msg 0 "MCI: offset %s."       offset)
   (magiciel--msg 0 "MCI: test-val %s."     test)
   (magiciel--msg 0 "MCI: result-msg %s.\n" result-msg)
-  (magiciel--make-instruction :kind type
+  (magiciel--make-instruction :group group-id
+			      :kind type
 			      :offset offset
 			      :test `(in-special-context ,type)
 			      :result result-msg)
@@ -1423,7 +1486,7 @@ GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
 					(group-id 0)
 					&allow-other-keys
 					)
-  "Compile a normal record.
+  "Compile a special record (\\='!:mime\\=', \\='!strength\\=', etc).
 
 Arguments and Values:
 
@@ -1431,7 +1494,8 @@ R        : a `magiciel--special-record'.
 GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
   
   (magiciel--compile-instr (magiciel--make-direct-offset :level 1)
-			   ;; Fake offset. Level 1 necessary.
+			   ;; Fake offset. Level 1 necessary to
+			   ;; properly group the instruction.
 			   (magiciel--special-record-type r)
 			   (magiciel--make-test :value t)
 			   (cl-first (magiciel--special-record-value r))
@@ -1767,6 +1831,7 @@ CONTINUE-TESTS will be a setting of the variable `%end-pos%' (the
 house-keeping code.  TAG is used for debugging purposes."
 
   (declare (indent 4))
+  (ignore test-level)
 
   `(let* ((%saved-end-pos% %end-pos%)  ; Need to save more state.
 	  ;; (--magiciel-test-result nil)
@@ -2145,7 +2210,8 @@ name of the enclosing function and M-NAME are used as a debugging aid."
 
 All the necessary information to properly \\'emit\\' the code for the
 test is packed into the `magiciel--instruction' INST."
-  
+
+  (ignore kind)
   (let* ((level  (magiciel--instruction-level inst))
 	 ;; (access (magiciel--instruction-access inst))
 	 (test   (magiciel--instruction-test inst))
@@ -2173,6 +2239,8 @@ test is packed into the `magiciel--instruction' INST."
 
 All the necessary information to properly \\'emit\\' the code for the
 test is packed into the `magiciel--instruction' INST."
+
+  (ignore kind)
 
   (let ((level  (magiciel--instruction-level inst))
 	;; (access (magiciel--instruction-access inst))
@@ -2574,6 +2642,8 @@ All the necessary information to properly \\'emit\\' the code for the
 test is packed into the `magiciel--instruction' INST.
 
 M-name is symbol used for debugging purposes."
+
+  (ignore inst)
   
   (magiciel--msg 1 "EMIT: emitting %s for %s." kind m-name)
   )
@@ -2992,6 +3062,10 @@ specially."
 	  )
 	 )
 
+    (ignore magic-group-exit-label
+	    magic-group-continue-label
+	    exit-code)
+
     (magiciel--msg 1 "MCM: instruction tree:")
     (magiciel--msg 1 "MCM: instruction tree is named (%s):" instrs-tree-name)
 
@@ -3037,6 +3111,8 @@ specially."
 			      append (emit-tree sub-node (1+ level))
 			      )))
 		  )
+
+	     (ignore magic-subgroup-block-name)
 
 	     (cl-case (cl-first instr-root-code)
 
@@ -3123,7 +3199,7 @@ specially."
 		    ;; (cl-values --magiciel-msg --magiciel-disp)
 		    (cl-values --magiciel-msg %pos% %end-pos%)
 		    ))
-		)))
+		)))			; emit-group-tree
 	 )				; labels
       
       (magiciel--make-group-func-code magic-group-fname
@@ -3190,7 +3266,26 @@ specially."
 
 
 
-;; Refactored to expose the "name" entries.
+;; magiciel--magic-emit
+;; Refactored to expose the "name" entries and now to deal with
+;; '!:strength' records.
+;;
+;; Several auxiliary functions are defined before
+;; `magiciel--magic-emit'; they could go into `flet's, but it is
+;; better to factor them out.
+
+(cl-defun magiciel--cons-groups-env (name instr-groups)
+  "Create names for groups in INSTR-GROUPS.
+
+NAME is the name of the main entry.
+Return an a-list of names and groups."
+  (cl-loop for ig in instr-groups
+	   for ign-name = (magiciel--group-name ig)
+	   when ign-name
+	     collect (cons ign-name
+			   (intern (format "%s-name-%s" name
+					   ign-name)))))
+
 
 (cl-defun magiciel--magic-emit (magic instr-groups)
   "Emit the functions that check for a specific \"magic(5)\" specification.
@@ -3219,23 +3314,25 @@ INSTR-GROUPS : a set of level 0 groups."
 	 (name (magiciel--magic-name magic))
 	 (magic-fname (magiciel--magic-fname magic))
 
+	 (groups-names-env (magiciel--cons-groups-env name instr-groups))
+	 
 	 (group-fns ())
 	 (groups-named ())
-	 (groups-names-env ())
+
 	 )
 
     ;; First, collect "name" instructions for "use" ones.
     ;; (I should build up this environment while building the
     ;; instructions, but the double pass shouldn't matter so much.)
     
-    (cl-loop for ig in instr-groups
-	     for ign-name = (magiciel--group-name ig)
-	     when ign-name
-	       collect (cons ign-name
-			     (intern (format "%s-name-%s" name ign-name)))
-	       into igs-env
-	     end
-	     finally (setf groups-names-env igs-env))
+    ;; (cl-loop for ig in instr-groups
+    ;; 	     for ign-name = (magiciel--group-name ig)
+    ;; 	     when ign-name
+    ;; 	       collect (cons ign-name
+    ;; 			     (intern (format "%s-name-%s" name ign-name)))
+    ;; 	       into igs-env
+    ;; 	     end
+    ;; 	     finally (setf groups-names-env igs-env))
 
     ;; Some code duplication below (see `intern' -- I am to lazy to
     ;; refactor right now).
