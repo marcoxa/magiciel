@@ -133,4 +133,11 @@ remember `%end-pos%` in `magiciel--$store-access-result`.
 ## 2025-10-15
 
 Got back to work on **Magiciel** after two long detours into **Emacs**
-and **C**/**C\+\+** compilations
+and **C**/**C\+\+** compilations.
+
+
+## 2025-10-20
+
+Started working on the `#!strenght` issue that affects, e.g., the
+**C**/**C\+\+** `c-lang` specification.  Some changes will the made to
+the representation of "groups".
