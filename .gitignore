@@ -1,8 +1,10 @@
 *~
 *elc
 *saved
+*.grep
 temp/*
 attic/*
 apothecary/*
 tests/magic-fail/*
 TAGS
+docs/ELS/*
