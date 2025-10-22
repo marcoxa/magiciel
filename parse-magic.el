@@ -1,5 +1,4 @@
-;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
-;;; magiciel --- Guessing the content of a file in simple as possible way.
+;;; magiciel --- Guessing the content of a file in simple as possible way. -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; parse-magic.el
 ;;
@@ -540,7 +539,6 @@ structure.  It also caches it in the `magiciel--bookshelf'."
 
     (insert-file-contents filename)
     (buffer-substring-no-properties (point-min) (point-max))))
-
 
 
 ;; Parsing the magic entries.

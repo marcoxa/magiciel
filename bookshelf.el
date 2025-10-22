@@ -1,5 +1,4 @@
-;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
-;;; magiciel --- Guessing the content of a file in simple as possible way.
+;;; magiciel --- Guessing the content of a file in simple as possible way. -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
 ;;; bookshelf.el
 
