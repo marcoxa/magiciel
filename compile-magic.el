@@ -177,6 +177,34 @@ name of a lower level code block."))
 	 stream))
 
 
+;; Groups
+;;
+;; The following types are structures representing a group of records
+;; or a group of instructions. Each "group" is essentially a "rule"
+;; with tests and substests.
+
+(cl-defstruct (magiciel--group
+	       (:constructor magiciel--make-group))
+  "A `magiciel--group' collects a number of items."
+  (id -1 :type integer)
+  (items () :type list)
+  )
+
+
+(cl-defstruct (magiciel--records-group
+	       (:include magiciel--group)
+	       (:constructor magiciel--make-records-group)
+	       (:conc-name magiciel--recs-grp-))
+  "A collection of `magiciel--magic-record's.")
+
+
+(cl-defstruct (magiciel--instructions-group
+	       (:include magiciel--group)
+	       (:constructor magiciel--make-instructions-group)
+	       (:conc-name magiciel--inst-grp-))
+  "A collection of `magiciel--instruction's.")
+
+
 ;; Compiling the Magic.
 ;; --------------------
 
