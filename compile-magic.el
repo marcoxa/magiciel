@@ -226,10 +226,105 @@ name of a lower level code block."))
 
 
 ;; macigiel--assess-group-strength
+;;
+;; This is one of the few functions built by looking at the 'file'
+;; code at 'https://github.com/file/file/tree/master' repository (cf.,
+;; the function `apprentice_magic_strength_1' in file
+;; 'src/apprentice.c'.
 
 (cl-defun magiciel--assess-group-strength (group)
   "Assess yields the \"strength\" of a GROUP."
-  )
+
+  (declare (ftype (function (magiciel--records-group) number)))
+
+  (cl-flet
+      ((assess-strength-r0 (r0)
+	 (let* ((rec0-type (magiciel--normal-record-type r0))
+		(rec0-type-test (magiciel--normal-record-test r0))
+		(rec0-type-spec (magiciel--record-type-spec-spec
+				 rec0-type))
+		(rec0-type-test-val (magiciel--test-value
+				     rec0-type-test))
+		(mult 10)	       ; Cf., the 'file' C source file
+		(base (* 2 mult))
+		(default 0)		; This is for 'default' rules.
+		)
+		
+	   ;; Using `memq' everywhere just for symmetry.
+	   ;; The code follows the C code, but with a few changes
+	   ;; to shorten the code. The clause order is important.
+	   ;; Some type specs may be missing.
+		
+	   (cond ((memq rec0-type-spec '(default))
+		  (cl-return-from assess-strength-r0 default))
+		 
+		 ((or (magiciel--numeric-type-spec-p rec0-type-spec)
+		      (magiciel--numeric-date-spec-p rec0-type-spec)
+		      (memq rec0-type-spec '(guid)))
+		  (cl-incf base (magiciel--type-spec-size
+				 rec0-type-spec)))
+		 
+		 ((memq rec0-type-spec '(string pstring octal))
+		  (cl-incf base
+			   (* mult
+			      (length rec0-type-test-val))))
+		
+		 ((memq rec0-type-spec '(bestring16 lestring16))
+		  (cl-incf base
+			   (* (/ mult 2)
+			      (length rec0-type-test-val))))
+		
+		 ((memq rec0-type-spec '(search))
+		  (unless (zerop (length rec0-type-test-val))
+		    (cl-incf base
+			     (* (length rec0-type-test-val)
+				(max (/ mult
+					(length rec0-type-test-val))
+				     1)))))
+		
+		 ((memq rec0-type-spec '(regex))
+		  (let ((cnm (count-nonmagic rec--type-test-val)))
+		    ;; Iffy.
+		    (cl-incf base
+			     (* cnm (max (/ mult cnm) 1)))))
+
+		 ((memq rec0-type-spec '(indirect name use clear))
+					; Do nothing
+		  )
+
+		 ((memq rec0-type-spec '(der))
+		  (cl-incf base mult))
+
+		 ((not (magiciel--type-spec-p rec0-type-spec))
+		  (magiciel--error "bad type spec %s" rec0-type-spec))
+		 )
+	   
+	   ))				; assess-strength-r0
+       )
+    (let* ((recs (magiciel--recs-grp-items group))
+	   (rec0 (cl-first recs))	; This should always
+					; be the 0-level record. 
+	   (strength-rec (cl-find-if
+			  #'(lambda (r)
+			      (and (magiciel--magic-record-is-special r)
+				   (eq (magiciel--special-record-type r)
+				       '!:strength)))
+			  recs))
+		 )
+    
+    (cl-assert (magiciel--normal-record-p rec0))
+    
+    (cl-multiple-value-bind (op val)
+	(if strength-rec
+	    (let ((srv (magiciel--special-record-value strength-rec)))
+	      (cl-values (intern (cl-first srv)) ; The operator.
+			 (read-from-string (cl-second srv))))
+	  (cl-values nil nil))
+      )
+    (if (and op val (<= 0 val 255))
+	(assess-strength-r0 rec0)
+      (progn 0)
+      ))))
 
 
 ;; magiciel--order-groups-by-strength
@@ -323,7 +418,11 @@ to be compiled."
 		   (when current-group
 		     (magiciel--msg 1 "current group size %d."
 				    (length current-group))
-		     (push current-group recs-groups))
+		     ;; (push current-group recs-groups)
+		     (push (magiciel--make-records-group
+			    :items current-group)
+			   recs-groups)
+		     )
 		   (process-magic-records more-recs (list r)))
 	       ;; Continue with current group...
 	       (process-magic-records more-recs
@@ -346,17 +445,45 @@ to be compiled."
 	  (cl-return-from magiciel-compile-magic
 	    (cl-values recs-groups comp-rec-groups)))
 
+	;; Step 2: sorting records by "strength".
+
+	(magigiel--msg 1 "sorting %d record groups by strength..."
+		       (length recs-groups))
+
+	(setf recs-groups
+	      (magiciel--order-groups-by-strength recs-groups))
+
+	(when (<= steps 2)
+	  (cl-return-from magiciel-compile-magic
+	    (cl-values recs-groups comp-rec-groups)))
+	
+
 	;; Step 2: compile each record in each group.
 	;; First 0-level test in each group is then treated specially.
 	
 	(magiciel--msg 1 "compiling %d record groups..."
 		       (length recs-groups))
 	
+	;; (cl-loop for g in recs-groups
+	;; 	 for gn from 0
+	;; 	 collect (mapcar #'(lambda (r)
+	;; 			     (magiciel--compile-record r :group-id gn))
+	;; 			 g
+	;; 			 )
+	;; 	 into cgrps
+	;; 	 finally
+	;; 	 (setf comp-rec-groups cgrps)
+	;; 	 )
+
 	(cl-loop for g in recs-groups
 		 for gn from 0
-		 collect (mapcar #'(lambda (r)
-				     (magiciel--compile-record r :group-id gn))
-				 g)
+		 for cgrp = (mapcar #'(lambda (r)
+					(magiciel--compile-record r :group-id gn))
+				    ;; g
+				    (magiciel--recs-grp-items g)
+				    )
+		 collect (magiciel--make-instructions-group
+			  :items cgrp)
 		 into cgrps
 		 finally
 		 (setf comp-rec-groups cgrps)
@@ -3333,7 +3460,7 @@ INSTR-GROUPS : a set of level 0 groups."
   (let* ((max-lisp-eval-depth 4800)
 	
 	 ;; The extension to `max-lisp-eval-depth' is necessary
-	 ;; because of the sizes of certain groups and because of the
+	 ;; because of the sizes of certain groups and because the
 	 ;; code is not particularly smart with tail recursion.
 	 ;;
 	 ;; The number 4800 has been empirically determined.
