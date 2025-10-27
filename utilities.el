@@ -23,21 +23,21 @@
   "Apply `message' to FMT and ARGS.
 
 The  FMT string is prepended with the \"MAGICIEL:\" string."
-  (apply #'message (concat "MAGICIEL: " fmt) args))
+  (apply #'message (concat "MAGICIEL: info: " fmt) args))
 
 
 (defun magiciel--warning (fmt &rest args)
   "Apply `warn' to FMT and ARGS.
 
 The  FMT string is prepended with the \"MAGICIEL:\" string."
-  (apply #'warn (concat "MAGICIEL: " fmt) args))
+  (apply #'warn (concat "MAGICIEL: warning: " fmt) args))
 
 
 (defun magiciel--error (fmt &rest args)
   "Apply `error' to FMT and ARGS.
 
 The  FMT string is prepended with the \"MAGICIEL:\" string."
-  (apply #'error (concat "MAGICIEL: " fmt) args))
+  (apply #'error (concat "MAGICIEL: error: " fmt) args))
 
 
 ;; Debugging/Logging.
