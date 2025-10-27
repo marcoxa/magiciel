@@ -10,7 +10,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2025-10-22
+;; Version: 2025-10-27
 ;;
 ;; Keywords: languages, operating systems, file systems.
 
@@ -36,6 +36,10 @@
 
 (defvar magiciel-path (file-name-directory (or load-file-name "."))
   "The location the MAGICIEL library is loaded from.")
+
+
+(defvar magiciel--do-try-magic nil
+  "Controls the loading of the test file \"try-magic.el\".")
 
 
 (defvar magiciel--do-recompile-dir nil
@@ -64,7 +68,8 @@
 
 ;; Testing, actually.
 
-(load (expand-file-name "try-magic" magiciel-path))
+(when magiciel--do-try-magic
+  (load (expand-file-name "try-magic" magiciel-path)))
 
 
 ;; Epilogue.
