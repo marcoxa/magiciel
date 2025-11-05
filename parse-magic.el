@@ -10,9 +10,10 @@
 ;;; Commentary:
 ;;
 ;; This is a parser for "magic(5)" entries.
+;;
 ;; Obvously the file format was ... accrued over the years by people
-;; who liked the (bad) assembly feel of the format, cooked up in a
-;; smelly cauldron, when computer file formats were few and far apart.
+;; who liked its (bad) assembly feel, cooked up in a smelly cauldron,
+;; when computer file formats were few and far apart.
 ;;
 ;; Because I am an idiot, I want to drink the original recipe, study it
 ;; and turn it into nouvelle cuisine.

@@ -1696,7 +1696,7 @@ R  : a `magiciel--magic-record'"
 Arguments and Values:
 
 R        : a `magiciel--normal-record'.
-GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
+GROUP-ID : an integer identifying at which \\='level-0\\=' group R belongs."
     
   (magiciel--compile-instr (magiciel--normal-record-offset r)
 			   (magiciel--normal-record-type r)
@@ -1717,7 +1717,7 @@ GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
 Arguments and Values:
 
 R        : a `magiciel--special-record'.
-GROUP-ID : an integer idetifying at which \\='level-0\\=' group R belongs."
+GROUP-ID : an integer identifying at which \\='level-0\\=' group R belongs."
   
   (magiciel--compile-instr (magiciel--make-direct-offset :level 1)
 			   ;; Fake offset. Level 1 necessary to
