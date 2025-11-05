@@ -10,7 +10,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2025-10-27
+;; Version: 2025-11-05
 ;;
 ;; Keywords: languages, operating systems, file systems.
 
