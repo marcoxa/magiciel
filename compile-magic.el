@@ -186,8 +186,9 @@ name of a lower level code block."))
 (cl-defstruct (magiciel--group
 	       (:constructor magiciel--make-group))
   "A `magiciel--group' collects a number of items."
-  (id -1 :type integer)
+  (id -1 :type fixnum)
   (items () :type list)
+  (strength 0 :type fixnum)
   )
 
 
@@ -232,8 +233,8 @@ name of a lower level code block."))
 ;; the function `apprentice_magic_strength_1' in file
 ;; 'src/apprentice.c'.
 
-(cl-defun magiciel--assess-group-strength (group)
-  "Assess yields the \"strength\" of a GROUP."
+(defun magiciel--assess-group-strength (group)
+  "Assess the \"strength\" of a GROUP."
 
   (declare (ftype (function (magiciel--records-group) number)))
 
@@ -243,6 +244,10 @@ name of a lower level code block."))
 		(rec0-type-test (magiciel--normal-record-test r0))
 		(rec0-type-spec (magiciel--record-type-spec-spec
 				 rec0-type))
+		(rec0-type-test-ts (magiciel--test-test-string
+				    rec0-type-test))
+		(rec0-type-test-op (magiciel--test-op
+				    rec0-type-test))
 		(rec0-type-test-val (magiciel--test-value
 				     rec0-type-test))
 		(mult 10)	       ; Cf., the 'file' C source file
@@ -259,7 +264,7 @@ name of a lower level code block."))
 		  (cl-return-from assess-strength-r0 default))
 		 
 		 ((or (magiciel--numeric-type-spec-p rec0-type-spec)
-		      (magiciel--numeric-date-spec-p rec0-type-spec)
+		      (magiciel--date-type-spec-p rec0-type-spec)
 		      (memq rec0-type-spec '(guid)))
 		  (cl-incf base (magiciel--type-spec-size
 				 rec0-type-spec)))
@@ -281,13 +286,13 @@ name of a lower level code block."))
 				(max (/ mult
 					(length rec0-type-test-val))
 				     1)))))
-		
+		 
 		 ((memq rec0-type-spec '(regex))
-		  (let ((cnm (count-nonmagic rec--type-test-val)))
+		  (let ((cnm (magiciel--count-nonmagic rec0-type-test-val)))
 		    ;; Iffy.
 		    (cl-incf base
 			     (* cnm (max (/ mult cnm) 1)))))
-
+		 
 		 ((memq rec0-type-spec '(indirect name use clear))
 					; Do nothing
 		  )
@@ -298,40 +303,96 @@ name of a lower level code block."))
 		 ((not (magiciel--type-spec-p rec0-type-spec))
 		  (magiciel--error "bad type spec %s" rec0-type-spec))
 		 )
-	   
+
+	   ;; Final computation on the test operator based on the actual
+	   ;; test.
+
+	   (cl-case rec0-type-test-op
+	     (=
+	      ;; Need to special case the 'x' test value.
+	      (if (and (string= rec0-type-test-val "x")
+		       (string= rec0-type-test-ts "x"))
+		  (setf base 0)
+		(cl-incf base mult)))
+	     
+	     (! (setf base 0))
+
+	     ((< >)
+	      (cl-decf base (* 2 mult)))
+
+	     ((^ &)
+	      (cl-decf base mult))
+	     )
+
+	   base
 	   ))				; assess-strength-r0
        )
     (let* ((recs (magiciel--recs-grp-items group))
 	   (rec0 (cl-first recs))	; This should always
-					; be the 0-level record. 
+					; be the 0-level record.
 	   (strength-rec (cl-find-if
 			  #'(lambda (r)
 			      (and (magiciel--magic-record-is-special r)
 				   (eq (magiciel--special-record-type r)
 				       '!:strength)))
 			  recs))
-		 )
+	   )
     
-    (cl-assert (magiciel--normal-record-p rec0))
+      (cl-assert (magiciel--normal-record-p rec0))
     
-    (cl-multiple-value-bind (op val)
-	(if strength-rec
-	    (let ((srv (magiciel--special-record-value strength-rec)))
-	      (cl-values (intern (cl-first srv)) ; The operator.
-			 (read-from-string (cl-second srv))))
-	  (cl-values nil nil))
-      )
-    (if (and op val (<= 0 val 255))
-	(assess-strength-r0 rec0)
-      (progn 0)
-      ))))
+      (cl-multiple-value-bind (op factor)
+	  (if strength-rec
+	      (let ((srv (magiciel--special-record-value strength-rec)))
+		(cl-values (intern (cl-first srv)) ; The operator.
+			   (cl-first (read-from-string (cl-second srv)))))
+	    (cl-values nil nil))
+
+	(let ((val (assess-strength-r0 rec0)))
+	  (cond ((and op factor (<= 0 factor 255))
+		 (cl-case op
+		   (+ (cl-incf val factor))
+		   (- (cl-decf val factor))
+		   (* (setf val (* val factor)))
+		   (/ (setf val (/ val factor)))
+		   )
+ 		 (if (<= val 0)
+		     1
+		   val))
+		((null op)
+		 (if (<= val 0)
+		     1
+		   val))
+		(t
+		 (magiciel--warning "!:strength record with op %s and factor %d"
+				    op factor)
+		 val
+		 )))
+	))))
+
+
+(defun magiciel--assess-groups-strength (groups)
+  "Compute the \"strength\" of each group in GROUPS."
+
+  (dolist (g groups groups)
+    (cl-check-type g magiciel--records-group)
+    (setf (magiciel--group-strength g)
+	  (magiciel--assess-group-strength g))))
 
 
 ;; magiciel--order-groups-by-strength
 
-(cl-defun magiciel--order-groups-by-strength (rec-groups)
+(defun magiciel--order-groups-by-strength (rec-groups)
   "Order REC-GROUPS according to their \\=':!strength\\=' specifications."
-  )
+
+  (cl-assert (cl-every #'magiciel--records-group-p rec-groups))
+  
+  (magiciel--assess-groups-strength rec-groups)
+	
+  (sort rec-groups
+	:key #'magiciel--group-strength
+	:lessp #'<=
+	:reverse t
+	:in-place nil))
 
 
 ;; magiciel-compile-magic
@@ -392,7 +453,9 @@ to be compiled."
 			    (length recs))
 	     
 	     (cond ((null recs)
-		    (push current-group recs-groups)
+		    (push (magiciel--make-records-group
+			   :items current-group)
+			  recs-groups)
 		    (finish))
 
 		   ((magiciel--magic-record-is-normal r)
@@ -430,7 +493,7 @@ to be compiled."
 	     )				; process-normal-rec
 
 	   (process-special-rec (r more-recs current-group)
-	     (magiciel--msg 1 "process-normal-rec: %S (len %d)."
+	     (magiciel--msg 1 "process-special-rec: %S (len %d)."
 			    r (length current-group))
 	     (process-magic-records more-recs
 				    (append current-group (list r)))
@@ -445,13 +508,17 @@ to be compiled."
 	  (cl-return-from magiciel-compile-magic
 	    (cl-values recs-groups comp-rec-groups)))
 
+
+	(cl-assert (cl-every #'magiciel--records-group-p recs-groups))
+	
 	;; Step 2: sorting records by "strength".
 
-	(magigiel--msg 1 "sorting %d record groups by strength..."
+	(magiciel--msg 1 "sorting %d record groups by strength..."
 		       (length recs-groups))
 
 	(setf recs-groups
 	      (magiciel--order-groups-by-strength recs-groups))
+
 
 	(when (<= steps 2)
 	  (cl-return-from magiciel-compile-magic
@@ -474,22 +541,25 @@ to be compiled."
 	;; 	 finally
 	;; 	 (setf comp-rec-groups cgrps)
 	;; 	 )
-
+	
 	(cl-loop for g in recs-groups
 		 for gn from 0
+		 for gs = (magiciel--recs-grp-strength g)
 		 for cgrp = (mapcar #'(lambda (r)
 					(magiciel--compile-record r :group-id gn))
 				    ;; g
 				    (magiciel--recs-grp-items g)
 				    )
 		 collect (magiciel--make-instructions-group
-			  :items cgrp)
+			  :id gn
+			  :items cgrp
+			  :strength gs)
 		 into cgrps
 		 finally
 		 (setf comp-rec-groups cgrps)
 		 )
 
-	(when (<= steps 2)
+	(when (<= steps 3)
 	  (cl-return-from magiciel-compile-magic
 	    (cl-values recs-groups comp-rec-groups)))
 	)				; cl-labels
@@ -2195,7 +2265,7 @@ variable."
   )
 
 
-;; magiciel-emit methods.
+;; magiciel--emit methods.
 
 ;; (cl-defmethod magiciel--emit ((kind (eql '==)) ; Never match!
 ;; 			      (inst magiciel--instruction)
@@ -3164,7 +3234,8 @@ compilation of a magic(5) file.  The name of the function is
 Arguments and Values:
 
 MAGIC : is a `magiciel--magic' struct.
-INSTR-GROUP  : is a list of `magiciel--instruction'.
+;; INSTR-GROUP  : is a list of `magiciel--instruction'.
+INSTR-GROUP  : is a `magiciel--instructions-group'.
 GROUP-NUMBER : is the id of the instruction; must be unique.
 MAGIC-ENV    : is a simple \\='enviroment\\=' (an a-list) containg
                bindings for names used in the group/block; mostly label
@@ -3178,22 +3249,34 @@ specially."
   
   (let* ((name (magiciel--magic-name magic))
 
+	 (instrs (magiciel--group-items instr-group))
+
+	 (ig-strength (magiciel--group-strength instr-group))
+
 	 (magic-fname (magiciel--magic-fname magic))
-	 
+
 	 (magic-group-fname
 	  (intern (format "%s-%d" magic-fname group-number)))
 
 	 (magic-group-block-name
-	  (intern (format "%s-block-%d" name group-number)))
+	  (intern (format "%s-block-%d-%d" name group-number ig-strength)))
 
 	 (magic-group-exit-label
 	  (intern (format "%s-%d-exit-label" name group-number)))
 
 	 (magic-group-continue-label
 	  (intern (format "%s-%d-continue-label" name group-number)))
+
+
 	 
+	 ;; (instrs-tree
+	 ;;  (magiciel--group-trees instr-group))
+
+	 ;; (instrs-tree-name
+	 ;;  (magiciel--group-name instr-group))
+
 	 (instrs-tree
-	  (magiciel--group-trees instr-group))
+	  (magiciel--group-trees instrs))
 
 	 (instrs-tree-name
 	  (magiciel--group-name instr-group))
@@ -3362,19 +3445,36 @@ specially."
                                       (emit-group-tree instrs-tree))
       )))
 
+;; Old
+;; (cl-defun magiciel--group-is-named (ig)
+;;   "Check that the (first) group of IG is a \\='name\\=' one."
+;;
+;;   (let ((i1 (cl-first ig)))
+;;     (eq 'name (magiciel--instruction-kind i1))))
+
+
+;; (cl-defun magiciel--group-name (ig)
+;;   "Get the \\='name\\=' of an instruction group IG."
+;;
+;;   (let ((i1 (cl-first ig)))
+;;     (when (eq 'name (magiciel--instruction-kind i1))
+;;       (cl-second (magiciel--instruction-test i1)))))
+
 
 (cl-defun magiciel--group-is-named (ig)
   "Check that the (first) group of IG is a \\='name\\=' one."
-
-  (let ((i1 (cl-first ig)))
+  (cl-declare (type magiciel--group ig))
+  
+  (let ((i1 (cl-first (magiciel--group-items ig))))
     (eq 'name (magiciel--instruction-kind i1))))
 
 
 
 (cl-defun magiciel--group-name (ig)
   "Get the \\='name\\=' of an instruction group IG."
+  (cl-declare (type magiciel--group ig))
 
-  (let ((i1 (cl-first ig)))
+  (let ((i1 (cl-first (magiciel--group-items ig))))
     (when (eq 'name (magiciel--instruction-kind i1))
       (cl-second (magiciel--instruction-test i1)))))
 
@@ -3439,8 +3539,39 @@ Return an a-list of names and groups."
 	   for ign-name = (magiciel--group-name ig)
 	   when ign-name
 	     collect (cons ign-name
-			   (intern (format "%s-name-%s" name
+			   (intern (format "%s-name-%s"
+					   name
 					   ign-name)))))
+
+
+(defun magiciel--emit-groups-code (magic instr-groups groups-names-env)
+  "Collect the code for each group of instructions in INSTR-GROUPS.
+
+Arguments and Values:
+
+MAGIC : a `magiciel--magic' structure.
+INSTR-GROUPS : a set (a list) of `magiciel--group's.
+GROUPS-NAMES-ENV : an alist of \"name\"d code names."
+
+  ;; First assess the "strength" of each instruction group in
+  ;; INSTR-GROUPS.
+  
+  ;; (magiciel--assess-groups-strength instr-groups)
+   
+  (cl-loop with name = (magiciel--magic-name magic)
+	   for ig in instr-groups
+	   for ign from 0
+	   for ign-name = (magiciel--group-name ig)
+	   if ign-name
+	     collect (list
+		      (intern (format "%s-name-%s" name ign-name))
+		      (magiciel--group-emit magic ig ign groups-names-env))
+	     into named-groups
+	   else
+	     collect (magiciel--group-emit magic ig ign groups-names-env)
+	     into fns-groups
+	   end
+	   finally (cl-return (cl-values fns-groups named-groups))))
 
 
 (cl-defun magiciel--magic-emit (magic instr-groups)
@@ -3449,13 +3580,17 @@ Return an a-list of names and groups."
 Arguments and Values:
 
 MAGIC : a `magiciel--magic' structure.
-INSTR-GROUPS : a set of level 0 groups."
+INSTR-GROUPS : a set (a list) of `magiciel--group's."
 
   (magiciel--msg 1 "MME:")
   (magiciel--msg 1 "MME: emitting code for '%s' with %d groups."
 		 (magiciel--magic-name magic)
 		 (length instr-groups))
   (magiciel--msg 1 "MME:")
+
+  (cl-check-type magic magiciel--magic)
+  ;; (cl-assert (cl-every #'magiciel--records-group-p instr-groups))
+  (cl-assert (cl-every #'magiciel--instructions-group-p instr-groups))
 		 
   (let* ((max-lisp-eval-depth 4800)
 	
@@ -3492,21 +3627,24 @@ INSTR-GROUPS : a set of level 0 groups."
 
     ;; Some code duplication below (see `intern' -- I am to lazy to
     ;; refactor right now).
+
+    (cl-multiple-value-setq (group-fns groups-named)
+      (magiciel--emit-groups-code magic instr-groups groups-names-env))
     
-    (cl-loop for ig in instr-groups
-	     for ign from 0
-	     for ign-name = (magiciel--group-name ig)
-	     if ign-name
-	       collect (list
-			(intern (format "%s-name-%s" name ign-name))
-			(magiciel--group-emit magic ig ign groups-names-env))
-	       into named-groups
-	     else
-	       collect (magiciel--group-emit magic ig ign groups-names-env)
-	       into fns-groups
-	     end
-	     finally (setf group-fns fns-groups
-			   groups-named named-groups))
+    ;; (cl-loop for ig in instr-groups
+    ;; 	     for ign from 0
+    ;; 	     for ign-name = (magiciel--group-name ig)
+    ;; 	     if ign-name
+    ;; 	       collect (list
+    ;; 			(intern (format "%s-name-%s" name ign-name))
+    ;; 			(magiciel--group-emit magic ig ign groups-names-env))
+    ;; 	       into named-groups
+    ;; 	     else
+    ;; 	       collect (magiciel--group-emit magic ig ign groups-names-env)
+    ;; 	       into fns-groups
+    ;; 	     end
+    ;; 	     finally (setf group-fns fns-groups
+    ;; 			   groups-named named-groups))
     
 
     ;; Now we have all the pieces in place to build the code.
@@ -3515,6 +3653,11 @@ INSTR-GROUPS : a set of level 0 groups."
           (magic-fun-body (cl-constantly nil))
 	  (magic-external-name-funs ())
           )
+
+      (magiciel--msg 0 "there are %d 'group-fns' and %d 'groups-named'."
+		     (length group-fns)
+		     (length groups-named))
+      (magiciel--msg 0 "'magic-fun' is %s." magic-fun)
       
       ;; Here we build the function for the magic entry.
 
@@ -3528,6 +3671,8 @@ INSTR-GROUPS : a set of level 0 groups."
 	  (setq magic-external-name-funs
 		(cl-loop
 		 for (named-name code) in groups-named
+		 for nf from 0
+		 do (magiciel--msg 0 "collecting named fun %d.\n" nf)
 		 collect
 		 `(cl-defun ,named-name
 		      ;; (&rest $$$args-here%%%)
@@ -3589,6 +3734,9 @@ INSTR-GROUPS : a set of level 0 groups."
 	  )
 	
 	;; Create the main function body...
+
+	(magiciel--msg 0 "creating main function '%s' body.\n" magic-fname)
+	
 	(setq magic-fun-body
 	      `(cl-block ,magic-fname
 		 ,@(mapcar #'magiciel--group-func-code-body group-fns)
@@ -3649,6 +3797,10 @@ INSTR-GROUPS : a set of level 0 groups."
       (magiciel--eval-compile-fns magic-external-name-funs)
       
       (setf (symbol-function magic-fname) magic-fun)
+
+      (magiciel--msg 0 "function '%s' is now %s."
+		     magic-fname
+		     magic-fun)
 
       (byte-compile magic-fname)
       
