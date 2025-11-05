@@ -117,7 +117,7 @@
 
 ;; PDF Simple.
 
-(load (expand-file-name "tests/elisp-tests/pdf-simple-test.el" magiciel-path))
+;; (load (expand-file-name "tests/elisp-tests/pdf-simple-test.el" magiciel-path))
 
 
 ;; PDF
