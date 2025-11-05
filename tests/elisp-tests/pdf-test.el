@@ -16,7 +16,7 @@
 (magiciel--msg 0 "PDF compiling.")
 
 (cl-multiple-value-setq (pdfrecs pdfgrps)
-  (magiciel-compile-magic magiciel--pdf-magic 2))
+  (magiciel-compile-magic magiciel--pdf-magic 3))
 
 (magiciel--msg 0 "PDF compiled.")
 
@@ -32,6 +32,13 @@
   (magiciel--magic-emit magiciel--pdf-magic pdfgrps))
 
 (magiciel--msg 0 "PDF emitted.")
+
+(magiciel--msg 0 "pdffname %S" pdffname)
+(magiciel--msg 0 "pdfgrpfns %S" pdfgrpfns)
+(magiciel--msg 0 "pdfgrpnamed %S" pdfgrpnamed)
+(magiciel--msg 0 "pdf-magic-fun %S" pdf-magic-fun)
+(magiciel--msg 0 "pdf-magic-fun %S" pdf-external-funs)
+
 
 (magiciel--msg 0 "saving PDF code to file.")
 
@@ -52,7 +59,10 @@
 
 (magiciel--set-debug-level magiciel--*debug-low-level*)
 
-(magiciel--msg 0 "code to file \"tests/magic/pdf-saved.el\".")
+;; (magiciel--msg 0 "code to file \"tests/magic/pdf-saved.el\".")
+
+(magiciel--msg 0 "code saved in folder %S."
+	       (expand-file-name "temp/apothecary/" magiciel-path))
 
 (magiciel--msg 0 "pdf processing completed.")
 

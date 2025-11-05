@@ -15,7 +15,7 @@
 (message "MAGICIEL: IBM compiling...")
 
 (cl-multiple-value-setq (ibmrecs ibmgrps)
-  (magiciel-compile-magic magiciel--ibm-magic 2))
+  (magiciel-compile-magic magiciel--ibm-magic 3))
 
 (message "MAGICIEL: IBM emitting...")
 

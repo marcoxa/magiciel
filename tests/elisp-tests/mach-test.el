@@ -14,7 +14,7 @@
 
 
 (cl-multiple-value-setq (machrecs machgrps)
-  (magiciel-compile-magic magiciel--mach-magic 2))
+  (magiciel-compile-magic magiciel--mach-magic 3))
 
 (magiciel--msg 0 "mach compiled.")
 

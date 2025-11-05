@@ -13,7 +13,7 @@
 (magiciel--msg 0 "C-lang compiling and emitting.")
 
 (cl-multiple-value-setq (clangrecs clanggrps)
-  (magiciel-compile-magic magiciel--c-lang-magic 2))
+  (magiciel-compile-magic magiciel--c-lang-magic 3))
 
 (magiciel--msg 0 "C-lang compiled.")
 

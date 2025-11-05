@@ -13,7 +13,7 @@
 (magiciel--msg 0 "aout compiling and emitting.")
 
 (cl-multiple-value-setq (aoutrecs aoutgrps)
-  (magiciel-compile-magic magiciel--aout-magic 2))
+  (magiciel-compile-magic magiciel--aout-magic 3))
 
 (magiciel--msg 0 "aout compiled.")
 
