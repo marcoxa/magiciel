@@ -1753,7 +1753,7 @@ record."
 
 ;; magiciel--parse-special-record
 
-(cl-defun magiciel--parse-special-record (record)
+(defun magiciel--parse-special-record (record)
   "Parse a \\='special\\=' RECORD."
   
   (unless (or (stringp record)
@@ -1770,16 +1770,75 @@ record."
 		(let ((pos (string-search p s)))
 		  (and pos
 		       (zerop pos))))
+
+	      (parse-strength-record (line)
+		(let ((sline (split-string line)))
+		  (cl-case(length sline)
+		    (1
+		     ;; Only "!:strength".
+		     (magiciel--warning
+		      (concat
+		       "possibly incomplete '!:strength' record: %S."
+		       "\n... faking a '+ 0' strength record.")
+		      line)
+		     ;; Fake a full strength record.
+		     (list "!:strength" "+" "0"))
+		      
+		    (2
+		     ;; Something like '!:strength +60'
+		     ;; Which must be fixed.
+		     (let* ((arg (cl-second sline))
+			    (op (aref arg 0))
+			    )
+		       (cl-ecase op
+			 ((?+ ?- ?* ?/)
+			  ;; Extra munging.
+			  (if (> (length arg) 1)
+			      (list "!:strength"
+				    (string op)
+				    (substring arg 1))
+			    (progn
+			      (magiciel--warning
+			       (concat
+				"strangely formed '!strength' record %S."
+				"\n... faking a '+ 0' strength record.")
+			       line)
+			      ;; Fake the record.
+			      (list "!:strength" "+" "0")))))
+		       ))
+
+		    (3
+		     ;; Correct syntax (hopefully).
+		     ;; Deal with it later
+		     sline)
+
+		    (t
+		     ;; Something funky, deal with it later.
+		     (magiciel--warning
+		      (concat
+		       "strangely formed '!strength' record %S."
+		       "\n... returning as-is; may cause problems.")
+		      line)
+		     sline))
+		  ))
 	      )
-      (if (or (string-prefix-p line "!:apple")
-	      (string-prefix-p line "!:mime")
-	      (string-prefix-p line "!:strength")
-	      (string-prefix-p line "!:ext"))
-	  (split-string line)
-	(let ((sline (split-string line)))
-	  (warn "MAGICIEL: unrecognized special record %S."
+      (cond ((or (string-prefix-p line "!:apple")
+		 (string-prefix-p line "!:mime")
+		 (string-prefix-p line "!:ext"))
+	     ;; Hopefully things are ok.
+	     (split-string line))
+	    
+	    ((string-prefix-p line "!:strength")
+	     ;; Extra parsing needed to accommodate malformed or
+	     ;; "creatively formed" !:strength records.
+	     (parse-strength-record line))
+	    
+	    (t
+	     (let ((sline (split-string line)))
+	       (magiciel--warning
+		"unrecognized special record %S."
 		(car sline))
-	  sline))
+	       sline)))
       )))
   
 
