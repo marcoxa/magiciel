@@ -279,7 +279,10 @@ This is an internal function, factored out just for debugging."
 ;; magiciel-divine
 ;; The main `magiciel' interactive command.
   
-(cl-defun magiciel-divine (filename &optional (context :normal) (keep-going nil))
+(cl-defun magiciel-divine (filename
+			   &optional
+			   (context :normal)
+			   (keep-going nil))
   "The main command of the Magiciel library.
 
 The type of FILENAME will be divined by the call.
@@ -354,6 +357,8 @@ operation in that case)."
     (let ((divinations ()))
       (cl-loop for spell in spells
 	       for divination = (magiciel-cast-spell spell fs context)
+	       do (magiciel--msg 0 "found divination %S for spell %S in context %s."
+				 divination spell context)
 	       when (and divination
 			 (not (string-empty-p divination)))
 
@@ -368,7 +373,7 @@ operation in that case)."
 
       (if (zerop (length divinations))
 	  (magiciel--msg 1 "Divination: collected 0 divinations.")
-	(magiciel--msg 1"Divination: collected %d divinations."
+	(magiciel--msg 1 "Divination: collected %d divinations."
 		       (length divinations)))
 
       (if divinations
@@ -378,17 +383,17 @@ operation in that case)."
 		     (magiciel--warning "empty divination."))
 		    ((or (eq context :normal)
 			 (eq context '!:normal))
-		     (magiciel--info "Divination: %S is a%s."
+		     (magiciel--info "divination: %S is a%s."
 				     fnnd d))
 		    ((eq context '!:mime)
-		     (magiciel--info "Divination: %S mime type is %S."
+		     (magiciel--info "divination: %S mime type is %S."
 				     fnnd d))
 		    ((eq context '!:ext)
-		     (magiciel--info "Divination: %S usual extension is %S."
+		     (magiciel--info "divination: %S usual extension is %S."
 				     fnnd d))
 		    )))
 	(when (called-interactively-p 'any)
-	  (magiciel--info "Divination: %S is undivinable, but it is %d bytes long."
+	  (magiciel--info "divination: %S is undivinable, but it is %d bytes long."
 			  fnnd
 			  (length fs)))
 	)
@@ -404,6 +409,7 @@ operation in that case)."
   "Invoke function SPELL on BYTES with CONTEXT to guess the content type."
   
   (cl-check-type context magiciel--spell-context)
+  (magiciel--msg 0 "casting function spell %s" spell)
   (funcall spell bytes 0 context))
 
 
@@ -413,6 +419,7 @@ operation in that case)."
 				   (context :normal))
   "Invoke function named SPELL on BYTES with CONTEXT to guess the content type."
   (cl-check-type context magiciel--spell-context)
+  (magiciel--msg 0 "casting symbol spell %s" spell)
   (funcall spell bytes 0 context))
 
 
