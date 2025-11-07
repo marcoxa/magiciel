@@ -487,6 +487,7 @@ to be compiled."
 			   recs-groups)
 		     )
 		   (process-magic-records more-recs (list r)))
+	       ;; else...
 	       ;; Continue with current group...
 	       (process-magic-records more-recs
 				      (append current-group (list r))))
