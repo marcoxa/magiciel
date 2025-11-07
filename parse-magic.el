@@ -521,13 +521,14 @@ structure.  It also caches it in the `magiciel--bookshelf'."
                            (line-end-position)))
 		 into lines
 		 do (forward-line 1)
-		 finally (cl-return
-			  (magiciel--add-scroll
-			   fname
-			   (magiciel--make-magic
-			    :name fname
-			    :file abs-filename
-			    :records lines)))
+		 finally
+		 (cl-return
+		  (magiciel--add-scroll fname
+					(magiciel--make-magic
+					 :name fname
+					 :file abs-filename
+					 :records lines
+					 )))
 		 )))
     ))
 
