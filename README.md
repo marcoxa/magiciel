@@ -18,7 +18,7 @@ There are two reasons for its existence.
 
 ## Goals
 
-The final version (available "very soon now" (tm)) will allow you to
+The final version (available "practically now" (tm)) will allow you to
 get information about a file (and MIME information) directly from
 **Emacs Lisp**.
 
@@ -30,7 +30,7 @@ in a modular way.
 
 To use the package, just install the folder `magiciel` in your Emacs
 setup and ensure that the file `magiciel.el` is loaded.  Eventually, it
-will get into `melpa`.
+may get into `elpa` and/or `melpa`.
 
 ## Using MAGICIEL
 
@@ -63,9 +63,11 @@ If called interactively, the command will default to `:normal`
 
 - Eventually, it'd be nice to have a *sexpy* `magic` format.
 - Integration with `dired` et similia, is also a desirable goal.
+- Having some "simple" check using the file extension is also
+  desirable as well as leveraging the registry under Windows.
 
 
-# An Overview of the "Compilation" Flow
+# An Overview of the `magic(5)` "Compilation" Flow
 
 The flow is essentially the following.
 
