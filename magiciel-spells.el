@@ -264,7 +264,7 @@ CONTEXT : a `magiciel--spell-context', i.e., what to look for (:normal
           type etc.")
 
 
-(cl-defun magiciel--get-bytes (filename)
+(defun magiciel--get-bytes (filename)
   "Return a byte vector representing FILENAME.
 
 This is an internal function, factored out just for debugging."
@@ -393,9 +393,10 @@ operation in that case)."
 				     fnnd d))
 		    )))
 	(when (called-interactively-p 'any)
-	  (magiciel--info "divination: %S is undivinable, but it is %d bytes long."
-			  fnnd
-			  (length fs)))
+	  (magiciel--info
+	   "divination: %S is undivinable, but it is %d bytes long."
+	   fnnd
+	   (length fs)))
 	)
 
       (cons fn divinations)
