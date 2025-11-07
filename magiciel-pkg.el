@@ -12,7 +12,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2025-10-20
+;; Version: 2025-11-07
 ;;
 ;; Keywords: languages, operating systems, file systems.
 
@@ -23,7 +23,7 @@
 
 ;;; Code:
 
-(define-package "MAGICIEL" "2025-10-20"
+(define-package "MAGICIEL" "2025-11-07"
   "The Magiciel package.
 
 The Magiciel package is an Emacs Lisp (no C! Or -- argh --
