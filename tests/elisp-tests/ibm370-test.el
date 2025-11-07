@@ -1,6 +1,6 @@
 ;;; -*- Mode: Emacs-Lisp; lexical-binding: t; -*-
 
-;;; ibm.el
+;;; ibm370-test.el
 
 ;; IBM.
 
@@ -22,4 +22,6 @@
 (setq magiciel-clang-emitted
       (magiciel--magic-emit magiciel--ibm-magic ibmgrps))
 
-;;; ibm.el ends here.
+(message "MAGICIEL: IBM emitted.\n")
+
+;;; ibm370-test.el ends here.

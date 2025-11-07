@@ -43,8 +43,8 @@
 			    )
 
 				  
-(magiciel--msg 0 "code to file \"tests/magic/aout-saved.el\".")
+;; (magiciel--msg 0 "code to file \"tests/magic/aout-saved.el\".")
 
-(magiciel--msg 0 "aout processing completed.")
+(magiciel--msg 0 "aout processing completed.\n")
 
 ;;; aout.el ends here.

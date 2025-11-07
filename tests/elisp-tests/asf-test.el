@@ -18,6 +18,8 @@
 (cl-multiple-value-setq (asfrecs asfgrps)
   (magiciel-compile-magic magiciel--asf-magic 2))
 
+(magiciel--info "ASF compiled.\n")
+
 ;; (magiciel--info "ASF emitting...")
 
 ;; (setq magiciel-asf-emitted

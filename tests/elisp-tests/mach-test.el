@@ -46,8 +46,8 @@
 			    )
 
 				  
-(magiciel--msg 0 "code to file \"tests/magic/mach-saved.el\".")
+;; (magiciel--msg 0 "code to file \"tests/magic/mach-saved.el\".")
 
-(magiciel--msg 0 "mach processing completed.")
+(magiciel--msg 0 "mach processing completed.\n")
 
 ;;; mach.el ends here.

@@ -64,7 +64,7 @@
 (magiciel--msg 0 "code saved in folder %S."
 	       (expand-file-name "temp/apothecary/" magiciel-path))
 
-(magiciel--msg 0 "pdf processing completed.")
+(magiciel--msg 0 "pdf processing completed.\n")
 
 
 ;;; pdf.el ends here.

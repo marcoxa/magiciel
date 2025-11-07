@@ -40,11 +40,11 @@
 					      magiciel-path)
 			    )
 
-(magiciel--set-debug-level magiciel--*debug-low-level*)
+;; (magiciel--set-debug-level magiciel--*debug-low-level*)
 
-(magiciel--msg 0 "code to file \"tests/magic/clang-saved.el\".")
+;; (magiciel--msg 0 "code to file \"tests/magic/clang-saved.el\".")
 
-(magiciel--msg 0 "C-lang processing completed.")
+(magiciel--msg 0 "C-lang processing completed.\n")
 
 
 ;;; clang.el ends here.
