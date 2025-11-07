@@ -6,17 +6,16 @@
 
 ;;; Commentary:
 ;;
-;; Get mime types using the "file" command on UN*X and querying the
-;; registry on Windows.
-;;
 ;; This file contains the package handling of the magic files internal
-;; representation.
+;; representation.  That is, each 'magic(5)' file (eventually from,
+;; e.g., '/usr/share/file/magic')  will be indexed in a 'bookshelf'.
 
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'magiciel-utilities) ; messaging functions.
+
 
 (cl-defstruct (magiciel--bookshelf
 	       (:constructor magiciel--make-bookshelf)
