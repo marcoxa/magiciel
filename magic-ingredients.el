@@ -202,7 +202,7 @@ The result is the number of octets TS uses."
   "Compute the real length of a \"magic(5)\" expression STR.
 
 The purposes is to determine how \"strong\" a magic expression is
-(approximating how specific its matches are):
+\(approximating how specific its matches are):
  - magic characters count 0 unless escaped.
  - [] expressions count 1
  - {} expressions count 0
