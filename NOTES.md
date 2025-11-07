@@ -138,6 +138,13 @@ and **C**/**C\+\+** compilations.
 
 ## 2025-10-20
 
-Started working on the `#!strenght` issue that affects, e.g., the
+Started working on the `!:strenght` issue that affects, e.g., the
 **C**/**C\+\+** `c-lang` specification.  Some changes will the made to
 the representation of "groups".
+
+
+## 2025-11-07
+
+Finished work on `!:strenght` records, which led to issues with
+ordering of *special* records within the test trees.  Things should
+now be ok.
