@@ -773,7 +773,7 @@ This is the \"abstract\" offset type."
 
 ;; magiciel--parse-offset
 
-(cl-defun magiciel--parse-offset (record)
+(defun magiciel--parse-offset (record)
   "Parse the \\='offset\\=' part of RECORD.
 
 Return a `magiciel--offset' structure."
@@ -1120,20 +1120,8 @@ Returns a `magiciel--record-type-spec'."
 		 record-or-ts
 	       (magiciel--normal-record-type record-or-ts))))
 	   
-	   ;; (spec-list
-	   ;;  (progn
-	   ;;    ;; (message "\n>>>>>> record %S."
-	   ;;    ;; 	       (if (stringp record-or-ts) ; Useful for testing and debugging.
-	   ;;    ;; 		   record-or-ts
-	   ;;    ;; 		 (magiciel--normal-record-line record-or-ts)))
-	   ;;    ;; (message ">>>>>> type-spec-string: %S."
-	   ;;    ;; 	       type-spec-string)
-	   ;;    (split-string type-spec-string "/" t))
-	   ;;  )
-	   
 	   (spec-list-spec (split-spec type-spec-string))
 	   
-	   ;; (spec (cl-first spec-list))
 	   (spec (cl-first spec-list-spec))
 	   
 	   (unsigned
@@ -1150,7 +1138,6 @@ Returns a `magiciel--record-type-spec'."
 
 		   t)))
 	   
-	   ;; (mods (cl-rest spec-list))
 	   (mods (cl-second spec-list-spec))
 	   
 	   (endian (magiciel--machine-endiannes)) ; CHECK THIS!
@@ -1164,14 +1151,9 @@ Returns a `magiciel--record-type-spec'."
 	    )
 	   )				; let* bindings.
 
-      ;; (message ">>>>>>>>>> spec-list %S" spec-list)
-      ;; (message ">>>>>>>>>> spec-list-split: %S" spec-list-spec)
-      ;; (message ">>>>>>>>>> mods: %S" mods)
-      
       (list spec-struct
 	    type-spec-string
 	    spec
-	    ;; spec-list
 	    spec-list-spec
 	    )
       )))
@@ -1860,8 +1842,7 @@ record."
       (let ((next-byte (substring code (* 2 i) (* 2 (1+ i)))))
 	(push (cl-first (read-from-string (concat "#x" next-byte)))
               bytes)))
-    (reverse bytes))
-  )
+    (reverse bytes)))
 
 
 ;; magiciel--convert-c-integer

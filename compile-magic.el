@@ -551,40 +551,12 @@ to be compiled."
 	    (cl-values recs-groups comp-rec-groups)))
 	
 
-	;; Step 2: compile each record in each group.
+	;; Step 3: compile each record in each group.
 	;; First 0-level test in each group is then treated specially.
 	
 	(magiciel--msg 1 "compiling %d record groups..."
 		       (length recs-groups))
 	
-	;; (cl-loop for g in recs-groups
-	;; 	 for gn from 0
-	;; 	 collect (mapcar #'(lambda (r)
-	;; 			     (magiciel--compile-record r :group-id gn))
-	;; 			 g
-	;; 			 )
-	;; 	 into cgrps
-	;; 	 finally
-	;; 	 (setf comp-rec-groups cgrps)
-	;; 	 )
-	
-	;; (cl-loop for g in recs-groups
-	;; 	 for gn from 0
-	;; 	 for gs = (magiciel--recs-grp-strength g)
-	;; 	 for cgrp = (mapcar #'(lambda (r)
-	;; 				(magiciel--compile-record r :group-id gn))
-	;; 			    ;; g
-	;; 			    (magiciel--recs-grp-items g)
-	;; 			    )
-	;; 	 collect (magiciel--make-instructions-group
-	;; 		  :id gn
-	;; 		  :items cgrp
-	;; 		  :strength gs)
-	;; 	 into cgrps
-	;; 	 finally
-	;; 	 (setf comp-rec-groups cgrps)
-	;; 	 )
-
 	(cl-loop for g in recs-groups
 		 for gn from 0
 		 for gs = (magiciel--recs-grp-strength g)
@@ -968,8 +940,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 				:offset offset
 				:test `(name ,test-val ,off-op)
 				:result result-msg
-				))
-  )
+				)))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1001,8 +972,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 				:kind type
 				:offset offset
 				:test `(indirect ,off-op)
-				:result result-msg))
-  )
+				:result result-msg)))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1037,8 +1007,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 				:kind type
 				:offset offset
 				:test `(use ,test-val ,switch-endian)
-				:result result-msg))
-  )
+				:result result-msg)))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1084,8 +1053,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
      :test `(string-search ,test-val ,@limit ,off-op)
      :result result-msg
      :displacement `(length ,test-val)
-     ))
-  )
+     )))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1120,8 +1088,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 			      ;; :test `(default)
 			      :test t
 			      :value (magiciel--test-value test-val)
-			      :result result-msg)
-  )
+			      :result result-msg))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1155,8 +1122,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 			      :offset offset
 			      :test `(clear)
 			      :value (magiciel--test-value test)
-			      :result result-msg)
-  )
+			      :result result-msg))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1189,8 +1155,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 				:kind type
 				:offset offset
 				:test `(offset ,off-op)
-				:result result-msg))
-  )
+				:result result-msg)))
 
 
 (cl-defmethod magiciel--compile-instr ((offset magiciel--offset)
@@ -1212,17 +1177,17 @@ TEST   -- a `magiciel--test'
 RESULT-MSG -- a string
 GROUP-ID   -- an `integer' denoting the group of this instruction."
 
-  (magiciel--msg 0 "MCI: provisional compilation of; %s." type)
-  (magiciel--msg 0 "MCI: offset %s."       offset)
-  (magiciel--msg 0 "MCI: level  %s."       (magiciel--offset-level offset))
-  (magiciel--msg 0 "MCI: test-val %s."     test)
-  (magiciel--msg 0 "MCI: result-msg %s.\n" result-msg)
+  (magiciel--msg 1 "MCI: provisional compilation of; %s." type)
+  (magiciel--msg 1 "MCI: offset %s."       offset)
+  (magiciel--msg 1 "MCI: level  %s."       (magiciel--offset-level offset))
+  (magiciel--msg 1 "MCI: test-val %s."     test)
+  (magiciel--msg 1 "MCI: result-msg %s.\n" result-msg)
+  
   (magiciel--make-instruction :group group-id
 			      :kind type
 			      :offset offset
 			      :test `(in-special-context ,type)
-			      :result result-msg)
-  )
+			      :result result-msg))
 
 
 (cl-defmethod magiciel--compile-instr
@@ -1344,7 +1309,7 @@ RESULT-MSG -- a string"
 	      )
 	  `(,ind-op
 	    ,(if (magiciel--indirect-offset-rel ind-off)
-		 `(magiciel--get-value-at* %bytes% ; 1
+		 `(magiciel--get-value-at* %bytes%	       ; 1
 					   (+ %pos% ,ind-addr) ; 2
 					   ',type-spec	       ; 3
 					   ',type-sign	       ; 4
@@ -1352,10 +1317,10 @@ RESULT-MSG -- a string"
 					   ()		       ; 6
 					   ',type-len	       ; 7
 					   )
-	       `(magiciel--get-value-at* %bytes% ; 1
-					 ,ind-addr ; 2
-					 ',type-spec ; 3
-					 ',type-sign ; 4
+	       `(magiciel--get-value-at* %bytes%       ; 1
+					 ,ind-addr     ; 2
+					 ',type-spec   ; 3
+					 ',type-sign   ; 4
 					 ',type-endian ; 5
 					 ()	       ; 6
 					 ',type-len    ; 7
@@ -1527,12 +1492,12 @@ OFFSET     : a `magiciel--offset'."
 				 ;; ,pos-expr	; 2
 				 ;; ,off-op
 				 (+ %pos% ,off-op)
-				 ',type-spec	; 3
-				 ',unsigned	; 4
-				 ',endianness	; 5
+				 ',type-spec		  ; 3
+				 ',unsigned		  ; 4
+				 ',endianness		  ; 5
 				 ',(list mod-op mod-args) ; 6; Unused FTTB.
-				 ',len		; 7
-				 ,off-op	; 8
+				 ',len			  ; 7
+				 ,off-op		  ; 8
 				 )
        )
       (magiciel--real-type-spec
@@ -1693,6 +1658,7 @@ R  : anything"
 Arguments and Values:
 
 R  : an unspecified `magiciel--magic-record'."
+  
   (magiciel--warning "not a usable magic record: %s." r)
   nil)
 
@@ -1818,8 +1784,7 @@ The \\'group\\' is simply a cons of a gensymmed MAGIC-NAME and the
 records in RECS-GROUP."
   
   (let ((group-name (gensym magic-name)))
-    (cons group-name recs-group))
-  )
+    (cons group-name recs-group)))
 
 
 ;; magiciel--compile-rec-groups
@@ -2543,23 +2508,10 @@ This test is not currently handled."
     
   (ignore kind inst)
   
-  (let (
-	;; (level  (magiciel--instruction-level inst))
-	;; (access (magiciel--instruction-access inst))
-	;; (test   (magiciel--instruction-test inst))
-	;; (value  (magiciel--instruction-test inst))
-	;; (result (magiciel--instruction-result inst))
-	)
-    ;; `(progn
-    ;;    (warn "MAGICIEL: 'indirect' not implemented; failing.")
-    ;;    nil
-    ;;    )
-    `(magiciel--$test-block indirect (nil --magiciel-msg)
-       (magiciel--warn 0 "'indirect' not implemented; failing.")
-       nil
-       )
-    )
-  )
+  `(magiciel--$test-block indirect (nil --magiciel-msg)
+     (magiciel--warn 0 "'indirect' not implemented; failing.")
+     nil
+     ))
 
 
 (cl-defmethod magiciel--emit ((kind (eql 'use))
@@ -2834,25 +2786,6 @@ Unimplemented."
   )
 
 
-;; (cl-defmethod magiciel--emit ((kind (eql '!:ext))
-;; 			      (inst magiciel--instruction)
-;; 			      &key
-;; 			      (f-name (gensym "magiciel--%%fn-top-"))
-;; 			      (m-name (gensym "magiciel--i-n-"))
-;; 			      &allow-other-keys)
-;;   (ignore m-name)
-
-;;   (magiciel--msg 1 "EMIT: emit EXT %s (%S)." kind inst)
-;;   `(magiciel--$check '!:ext-check
-;;        nil
-;;        (magiciel--$in-context-p ',kind)
-;;      %%exit-label%%
-;;      (setq --magiciel-msg ,(magiciel--instruction-result inst))
-;;      ;; (cl-return-from %%test-block%% --magiciel-msg)
-;;      (cl-return-from ,f-name --magiciel-msg)
-;;      )
-;;   )
-
 (cl-defmethod magiciel--emit ((kind (eql '!:ext))
 			      (inst magiciel--instruction)
 			      &key
@@ -3019,7 +2952,6 @@ are never too big."
 	 (parent-node (cdr (assoc (1- il) instr-nodes-at-level)))
 	 )
     ;; `parent-node' is the last level (`level' - 1) node seen.
-
     
     (magiciel--msg 1 "MGIT: instr level %d, instr kind '%s'."
 		   il
@@ -3088,181 +3020,6 @@ are never too big."
 
 ;; Constructing the functions that check for a given file type, mime
 ;; type and extension.
-
-;; Old version; no tagbody.
-
-;; (cl-defun magiciel--group-emit (magic
-;; 				instr-group
-;; 				group-number
-;; 				&optional
-;; 				(magic-env ())
-;; 				)
-;;   "Builds the function body that runs the i-th check.
-
-;; The function obtained correspond to the groups obtained from the
-;; compilation of a magic(5) file.  The name of the function is
-;; \\='=magiciel--<magic name>-<group-number>\\='=.
-
-;; Arguments and Values:
-
-;; `magic' : is a `magiciel--magic' struct.
-;; `instr-group' : is a list of `magiciel--instruction'.
-;; `group-number' : is the id of the instruction; must be unique.
-;; `magic-env' : is a simple \\='enviroment\\=' (an a-list) containg
-;;               bindings for names used in the group/block; mostly label
-;;               names associated to \"name\" records, to be used by
-;;               \"use\" records.
-
-;; Notes:
-
-;; Groups with \\='=name\\='= and \\='=use\\='= operation are treated
-;; specially.
-;; "
-;;   (let* ((name (magiciel--magic-name magic))
-
-;; 	 (magic-fname (magiciel--magic-fname magic))
-	 
-;; 	 (magic-group-fname
-;; 	  (intern (format "%s-%d" magic-fname group-number)))
-
-;; 	 (magic-group-block-name
-;; 	  (intern (format "%s-block-%d" name group-number)))
-	 
-;; 	 (instrs-tree
-;; 	  (magiciel--group-trees instr-group))
-
-;; 	 (instrs-tree-name
-;; 	  (magiciel--group-name instr-group))
-	 
-;; 	 (exit-code
-;; 	  (if instrs-tree-name		; We have a "name" group.
-;; 	      `(cl-return-from ,instrs-tree-name
-;; 		 (cl-values
-;; 		  ;; %end-pos%		; Or maybe (- %end-pos% %pos%)
-;; 		  --magiciel-disp
-;; 		  --magiciel-msg))
-	    
-;; 	    `(cl-return-from ,magic-fname
-;; 	       --magiciel-msg))
-;; 	  )
-;; 	 )
-
-;;     (magiciel--msg 1 "MCM: instruction tree:")
-;;     (magiciel--msg 1 "MCM: instruction tree is named (%s):" instrs-tree-name)
-
-;;     (magiciel--dump-instr-tree instrs-tree)
-
-
-;;     ;; The code emitted for each "tree" will cause side effects and
-;;     ;; will return a generalized boolean (or better, the returned
-;;     ;; value will be considered as such).
-    
-;;     (cl-labels
-;; 	((emit-tree (instr-node)
-;; 	   (let* ((instr
-;; 		   (magiciel--instr-node-instr instr-node))
-                 
-;; 		  (sub-tests
-;; 		   (magiciel--instr-node-sub-instr-nodes instr-node))
-
-;;                   (instr-root-code
-;;                    (magiciel--emit (magiciel--instruction-kind instr)
-;; 				   instr
-;; 				   :f-name magic-fname
-;; 				   :env magic-env)
-;; 		   )
-;;                   )
-
-;;              ;; Here comes the fun (FTTB).
-;;              ;; If the `instr-code-root' is a `when' clause, then I
-;;              ;; have to attach the `sub-test' inside it.  Same thing,
-;;              ;; but more involved if I have a `let/let*'.  Otherwise, I
-;;              ;; must wrap everything in a (possibly useless) `progn'.
-;; 	     ;;
-;; 	     ;; As it turned out, `when', `progn', `cl-block' and
-;;              ;; `magiciel--$check' work pretty much the same.
-;;              ;;
-;;              ;; I know I should resort to more sophisticated compiler
-;;              ;; techniques, but just bear with me.
-;; 	     ;;
-;; 	     ;; Finally, I have to bail out of the "top" function
-;;              ;; ("group 0" wrapping) if the main test succeds.
-;; 	     ;;
-;; 	     ;; Yeah, I should have proper continuations here.
-
-;;              (cl-case (cl-first instr-root-code)
-;;                ((when)	      ; Just to emphasize that this is "code".
-;; 		(append instr-root-code
-;;                         (cl-loop for sub-node in sub-tests
-;; 			         collect (emit-tree sub-node))
-;; 			'(t)
-;; 			)
-;;                 )
-;;                ((let let*)
-;; 		(pcase instr-root-code
-;;                   ((or `(let ,mv-bind ,when-form)
-;; 		       `(let* ,mv-bind ,when-form)) ; `pcase' forces this OR.
-;;                    (cl-assert (eq 'when (cl-first when-form)))
-;;                    ;; This should always be the case.
-;;                    `(,(cl-first instr-root-code) ,mv-bind
-;;                      ,(append when-form
-;;                               (cl-loop for sub-node in sub-tests
-;; 			               collect (emit-tree sub-node))
-;; 			      '(t)
-;;                               ))
-;;                    ))
-;;                 )
-;; 	       ((progn)	      ; Just to emphasize that this is "code".
-;; 		;; I want to "flatten" the "progn's, if possible.
-;; 		(append instr-root-code
-;; 			;; (cl-rest instr-root-code)
-;; 		  	(cl-loop for sub-node in sub-tests
-;; 			         collect (emit-tree sub-node))
-;; 			'(t)
-;; 			)
-;; 		)
-;; 	       ((cl-block)
-;; 		(append instr-root-code
-;; 			(cl-loop for sub-node in sub-tests
-;; 				 collect (emit-tree sub-node))
-;; 			'(t)
-;; 			)
-;; 		)
-;; 	       ((magiciel--$check)
-;; 		(append instr-root-code
-;; 			(cl-loop for sub-node in sub-tests
-;; 				 collect (emit-tree sub-node))
-;; 			'(t)
-;; 			)
-;; 		)
-;;                (t
-;;                 `(progn ,instr-root-code
-;;                         ,@(cl-loop for sub-node in sub-tests
-;; 			           collect (emit-tree sub-node))
-;; 			t
-;; 			)
-;;                 ))
-;;              )
-;; 	   )
-
-;;          (emit-group-tree (instr-node)
-	   
-;;            ;; The `instr-node' is at level 0.
-;; 	   ;; If we get a non-nil return code, we exit the top-level
-;; 	   ;; function.
-	   
-;;            `(cl-block ,magic-group-block-name
-;;               (when ,(emit-tree instr-node)
-;; 		,exit-code)
-;; 	      ))
-;; 	 )
-      
-;;       (magiciel--make-group-func-code magic-group-fname
-;;                                       (emit-group-tree instrs-tree))
-;;       )))
-
-
-;; New version; tagbody
 
 (cl-defun magiciel--group-emit (magic
 				instr-group
@@ -3414,21 +3171,6 @@ specially."
 				 collect (emit-tree sub-node (1+ level)))
 			)
 		)
-	       ;; (t
-	       ;; 	(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
-	       ;; 	(if (zerop level)
-	       ;; 	    `(,instr-root-code
-	       ;; 	      (unless --magiciel-test-result
-	       ;; 		;; Don't do subtests if this is false.
-	       ;; 		(throw '%%exit-level%%
-	       ;; 		       ;; The values of the `throw' may be
-	       ;; 		       ;; wrong. Or useless.
-	       ;; 		       (cl-values --magiciel-msg
-	       ;; 				  %pos%
-	       ;; 				  %end-pos%)))
-	       ;; 	      ,@sub-tests-code)
-	       ;; 	  `(,instr-root-code ,@sub-tests-code)
-	       ;; 	  ))
 	       (t
 		(magiciel--msg 1 "MGE: t: %s." (cl-first instr-root-code))
 		(if (zerop level)
@@ -3470,7 +3212,6 @@ specially."
 		;;  ,magic-group-continue-label
 		;;  )
 
-	      
 		(catch '%%exit-level%%
 		  ,@(emit-tree instr-node 0))
 		(when ;; --magiciel-test-result
@@ -3488,21 +3229,6 @@ specially."
                                       (emit-group-tree instrs-tree))
       )))
 
-;; Old
-;; (cl-defun magiciel--group-is-named (ig)
-;;   "Check that the (first) group of IG is a \\='name\\=' one."
-;;
-;;   (let ((i1 (cl-first ig)))
-;;     (eq 'name (magiciel--instruction-kind i1))))
-
-
-;; (cl-defun magiciel--group-name (ig)
-;;   "Get the \\='name\\=' of an instruction group IG."
-;;
-;;   (let ((i1 (cl-first ig)))
-;;     (when (eq 'name (magiciel--instruction-kind i1))
-;;       (cl-second (magiciel--instruction-test i1)))))
-
 
 (cl-defun magiciel--group-is-named (ig)
   "Check that the (first) group of IG is a \\='name\\=' one."
@@ -3510,7 +3236,6 @@ specially."
   
   (let ((i1 (cl-first (magiciel--group-items ig))))
     (eq 'name (magiciel--instruction-kind i1))))
-
 
 
 (cl-defun magiciel--group-name (ig)
@@ -3862,8 +3587,9 @@ INSTR-GROUPS : a set (a list) of `magiciel--group's."
 ;; Evals and possibly compiles a list of `defun's.
 ;; Used internally to compile "use" functions.
 
-(cl-defun magiciel--eval-compile-fns (funs &optional (do-byte-compile
-						      t))
+(cl-defun magiciel--eval-compile-fns (funs
+				      &optional
+				      (do-byte-compile t))
   "Eval and (byte) compile FUNS online.
 
 Byte compilation is done if DO-BYTE-COMPILE is true."
