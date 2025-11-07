@@ -498,6 +498,32 @@ to be compiled."
 	     (process-magic-records more-recs
 				    (append current-group (list r)))
 	     )				; process-special-rec
+
+	   (compile-group-records (recs group-n start-level)
+	     
+	     ;; This little local function does something crucial: it
+	     ;; fixes the 'level' of the special records, by passing
+	     ;; the correct 'level' to `magiciel--compile-record'.
+	     ;;
+	     ;; START-LEVEL should initially be 0, and, at each call
+	     ;; of `magiciel--compile-record' is the level of the last
+	     ;; instruction result from compiling the previous record.
+	     
+	     (cl-loop with l = start-level
+		      for r in recs
+
+		      if (magiciel--normal-record-p r)
+		        do (setq l (magiciel--offset-level
+				    (magiciel--normal-record-offset r)))
+			and collect
+			    (magiciel--compile-record r :group-id group-n)
+		      else
+		        collect
+			(magiciel--compile-record r
+						  :group-id group-n
+						  :special-level (1+ l))
+		      end
+		      ))		; compile-group-records
 	   )				; cl-labels
 
 	(magiciel--msg 1 "grouping %s records..." mname)
@@ -542,14 +568,29 @@ to be compiled."
 	;; 	 (setf comp-rec-groups cgrps)
 	;; 	 )
 	
+	;; (cl-loop for g in recs-groups
+	;; 	 for gn from 0
+	;; 	 for gs = (magiciel--recs-grp-strength g)
+	;; 	 for cgrp = (mapcar #'(lambda (r)
+	;; 				(magiciel--compile-record r :group-id gn))
+	;; 			    ;; g
+	;; 			    (magiciel--recs-grp-items g)
+	;; 			    )
+	;; 	 collect (magiciel--make-instructions-group
+	;; 		  :id gn
+	;; 		  :items cgrp
+	;; 		  :strength gs)
+	;; 	 into cgrps
+	;; 	 finally
+	;; 	 (setf comp-rec-groups cgrps)
+	;; 	 )
+
 	(cl-loop for g in recs-groups
 		 for gn from 0
 		 for gs = (magiciel--recs-grp-strength g)
-		 for cgrp = (mapcar #'(lambda (r)
-					(magiciel--compile-record r :group-id gn))
-				    ;; g
-				    (magiciel--recs-grp-items g)
-				    )
+		 for cgrp = (compile-group-records (magiciel--recs-grp-items g)
+						   gn
+						   0)
 		 collect (magiciel--make-instructions-group
 			  :id gn
 			  :items cgrp
@@ -1173,6 +1214,7 @@ GROUP-ID   -- an `integer' denoting the group of this instruction."
 
   (magiciel--msg 0 "MCI: provisional compilation of; %s." type)
   (magiciel--msg 0 "MCI: offset %s."       offset)
+  (magiciel--msg 0 "MCI: level  %s."       (magiciel--offset-level offset))
   (magiciel--msg 0 "MCI: test-val %s."     test)
   (magiciel--msg 0 "MCI: result-msg %s.\n" result-msg)
   (magiciel--make-instruction :group group-id
@@ -1640,7 +1682,7 @@ Arguments and Values:
 
 R  : anything"
   
-  (error "MAGICIEL: not a magic record: %s" r)
+  (magiciel--error "not a magic record: %s" r)
   nil)
 
 
@@ -1651,7 +1693,7 @@ R  : anything"
 Arguments and Values:
 
 R  : an unspecified `magiciel--magic-record'."
-  (warn "MAGICIEL: not a usable magic record: %s." r)
+  (magiciel--warning "not a usable magic record: %s." r)
   nil)
 
 
@@ -1710,6 +1752,7 @@ GROUP-ID : an integer identifying at which \\='level-0\\=' group R belongs."
 (cl-defmethod magiciel--compile-record ((r magiciel--special-record)
 					&key
 					(group-id 0)
+					(special-level 1)
 					&allow-other-keys
 					)
   "Compile a special record (\\='!:mime\\=', \\='!strength\\=', etc).
@@ -1717,11 +1760,13 @@ GROUP-ID : an integer identifying at which \\='level-0\\=' group R belongs."
 Arguments and Values:
 
 R        : a `magiciel--special-record'.
-GROUP-ID : an integer identifying at which \\='level-0\\=' group R belongs."
+GROUP-ID : an integer identifying at which \\='level-0\\=' group R belongs.
+SPECIAL-LEVEL : the level the special records must be tagged with."
+
+  ;; The offset is fake. A default level 1 is necessary to properly
+  ;; group the instruction.
   
-  (magiciel--compile-instr (magiciel--make-direct-offset :level 1)
-			   ;; Fake offset. Level 1 necessary to
-			   ;; properly group the instruction.
+  (magiciel--compile-instr (magiciel--make-direct-offset :level special-level)
 			   (magiciel--special-record-type r)
 			   (magiciel--make-test :value t)
 			   (cl-first (magiciel--special-record-value r))
@@ -3267,8 +3312,6 @@ specially."
 	 (magic-group-continue-label
 	  (intern (format "%s-%d-continue-label" name group-number)))
 
-
-	 
 	 ;; (instrs-tree
 	 ;;  (magiciel--group-trees instr-group))
 
