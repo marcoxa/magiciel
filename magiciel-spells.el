@@ -136,6 +136,8 @@ The associations are taken from M which defaults to
 
   ;; Ada
   (magiciel--add-ext-mime-type "ada"    "text/x-ada")
+  (magiciel--add-ext-mime-type "ads"    "text/x-ada")
+  (magiciel--add-ext-mime-type "adb"    "text/x-ada")
 
   ;; Python
   (magiciel--add-ext-mime-type "py"    "text/x-python")
