@@ -6,5 +6,6 @@ temp/*
 attic/*
 apothecary/*
 tests/magic-fail/*
+tests/magic/Archive/*
 TAGS
 docs/ELS/*
