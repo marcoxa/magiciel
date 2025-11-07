@@ -127,12 +127,13 @@ code will be stored (unused for the time being)."
     ))
 
 
-(cl-defun magiciel--write-spell-file (mfs
-				      mfname
-				      magic-fun
-				      magic-name-funs
-				      &optional
-				      (apothecary magiciel--*apothecary-folder*))
+(cl-defun magiciel--write-spell-file
+    (mfs
+     mfname
+     magic-fun
+     magic-name-funs
+     &optional
+     (apothecary magiciel--*apothecary-folder*))
   "Write the compiled code in a file in directory APOTHECARY.
 
 Arguments and Values:
@@ -211,10 +212,11 @@ folder (defaulting to `magiciel--*apothecary-folder*')."
 	(condition-case magic-compilation-error
 	    (magiciel-compile-magic magic-s 2)
 	  (error
-	   (magiciel--warning "condition %S %S\n\twhile compiling %s; skipping..."
-			      (car magic-compilation-error)
-			      (cdr magic-compilation-error)
-			      (magiciel--magic-name magic-s))
+	   (magiciel--warning
+	    "condition %S %S\n\twhile compiling %s; skipping..."
+	    (car magic-compilation-error)
+	    (cdr magic-compilation-error)
+	    (magiciel--magic-name magic-s))
 	   (cl-values nil nil))
 	  )
       (ignore frecs)
@@ -267,10 +269,11 @@ user (defaulting to `magiciel--*apothecary-folder*')."
 	  (condition-case magic-compilation-error
 	      (magiciel-compile-magic mfs 2)
 	    (error
-	     (magiciel--warning "condition %S %S\n\twhile compiling %S; skipping..."
-				(car magic-compilation-error)
-				(cdr magic-compilation-error)
-				(magiciel--magic-name mfs))
+	     (magiciel--warning
+	      "condition %S %S\n\twhile compiling %S; skipping..."
+	      (car magic-compilation-error)
+	      (cdr magic-compilation-error)
+	      (magiciel--magic-name mfs))
 	     (cl-values nil nil))
 	    )
 	(ignore recs)
