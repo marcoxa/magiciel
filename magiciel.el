@@ -31,7 +31,7 @@
 (require 'bindat)
 ;; (require 'bitpack)			; Getting ready for it.
 (require 'pcre2el)
-(require 'platel)			; Here we go.
+;; (require 'platel)			; Not yet.
 
 
 (defvar magiciel-path (file-name-directory (or load-file-name "."))
