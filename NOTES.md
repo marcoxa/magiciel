@@ -58,19 +58,19 @@ elsewhere as well.
 
 Two notes.
 - The `read-from-string` bit did not work.  The result is a new file
-  (cfr., `cstringizing.el`) which contains a first cut function that
+  (cf., `cstringizing.el`) which contains a first cut function that
   reads characters from a string (a buffer) and transforms them from a
   C-ish form to a Emacs Lisp form; they **are different**!
 - The modifiers for the `type` field (and, eventually, for the `test`
   field as well) may have a more complicated shape than just `/mods`;
-  hence some extra kludges in the parsign routines and in the
+  hence some extra kludges in the parsing routines and in the
   instruction compilation ones.
 
 
 ## 2024-05-28
 
 Checking all the entries in `/usr/share/file/magic` made me realize
-that `name` and `use` entries cross magic file boundaries, cfr.,
+that `name` and `use` entries cross magic file boundaries, cf.,
 `display-coff` names (just "grep" the folder).  This means that I cannot
 use the `cl-labels` scheme and must resort to more elaborate
 bookkeeping procedures.
@@ -93,17 +93,17 @@ may be stupid; there, I admit it.
 In any case, the algorithm to run tests seems to be:
 1. Run the level 0 tests; hopefully only one works (which is not
    given).
-2. Run the substests, all of them, piling up the result
+2. Run the sub-tests, all of them, piling up the result
 
 But, `!:mime`, `!:ext` etc., tests *exit* immediately.
 
 Then there is the issue of the note found in the IBM documentation,
-which seem to refere to a *different* `magic(5)` format, most likely
+which seem to refer to a *different* `magic(5)` format, most likely
 from AIX
 days. https://www.ibm.com/docs/en/zos/2.4.0?topic=formats-magic-format-etcmagic-file.
 So, if a subtext fails, does also the main level-0 fail?
 
-Meanwhile, I found iteresting the Python `PolyFile` comments:
+Meanwhile, I found interesting the Python `PolyFile` comments:
 https://blog.trailofbits.com/2022/07/01/libmagic-the-blathering/
 
 Let's see what can be done.
@@ -114,7 +114,7 @@ Let's see what can be done.
 At least in the `mach` specification it appears that `byte` must be
 considered *unsigned*; that is it must be read in as an *unsigned*
 byte. I make some special changes in the `parse-magic.el` file to
-accommodate this, but I am pretty sure things will not be go smootly
+accommodate this, but I am pretty sure things will not be go smoothly
 down the road.
 
 
@@ -138,13 +138,45 @@ and **C**/**C\+\+** compilations.
 
 ## 2025-10-20
 
-Started working on the `!:strenght` issue that affects, e.g., the
+Started working on the `!:strength` issue that affects, e.g., the
 **C**/**C\+\+** `c-lang` specification.  Some changes will the made to
 the representation of "groups".
 
 
 ## 2025-11-07
 
-Finished work on `!:strenght` records, which led to issues with
+Finished work on `!:strength` records, which led to issues with
 ordering of *special* records within the test trees.  Things should
-now be ok.
+now be OK.
+
+
+## 2025-11-09
+
+The system appears to work.  Two issues that may be scrutinized 
+are the following.
+	1. There are recipes that depend on other ones.  The `name` and
+       `use` clauses should work across recipes now, but some bugs may
+       be lurking somewhere.
+	2. The logic of loading and "compiling" recipes contains some
+       cruft.  The `magiciel--load-magic-file` adds its result (a
+       `magiciel-magic` structure) to a internal stash via
+       `magiciel--add-scroll`; this effectively loads in memory the
+       whole file, which may be problematic when doing the bulk
+       compilation of the `magic(5)` folder.
+
+Other useful thing to add, which would have been the easy thing to do,
+is to have a very basic *file extensions* data base.
+
+
+## 2025-11-10
+
+As usual, trying to do things, if not right, at least in a sensible
+way, one ends up falling into a rabbit hole.
+
+The problem is that the **x-** *subtrees* (as per IANA and RFC 6838)
+are non standard, and both the `magic(5)` and the Javascript `mime-db`
+package have non exhaustive (AFAIC) lists.  This especially affects
+the `text/x-<programming-language>` specifications **and** the
+association of file extensions to mime types.
+
+Hence, any solution will be a kludge.
