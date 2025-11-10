@@ -119,12 +119,12 @@ code will be stored (unused for the time being)."
 	    (setq magiciel--*magic-files-structs* mfs))
 	   )
   
-  (if (called-interactively-p 'interactive)
-      (magiciel--info "loaded %d magic files from %S."
-		      (length magiciel--*magic-files-structs*)
-		      magiciel--*magic-folder*)
-    magiciel--*magic-files-structs*
-    ))
+  (when (called-interactively-p 'interactive)
+    (magiciel--info "loaded %d magic files from %S."
+		    (length magiciel--*magic-files-structs*)
+		    magiciel--*magic-folder*))
+  
+  magiciel--*magic-files-structs*)
 
 
 (cl-defun magiciel--write-spell-file
@@ -134,14 +134,14 @@ code will be stored (unused for the time being)."
      magic-name-funs
      &optional
      (apothecary magiciel--*apothecary-folder*))
-  "Write the compiled code in a file in directory APOTHECARY.
+  "Write the \"compiled\" code in a file in directory APOTHECARY.
 
 Arguments and Values:
 
 MFS : a `magiciel-file-info'
 MFNAME : the name of the main compiled function for MFS.
 MAGIC-FUN : the code of the main function.
-MAGIC-NAME-FUNS : a list of the functions created for `name' clauses.
+MAGIC-NAME-FUNS : a list of the functions created for \\='name\\=' clauses.
 APOTHECARY : the directory where the file fill be saved."
   (let* ((spell-name (format "%s.el" (magiciel--magic-name mfs)))
 	 (spell-filename (concat apothecary spell-name))
@@ -261,6 +261,9 @@ user (defaulting to `magiciel--*apothecary-folder*')."
       (if (called-interactively-p 'interactive)
 	  (magiciel--info "filling apothecary with %S."
 			  (magiciel--magic-name mfs))
+
+	;; The next is useful for IELM debugging.
+	
 	(princ (format "MAGICIEL: filling apothecary with %S.\n"
 		       (magiciel--magic-name mfs))
 	       standard-output))

@@ -124,6 +124,9 @@ The associations are taken from M which defaults to
   ;; Julia
   (magiciel--add-ext-mime-type "jl"   "text/x-julia")
 
+  ;; Python
+  (magiciel--add-ext-mime-type "py"   "text/x-python")
+
   ;; C/C++
   (magiciel--add-ext-mime-type "c"   "text/x-c")
   (magiciel--add-ext-mime-type "cc"  "text/x-c++")
@@ -189,8 +192,8 @@ The associations are taken from M which defaults to
 		    )
 		   )
 	       (progn
-		 (message "MACICEL: call to \"file (1)\" failed.")
-		 (message "MACICEL: %s" (cl-second file-cmd-output)))
+		 (magiciel--warning "call to \"file (1)\" failed.")
+		 (magiciel--warning "%s" (cl-second file-cmd-output)))
 	       )))
 	 )
 
