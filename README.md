@@ -26,16 +26,47 @@ Also, the library will allow you to load and compile `magic(5)` files
 in a modular way.
 
 
+### Current Status
+
+The code in the library implements a simple check of file MIME type
+using an internal "data base" built on the basis of the **Javascript**
+`mime-db` package (cf.,
+[`mime-db` Github](https://github.com/jshttp/mime-db) and
+[`mime-db` **npm**](https://www.npmjs.com/package/mime-db)).  The
+internal "data base" (see file `magiciel-mime-db.el`) is built using
+`json-read-file` to import the `mime-db` `db.json` file, dumping it in
+the `magiciel-mime-data.el` file, and using a manually curated
+`magiciel-mime-local-data.el` that contains some extra definitions
+that I felt are needed.
+
+The library also implements a full blown (and surely brittle)
+`magic(5)` parser and "compiler".  The results of the compilation and
+held in the `apothecary` sub-directory; each piece of code checks for
+a particular `magic(5)` entry.
+
+
 # Installing and Using MAGICIEL
 
 To use the package, just install the folder `magiciel` in your Emacs
 setup and ensure that the file `magiciel.el` is loaded.  Eventually, it
 may get into `elpa` and/or `melpa`.
 
+
 ## Using MAGICIEL
 
-The main command (and function) to use is `magiciel-divine`, described
-below.
+The main command (and function) to use are `magiciel-guess` and
+`magiciel-divine`, described below.
+
+```elisp
+(magiciel-guess FILENAME &key (DIVINE nil))
+```
+
+The "mime type" of *FILENAME* will be looked up using its extension.
+If no extension is found and *DIVINE* is `NIL` the function will
+return `"application/octet-stream"`; if *DIVINE* is non-`NIL` **and**
+checking by the extension is uninformative, the system will try harder
+by invoking `magiciel-divine`.
+
 
 
 ```elisp
@@ -63,8 +94,7 @@ If called interactively, the command will default to `:normal`
 
 - Eventually, it'd be nice to have a *sexpy* `magic` format.
 - Integration with `dired` et similia, is also a desirable goal.
-- Having some "simple" check using the file extension is also
-  desirable as well as leveraging the registry under Windows.
+- leveraging the registry under Windows is also desirable.
 
 
 # An Overview of the `magic(5)` "Compilation" Flow
