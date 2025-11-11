@@ -28,6 +28,7 @@
 
 (require 'cl-lib)
 
+
 ;; Setup
 ;; -----
 
@@ -36,6 +37,14 @@
   "The default file containing the translation of Javascript \"mime-db\".
 
 The translation is done via `json-read-file'.")
+
+
+(defvar magiciel-*mime-local-data-db-file*
+  (expand-file-name "magiciel-mime-local-data.el" magiciel-path)
+  "The file containing the \\='magiciel\\=' specific mime definitions.
+
+The format is the same obtained for `magiciel-*mime-data-db-file*' via
+`json-read-file'.")
 
 
 (defvar magiciel-*mime-data-db-records* ()
@@ -74,32 +83,38 @@ FIELD was actually found.  This is to deal with NIL-valued fields."
 ;; Functions.
 
 (cl-defun magiciel-load-mime-db (&optional
-				 (mime-type-file magiciel-*mime-data-db-file*))
+				 (mime-type-file
+				  magiciel-*mime-data-db-file*)
+				 (replace nil))
   "Load the mime data base (a list) from MIME-TYPE-FILE.
 
-The result is a list of \\='mime-record\\='s.  The internal state of
-the \\='magiciel\\=' library is changed."
+The result is a list of \\='mime-record\\='s.  If REPLACE is non-nil,
+then the result is added to the internal database (REPLACE defaults to
+NIL).  The internal state of the \\='magiciel\\=' library is changed."
   (with-temp-buffer
     (insert-file-contents mime-type-file)
-    (setf magiciel-*mime-data-db-records*
-	  (read (current-buffer)))))
+    (let ((recs (read (current-buffer))))
+      (if replace
+	  (setf magiciel-*mime-data-db-records* recs)
+	(setf magiciel-*mime-data-db-records*
+	      (nconc magiciel-*mime-data-db-records* recs))))))
 
 
-(cl-defun magiciel-mime-type-split (mime-type)
+(defun magiciel-mime-type-split (mime-type)
   "Split the MIME-TYPE in <category> and <subtype>.
 
 The result is a list of one or two symbols."
   (mapcar #'intern (split-string (symbol-name mime-type) "[/]" t)))
 
 
-(cl-defun magiciel-mime-type-category (mime-type)
+(defun magiciel-mime-type-category (mime-type)
   "Return the \"category\" of MIME-TYPE.
 
 MIME-TYPE is a symbol of the form <category>/<subtype>."
   (cl-first (magiciel-mime-type-split mime-type)))
 
 
-(cl-defun magiciel-mime-type-subtype (mime-type)
+(defun magiciel-mime-type-subtype (mime-type)
   "Return the \"subtype\" of MIME-TYPE.
 
 MIME-TYPE is a symbol of the form <category>/<subtype>.  This function
@@ -107,7 +122,10 @@ may return NIL, indicating no <subtype>."
   (cl-second (magiciel-mime-type-split mime-type)))
 
 
-;; Reverse index extension -> mime-type
+;; Reverse index : extension -> mime-type
+;; A fall back mechanism based on file extensions.
+;;
+;; If worse comes to worse the result is "application/octect-stream".
 
 (defvar magiciel--*extension-to-mime-type*
   (make-hash-table :test #'equal)
@@ -116,11 +134,11 @@ may return NIL, indicating no <subtype>."
 
 (defun magiciel--ext-mime-type (ext)
   "Return the <mime-type> associated to extension EXT."
-  (gethash ext magiciel--*extension-to-mime-type*))
+  (gethash ext magiciel--*extension-to-mime-type*
+	   'application/octect-stream))
 
 
-
-(cl-defun magiciel--set-ext-mime-type (ext mt)
+(defun magiciel--set-ext-mime-type (ext mt)
   "Associate the <mime-type> MT to extension EXT."
   (cl-pushnew mt (gethash ext magiciel--*extension-to-mime-type*)))
 
@@ -137,6 +155,21 @@ The function uses a list of mime-type records MTDB."
 		(when extsp
 		  (cl-loop for ext across mexts
 			   do (magiciel--set-ext-mime-type ext mrt))))))
+
+
+(cl-defun magiciel--print-extension-to-mime-type-map
+    (&optional
+     (stream standard-output)
+     (mtdb magiciel--*extension-to-mime-type*))
+  "Print on STREAM the association between an extension and its MIME type.
+
+The associations are taken from MTDB which defaults to
+`magiciel--*extension-to-mime-type*'.  STREAM defaults to
+`standard-output'."
+  
+  (cl-loop for e being the hash-key of mtdb
+	   using (hash-value mt)
+	   do (princ (format "%S\t%S\n" e mt) stream)))
 
 
 ;; Epilogue

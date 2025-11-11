@@ -41,7 +41,6 @@ Not completely used."
   )
 
 
-
 (defun magiciel--guess-with-file-cmd (filename)
   "Given a FILENAME, call the \"file (1)\" UN*X command.
 
@@ -69,85 +68,6 @@ The function fails with a condition if called on a non UN*X system."
  	  (buffer-string)
 	(list cmd-status (buffer-string))))
     ))
-
-
-;; Extension to MIME type map.
-;; A fall back mechanism based on file extensions.
-;;
-;; I worse comes to worse the result is "application/octect-stream".
-;;
-;; This could go in a separate file.
-
-(defvar magiciel--*ext-mime-type-map*
-  (make-hash-table :test #'equal))
-
-
-(cl-defun magiciel--print-ext-mime-type-map (&optional
-					     (stream standard-output)
-					     (m magiciel--*ext-mime-type-map*))
-  "Print on STREAM the association between an extension and it MIME type.
-
-The associations are taken from M which defaults to
-`magiciel--*ext-mime-type-map*'.  STREAM defaults to
-`stadanrd-output'."
-  
-  (cl-loop for e being the hash-key of m
-	   using (hash-value mt)
-	   do (princ (format "%S\t%S\n" e mt))))
-
-
-(defun magiciel--add-ext-mime-type (ext mime-type)
-  "Associate MIME-TYPE to EXT."
-  
-  (setf (gethash ext magiciel--*ext-mime-type-map*) mime-type))
-
-
-(defun magiciel--get-mime-type-by-ext (ext)
-  "Get the MIME type associated to EXT."
-  
-  (gethash ext magiciel--*ext-mime-type-map* "application/octet-stream"))
-
-
-(cl-block magiciel--init-ext-mime-type-table ; Block name could be `nil'.
-
-  ;; Why I started this stuff.
-  (magiciel--add-ext-mime-type "xmi"  "application/x-xmit")
-
-  ;; Lisp related.
-  (magiciel--add-ext-mime-type "cl"   "text/x-common-lisp")
-  (magiciel--add-ext-mime-type "lisp" "text/x-common-lisp")
-  (magiciel--add-ext-mime-type "lsp"  "text/x-common-lisp")
-  (magiciel--add-ext-mime-type "el"   "text/x-emacs-lisp")
-  (magiciel--add-ext-mime-type "elc"  "application/x-emacs-lisp")
-  (magiciel--add-ext-mime-type "fasl" "application/x-common-lisp")
-
-  ;; Julia
-  (magiciel--add-ext-mime-type "jl"   "text/x-julia")
-
-  ;; Python
-  (magiciel--add-ext-mime-type "py"   "text/x-python")
-
-  ;; C/C++
-  (magiciel--add-ext-mime-type "c"   "text/x-c")
-  (magiciel--add-ext-mime-type "cc"  "text/x-c++")
-  (magiciel--add-ext-mime-type "C"   "text/x-c++")
-  (magiciel--add-ext-mime-type "cpp" "text/x-c++")
-  (magiciel--add-ext-mime-type "h"   "text/x-c")
-
-  ;; Java
-  (magiciel--add-ext-mime-type "java"   "text/x-java")
-
-  ;; Ada
-  (magiciel--add-ext-mime-type "ada"    "text/x-ada")
-  (magiciel--add-ext-mime-type "ads"    "text/x-ada")
-  (magiciel--add-ext-mime-type "adb"    "text/x-ada")
-
-  ;; Python
-  (magiciel--add-ext-mime-type "py"    "text/x-python")
-
-  ;; R
-  (magiciel--add-ext-mime-type "R"    "text/x-r")
-  )
 
 
 (cl-defun magiciel--guess-by-file-ext (filename &optional (ext nil elp))
