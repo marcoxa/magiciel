@@ -42,7 +42,7 @@ Not completely used."
   )
 
 
-(defun magiciel-guess (filename &key divine)
+(cl-defun magiciel-guess (filename &key divine)
   "Guess the \"mime type\" of FILENAME.
 
 If DIVINE is non-nil and the guessing did not succeed, proceed with
@@ -54,10 +54,14 @@ full blown \\='divination\\=', calling `magiciel-divine'."
      (list f :divine d)))
 
   (let ((guess (magiciel--guess-by-file-ext filename)))
-    (when (called-interactively-p 'any)
-      (magiciel--info "filename %S has mime type '%s'."
-		      (file-name-nondirectory filename)
-		      guess))
+    (if (and (string= "application/octect-stream" guess) divine)
+	(let ((divination (magiciel-divine filename '!:mime)))
+	  (setq guess (cl-second divination)))
+	  
+      (when (called-interactively-p 'any)
+	(magiciel--info "filename %S has mime type '%s'."
+			(file-name-nondirectory filename)
+			guess)))
     guess))
 
 
