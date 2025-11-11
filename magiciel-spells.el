@@ -10,13 +10,14 @@
 ;; Get mime types using the "file" command on UN*X and querying the
 ;; registry on Windows.
 ;;
-;; This file contains the package top level API.
+;; This file contains the package user level and interactive API.
 
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'magiciel-compile-magic)
+(require 'magiciel-mime-db)
 
 ;; (load "magiciel-constants.el")		; This is pleonastic.
 
@@ -41,7 +42,26 @@ Not completely used."
   )
 
 
-(defun magiciel--guess-with-file-cmd (filename)
+(defun magiciel-guess (filename &key divine)
+  "Guess the \"mime type\" of FILENAME.
+
+If DIVINE is non-nil and the guessing did not succeed, proceed with
+full blown \\='divination\\=', calling `magiciel-divine'."
+  (interactive
+   (let ((f (read-file-name "Filename: " nil nil t))
+	 (d (when current-prefix-arg
+	      (y-or-n-p "Try harder by divination if unsuccesful?"))))
+     (list f :divine d)))
+
+  (let ((guess (magiciel--guess-by-file-ext filename)))
+    (when (called-interactively-p 'any)
+      (magiciel--info "filename %S has mime type '%s'."
+		      (file-name-nondirectory filename)
+		      guess))
+    guess))
+
+
+(defun magiciel--guess-by-file-cmd (filename)
   "Given a FILENAME, call the \"file (1)\" UN*X command.
 
 The function takes a FILENAME (string) with extension (if any),
@@ -71,19 +91,29 @@ The function fails with a condition if called on a non UN*X system."
 
 
 (cl-defun magiciel--guess-by-file-ext (filename &optional (ext nil elp))
-  "Guess the MIME type of FILENAME by EXT (if supplied)."
+  "Guess the MIME type of FILENAME by EXT (if supplied).
+
+If no MIME type can be found, the function returs
+\\='application/octet-stream\\='."
   
-  (let ((extension (if elp ext (file-name-extension filename))))
-    ;; On Windows we can try the registry.
+  (let* ((extension (if elp ext (file-name-extension filename)))
+	 (mime-type (magiciel--ext-mime-type extension))
+	 )
 
-    (when (eq system-type 'windows-nt)
-      ;; Go to the registry.
-      (cl-return-from magiciel--guess-by-file-ext
-	"application/octet-stream"	; FTTB
-	))
+    (if (not (equal '(application/octect-stream) mime-type))
+	(symbol-name (cl-first mime-type))
+      
+      ;; On Windows we can try the registry.
 
-    (magiciel--get-mime-type-by-ext extension)
-    ))
+      (when (eq system-type 'windows-nt)
+	;; Go to the registry.
+	(magiciel--warning
+	 (concat "checking extension %s using the"
+		 "Windows registry is not (yet) implemented."))
+	(cl-return-from magiciel--guess-by-file-ext
+	  "application/octect-stream"	; FTTB
+	  ))
+      )))
 
 	 
 ;; magiciel-file-info
@@ -155,7 +185,7 @@ The function fails with a condition if called on a non UN*X system."
       )))
 
 
-(cl-defun magiciel-data-info (byte-vector &optional (up-to 1))
+(cl-defun magiciel-data-info (byte-vector &optional (up-to 1024))
   "Guess the data information of BYTE-VECTOR, considering UP-TO bytes.
 
 Notes:
