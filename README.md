@@ -57,6 +57,17 @@ To use the package, just install the folder `magiciel` in your Emacs
 setup and ensure that the file `magiciel.el` is loaded.  Eventually, it
 may get into `elpa` and/or `melpa`.
 
+Loading the main `magiciel` file will just compile and load a few
+`magic(5)` specifications (cf., the file `try-magic.el`); this is
+enough the test the library against some of the files in the `tests`
+sub-directory.
+
+If you are on UN*X you can try to run the command
+`magiciel--fill-apothecary` (cf. the file `brew.el`).  Be patient,
+note the errors and report them.  Finally you can test any file
+against the content of the `apothecary` sub-directory; again note the
+errors or any strangeness and report them.
+
 
 ## Using MAGICIEL
 
