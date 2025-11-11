@@ -135,7 +135,7 @@ may return NIL, indicating no <subtype>."
 (defun magiciel--ext-mime-type (ext)
   "Return the <mime-type> associated to extension EXT."
   (gethash ext magiciel--*extension-to-mime-type*
-	   'application/octect-stream))
+	   '(application/octect-stream)))
 
 
 (defun magiciel--set-ext-mime-type (ext mt)
@@ -174,6 +174,30 @@ The associations are taken from MTDB which defaults to
 
 ;; Epilogue
 
+(defun magiciel-mime-db-init ()
+  "Initialize the internal \"mime type\"s data structures.
+
+The data is loaded from the files `magiciel-*mime-data-db-file*' and
+`magiciel-*mime-local-data-db-file*'.  The internal data structure is
+built anew."
+
+  ;; Local definitions come first.
+  
+  (magiciel-load-mime-db magiciel-*mime-local-data-db-file* t)
+  (magiciel-load-mime-db magiciel-*mime-data-db-file* nil))
+
+
+;; Initialize everything.
+
+(cl-eval-when (load eval)
+  (magiciel-mime-db-init)
+  (magiciel--fill-extension-index)
+
+  (magiciel--info "loaded %d mime records."
+		  (length magiciel-*mime-data-db-records*))
+  (magiciel--info "%d extensions loaded."
+		  (hash-table-count magiciel--*extension-to-mime-type*)))
+ 
 
 ;; Local Variables:
 ;; mode: Emacs-lisp
