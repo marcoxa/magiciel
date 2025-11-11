@@ -10,7 +10,7 @@
 ;;
 ;; Created: 2024-02-14
 ;;
-;; Version: 2025-11-10
+;; Version: 2025-11-11
 ;;
 ;; Keywords: languages, operating systems, file systems.
 
@@ -62,6 +62,7 @@
 (load (expand-file-name "parse-magic" magiciel-path))
 (load (expand-file-name "bookshelf" magiciel-path))
 (load (expand-file-name "compile-magic" magiciel-path))
+(load (expand-file-name "magiciel-mime-db" magiciel-path))
 (load (expand-file-name "magiciel-spells" magiciel-path))
 (load (expand-file-name "brew" magiciel-path))
 
