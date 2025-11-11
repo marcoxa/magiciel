@@ -1,6 +1,12 @@
 # MAGICIEL
 
-**MAGICIEL** is an **Emacs Lisp** implementation of the `file` and
+**MAGICIEL** is an **Emacs Lisp** library that *guesses* the content
+of a file.
+
+First of all it contains a simple "database" of **MIME** types
+associated with a *file extension*.
+
+Secondly, it contains an implementation of the `file` and
 `magic` file content and type guessing machinery available on UN*X
 systems.
 
@@ -29,9 +35,9 @@ in a modular way.
 ### Current Status
 
 The code in the library implements a simple check of file MIME type
-using an internal "data base" built on the basis of the **Javascript**
+using an internal "data base" built on the basis of the **JavaScript**
 `mime-db` package (cf.,
-[`mime-db` Github](https://github.com/jshttp/mime-db) and
+[`mime-db` GitHub](https://github.com/jshttp/mime-db) and
 [`mime-db` **npm**](https://www.npmjs.com/package/mime-db)).  The
 internal "data base" (see file `magiciel-mime-db.el`) is built using
 `json-read-file` to import the `mime-db` `db.json` file, dumping it in
