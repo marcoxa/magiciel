@@ -295,6 +295,11 @@ user (defaulting to `magiciel--*apothecary-folder*')."
 
 ;;; Epilogue.
 
+(cl-eval-when (load eval)
+  (when magiciel--refill-apothecary
+    (magiciel--fill-apothecary)))
+
+
 (provide 'magiciel-brew)
 
 ;;; brew.el ends here
