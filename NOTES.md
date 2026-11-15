@@ -180,3 +180,8 @@ the `text/x-<programming-language>` specifications **and** the
 association of file extensions to mime types.
 
 Hence, any solution will be a kludge.
+
+
+## 2026-11-15
+
+Getting back to this after some time.

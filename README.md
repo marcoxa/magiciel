@@ -146,4 +146,4 @@ It helps keeping the entropy level at an acceptable level.
 
 Enjoy
 
-Marco Antoniotti, Milan, Italy, (c) 2024-2025
+Marco Antoniotti, Milan, Italy, (c) 2024-2026
