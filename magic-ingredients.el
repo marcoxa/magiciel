@@ -268,7 +268,7 @@ This function is patterned after the C code."
   "Type of \\='signed-byte\\=' numbers.
 
 BITS is the length defaulting to 8."
-  `(satisfies ,(curry1 'magiciel--sb-test bits)))
+  `(satisfies ,(magiciel--curry1 'magiciel--sb-test bits)))
 
 
 (defun magiciel--sb-test (bits x)
@@ -284,7 +284,7 @@ BITS is the length defaulting to 8."
 
 BITS is the length defaulting to 8, and ENDIAN is a
 `magiciel-endianness'."
-  `(satisfies ,(curry2 'magiciel--sbe-test bits endian)))
+  `(satisfies ,(magiciel--curry2 'magiciel--sbe-test bits endian)))
 
 
 (defun magiciel--sbe-test (bits endian x)
@@ -303,7 +303,7 @@ not that useful."
 
 BITS is the length defaulting to 8, and ENDIAN is a
 `magiciel-endianness'."
-  `(satisfies ,(curry1 'magiciel--ub-test bits)))
+  `(satisfies ,(magiciel--curry1 'magiciel--ub-test bits)))
 
 
 (defun magiciel--ub-test (bits x)
@@ -318,7 +318,7 @@ BITS is the length defaulting to 8, and ENDIAN is a
 
 BITS is the length defaulting to 8, and ENDIAN is a
 `magiciel-endianness'."
-  `(satisfies ,(curry2 'magiciel--sbe-test bits endian)))
+  `(satisfies ,(magiciel--curry2 'magiciel--sbe-test bits endian)))
 
 
 (defun magiciel--ube-test (bits endian x)
